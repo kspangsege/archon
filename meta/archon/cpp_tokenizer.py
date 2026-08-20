@@ -49,21 +49,14 @@ class TokenType(enum.Enum):
 
 
 
+def _tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[Token]:
+
+
 # FIXME: Also handle generation of `header-name` tokens here (`<foo.h>`)    
 # FIXME: When looking for the end of a raw string literal, also consume the optional UDL suffix (user defined literals)    
 #
 def _tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[Token]:
     line_iter = _logical_lines(input_, tracker)
-
-    try:
-        logical_line = next(line_iter)
-    except StopIteration:
-        return
-
-    text = logical_line.text
-    pos = logical_line.pos
-    i = 0
-    n = len(text)
 
     # State tracking for Preprocessor `header-name` detection
     is_first_token = True
@@ -71,20 +64,19 @@ def _tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections
     directive_name = None
     expect_header = False
 
+    i = 0
+    n = 0
     while True:
-        # 1. Fetch next logical line if we've exhausted the current one
         if i >= n:
-            try:
-                logical_line = next(line_iter)
-                text = logical_line.text
-                pos = logical_line.pos
-                i = 0
-                n = len(text)
-                continue
-            except StopIteration:
+            line = next(line_iter, None)
+            if not line:
                 break
+            text = line.text
+            pos = line.pos
+            i = 0
+            n = len(text)
+            continue
 
-        # 2. Header Name State Handling (`<...>` variant)
         if expect_header and text[i] == '<':
             end_pos = text.find('>', i)
             if end_pos != -1:
@@ -102,10 +94,9 @@ def _tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections
         group_name = m.lastgroup
         assert group_name is not None
         token_type = TokenType[group_name]
-        val = m.group(group_name)
+        val = m.group()
         tok_pos = pos + i
 
-        # 4. Multi-line Block Comment Closure
         if token_type == TokenType.BLOCK_COMMENT:
             end_idx = text.find("*/", i + 2)
             if end_idx != -1:
@@ -131,7 +122,6 @@ def _tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections
                     return
             continue
 
-        # 5. Multi-line Raw String Closure
         if token_type == TokenType.RAW_STRING:
             delim_start = val.find('"') + 1
             delim = val[delim_start:-1]
@@ -173,7 +163,6 @@ def _tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections
                     return
             continue
 
-        # 6. Preprocessor Directive Context Updating
         if token_type not in (TokenType.WHITESPACE, TokenType.BLOCK_COMMENT, TokenType.LINE_COMMENT,
                               TokenType.NEWLINE):
             if is_first_token and token_type == TokenType.HASH:
@@ -204,7 +193,6 @@ def _tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections
             directive_name = None
             expect_header = False
 
-        # 8. Header Name State Handling (`"..."` variant)
         if token_type == TokenType.STRING_LIT and expect_header:
             token_type = TokenType.HEADER_NAME
             expect_header = False
