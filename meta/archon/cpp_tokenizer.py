@@ -27,20 +27,20 @@ class Token:
 
 
 class TokenType(enum.Enum):
-    NEWLINE       = enum.auto()
-    WHITESPACE    = enum.auto()
-    LINE_COMMENT  = enum.auto()
-    BLOCK_COMMENT = enum.auto()
-    HASH_HASH     = enum.auto()
-    HASH          = enum.auto()
-    RAW_STRING    = enum.auto()
-    STRING_LIT    = enum.auto()
-    CHAR_LIT      = enum.auto()
-    NUMBER        = enum.auto()
-    IDENTIFIER    = enum.auto()
-    PUNCT         = enum.auto()
-    BAD_CHAR      = enum.auto()
-    HEADER_NAME   = enum.auto()
+    NEWLINE        = enum.auto()
+    WHITESPACE     = enum.auto()
+    LINE_COMMENT   = enum.auto()
+    BLOCK_COMMENT  = enum.auto()
+    HASH_HASH      = enum.auto()
+    HASH           = enum.auto()
+    RAW_STRING_LIT = enum.auto()
+    STRING_LIT     = enum.auto()
+    CHAR_LIT       = enum.auto()
+    NUMBER         = enum.auto()
+    IDENTIFIER     = enum.auto()
+    PUNCT          = enum.auto()
+    BAD_CHAR       = enum.auto()
+    HEADER_NAME    = enum.auto()
 
 
 
@@ -52,23 +52,24 @@ class TokenType(enum.Enum):
 def _basic_tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[Token]:
     line_iter = _logical_lines(input_, tracker)
     def consume_block_comment():
+        parts = list[str]()
         closing_marker = "*/"
         while True:
             j = line.text.find(closing_marker, i)
             if j != -1:
                 j += len(closing_marker)
-                lines.append(line[i:j])
+                parts.append(line[i:j])
                 i = j
                 break
-            lines.append(line[i:])
+            parts.append(line[i:])
             line_obj = next(line_iter, None)
             i = 0
             if not line_obj:
                 line = ""
                 break
             line = line_obj.line
-        yield Token(TokenType.BLOCK_COMMENT, "".join(lines), pos)
-    def consume_raw_string_literal():
+        text = "".join(pats)
+    def consume_raw_string_lit():
         ...     
     for line_obj in line_iter:
         line = line_obj.text
@@ -81,18 +82,43 @@ def _basic_tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> colle
             i += len(text)
             assert m
             group_name = m.lastgroup
-            match group name:
-                case "BLOCK_COMMENT":
+            token_type = TokenType[group_name]
+            match token_type:
+                case TokenType.NEWLINE:
+                    state = _State.GENERAL
+                case TokenTypr.WHITESPACE | TokenType.LINE_COMMENT:
+                    pass
+                case TokenType.BLOCK_COMMENT:
                     consume_blok_comment()
-                    continue
-                case ""
-            # If start of block comment:
-            #   ...
-            # Elif start of raw string:
-            #   ...
+                case TokenType.HASH:
+                    if state is _State.GENERAL:
+                        state = _State.DIRECTIVE
+                case TokenType.HASH_HASH:
+                    ...   
+                case TokenType.RAW_STRING_LIT:
+                    consume_raw_string_lit();
+                    
+                case TokenType.STRING_LIT:
+                    if state is _State.HEADER_NAME:
+                        token_type = TokenType.HEADER_NAME
+                        state = _State.DIRECTIVE
+                case _:
+                    typing.assert_never(token_type)
+            if not _IS_TRIVIAL[token_type]:
+                match token_type:
+                    case tokenType.HASH:
+                        if state is _State.GENERAL:
+                            state = _State.DIRECTIVE
+                    
+                    case _State.GENERAL:
+                        if token_type is TokenType.HASH:
+                            state = _State.HAS_HASH
+                    case _State.HAS_HASH:
+                        if token_type is TokenType.IDENTIFIER:
+                            state = _state.HAS_
             # If not trivial:
             #   nontrivial_token_seen = True
-            # yield
+            yield Token(token_type, text, pos)
 
 
 # FIXME: Also handle generation of `header-name` tokens here (`<foo.h>`)    
@@ -249,20 +275,20 @@ _UCN_REGEX_STRING = r"(?:\\u[0-9A-Fa-f]{4}|\\u\{[0-9A-Fa-f]+\}|\\U[0-9A-Fa-f]{8}
 _IDENT_REGEX_STRING = r"(?:(?:[A-Za-z_]|%s)(?:\w+|%s)*)" % (_UCN_REGEX_STRING, _UCN_REGEX_STRING)
 
 _TOKEN_REGEX = re.compile("|".join("(?P<%s>%s)" % (name, expr) for name, expr in [
-    ("NEWLINE",       r"\n"),
-    ("WHITESPACE",    r"[ \t\f\v]+"),
-    ("LINE_COMMENT",  r"//[^\n]*"),
-    ("BLOCK_COMMENT", r"/\*"),
-    ("HASH_HASH",     r"##|%:%:"),
-    ("HASH",          r"#|%:"),
-    ("RAW_STRING",    r'(?:u8|u|U|L)?R"[^()\\\s]*\('),
-    ("STRING_LIT",    r'(?:u8|u|U|L)?"(?:\\.|[^"\\\n])*("(?:%s)?|$)' % _IDENT_REGEX_STRING),
-    ("CHAR_LIT",      r"(?:u8|u|U|L)?'(?:\\.|[^'\\\n])*('(?:%s)?|$)" % _IDENT_REGEX_STRING),
-    ("NUMBER",        r"(?:\d|\.\d)(?:\.|[eEpP][+-]|%s|\'?\w)*" % _UCN_REGEX_STRING),
-    ("IDENTIFIER",    _IDENT_REGEX_STRING),
-    ("PUNCT",         (r"::|\.\.\.|->\*|->|\+\+|--|<<=|>>=|<<|>>|<=>|<=|>=|==|!=|&&|\|\||\+=|-=|\*=|\/=|%=|&=|\^=|\|=|"
-                       r"\.\*|<%|%>|<:(?:(?!:)|(?=::|:>))|:>|[{}()\[\];,.?:+\-*%^&|~!=<>]")),
-    ("BAD_CHAR",      r"."),
+    ("NEWLINE",        r"\n"),
+    ("WHITESPACE",     r"[ \t\f\v]+"),
+    ("LINE_COMMENT",   r"//[^\n]*"),
+    ("BLOCK_COMMENT",  r"/\*"),
+    ("HASH",           r"#|%:"),
+    ("HASH_HASH",      r"##|%:%:"),
+    ("RAW_STRING_LIT", r'(?:u8|u|U|L)?R"[^()\\\s]*\('),
+    ("STRING_LIT",     r'(?:u8|u|U|L)?"(?:\\.|[^"\\\n])*("(?:%s)?|$)' % _IDENT_REGEX_STRING),
+    ("CHAR_LIT",       r"(?:u8|u|U|L)?'(?:\\.|[^'\\\n])*('(?:%s)?|$)" % _IDENT_REGEX_STRING),
+    ("NUMBER",         r"(?:\d|\.\d)(?:\.|[eEpP][+-]|%s|\'?\w)*" % _UCN_REGEX_STRING),
+    ("IDENTIFIER",     _IDENT_REGEX_STRING),
+    ("PUNCT",          (r"::|\.\.\.|->\*|->|\+\+|--|<<=|>>=|<<|>>|<=>|<=|>=|==|!=|&&|\|\||\+=|-=|\*=|\/=|%=|&=|\^=|\|=|"
+                        r"\.\*|<%|%>|<:(?:(?!:)|(?=::|:>))|:>|[{}()\[\];,.?:+\-*%^&|~!=<>]")),
+    ("BAD_CHAR",       r"."),
 ]), re.ASCII | re.DOTALL)
 
 _IDENT_REGEX = re.compile(_IDENT_REGEX_STRING, re.ASCII)
