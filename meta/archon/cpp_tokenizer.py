@@ -49,226 +49,111 @@ class TokenType(enum.Enum):
 
 
 
-def _basic_tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[Token]:
-    line_iter = _logical_lines(input_, tracker)
-    def consume_block_comment():
-        parts = list[str]()
-        closing_marker = "*/"
-        while True:
-            j = line.text.find(closing_marker, i)
-            if j != -1:
-                j += len(closing_marker)
-                parts.append(line[i:j])
-                i = j
-                break
-            parts.append(line[i:])
-            line_obj = next(line_iter, None)
-            i = 0
-            if not line_obj:
-                line = ""
-                break
-            line = line_obj.line
-        text = "".join(pats)
-    def consume_raw_string_lit():
-        ...     
-    for line_obj in line_iter:
-        line = line_obj.text
-        nontrivial_token_seen = False
-        i = 0
-        while i < len(line):
-            m = _TOKEN_REGEX.match(line.text, i)
-            text = m.group()
-            pos = i
-            i += len(text)
-            assert m
-            group_name = m.lastgroup
-            token_type = TokenType[group_name]
-            match token_type:
-                case TokenType.NEWLINE:
-                    state = _State.GENERAL
-                case TokenTypr.WHITESPACE | TokenType.LINE_COMMENT:
-                    pass
-                case TokenType.BLOCK_COMMENT:
-                    consume_blok_comment()
-                case TokenType.HASH:
-                    if state is _State.GENERAL:
-                        state = _State.DIRECTIVE
-                case TokenType.HASH_HASH:
-                    ...   
-                case TokenType.RAW_STRING_LIT:
-                    consume_raw_string_lit();
-                    
-                case TokenType.STRING_LIT:
-                    if state is _State.HEADER_NAME:
-                        token_type = TokenType.HEADER_NAME
-                        state = _State.DIRECTIVE
-                case _:
-                    typing.assert_never(token_type)
-            if not _IS_TRIVIAL[token_type]:
-                match token_type:
-                    case tokenType.HASH:
-                        if state is _State.GENERAL:
-                            state = _State.DIRECTIVE
-                    
-                    case _State.GENERAL:
-                        if token_type is TokenType.HASH:
-                            state = _State.HAS_HASH
-                    case _State.HAS_HASH:
-                        if token_type is TokenType.IDENTIFIER:
-                            state = _state.HAS_
-            # If not trivial:
-            #   nontrivial_token_seen = True
-            yield Token(token_type, text, pos)
-
-
-# FIXME: Also handle generation of `header-name` tokens here (`<foo.h>`)    
-# FIXME: When looking for the end of a raw string literal, also consume the optional UDL suffix (user defined literals)    
-#
 def _tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[Token]:
     line_iter = _logical_lines(input_, tracker)
 
-    # State tracking for Preprocessor `header-name` detection
-    is_first_token = True
-    in_directive = False
-    directive_name = None
-    expect_header = False
+    line:     str
+    base_pos: int
+    j:        int
+    text:     str
 
-    i = 0
-    n = 0
-    while True:
-        if i >= n:
-            line = next(line_iter, None)
-            if not line:
+    def consume(closing_marker: str, udl_suffix: bool) -> None:
+        nonlocal line, base_pos, j, text
+        parts = [text]
+        while True:
+            k = line.find(closing_marker, j)
+            if k != -1:
+                k += len(closing_marker)
+                if udl_suffix:
+                    if m := _IDENT_REGEX.match(line, k):
+                        k = m.end()
+                parts.append(line[j:k])
+                j = k
                 break
-            text = line.text
-            pos = line.pos
-            i = 0
-            n = len(text)
-            continue
+            parts.append(line[j:])
+            line_obj = next(line_iter, None)
+            j = 0
+            if not line_obj:
+                line = ""
+                break
+            line = line_obj.text
+            base_pos = line_obj.pos
+        text = "".join(parts)
 
-        if expect_header and text[i] == '<':
-            end_pos = text.find('>', i)
-            if end_pos != -1:
-                val = text[i:end_pos+1]
-                yield Token(TokenType.HEADER_NAME, val, pos + i)
-                i = end_pos + 1
+    for line_obj in line_iter:
+        line = line_obj.text
+        base_pos = line_obj.pos
+        state = _State.INITIAL
+        expect_header = False
+        i = 0
+        while i < len(line):
+            m = _TOKEN_REGEX.match(line, i)
+            assert m
+            group_name = m.lastgroup
+            assert group_name is not None
+            token_type = TokenType[group_name]
+            text = m.group()
+            j = m.end()
+            pos = base_pos + i
+            match token_type:
+                case TokenType.BLOCK_COMMENT:
+                    consume(closing_marker="*/", udl_suffix=False)
+                case TokenType.RAW_STRING_LIT:
+                    k = text.find('"') + 1
+                    delim = text[k:-1]
+                    consume(closing_marker=')%s"' % delim, udl_suffix=True)
+            if token_type not in _SKIP_TOKENS:
+                if expect_header and line[i] in '<"':
+                    if m := _HEADER_REGEX.match(line, i):
+                        token_type = TokenType.HEADER_NAME
+                        text = m.group()
+                        j = m.end()
                 expect_header = False
-                is_first_token = False
-                continue
+                match state:
+                    case _State.INITIAL:
+                        if token_type is TokenType.HASH:
+                            state = _State.AFTER_HASH
+                        else:
+                            state = _State.NOT_DIRECTIVE
+                            if token_type is TokenType.IDENTIFIER and text == "import":
+                                expect_header = True
+                    case _State.NOT_DIRECTIVE:
+                        if token_type is TokenType.IDENTIFIER and text == "import":
+                            expect_header = True
+                    case _State.AFTER_HASH:
+                        state = _State.IN_DIRECTIVE
+                        if token_type is TokenType.IDENTIFIER:
+                            if text in {"include", "embed"}:
+                                expect_header = True
+                            elif text in {"if", "elif"}:
+                                state = _State.IN_CONDITION
+                    case _State.IN_DIRECTIVE:
+                        pass
+                    case _State.IN_CONDITION:
+                        if token_type is TokenType.IDENTIFIER and text in {"__has_include", "__has_embed"}:
+                            state = _State.AFTER_HAS_INCLUDE
+                    case _State.AFTER_HAS_INCLUDE:
+                        if token_type is TokenType.PUNCT and text == "(":
+                            expect_header = True
+                        state = _State.IN_CONDITION
+                    case _:
+                        typing.assert_never(state)
+            yield Token(token_type, text, pos)
+            i = j
 
-        # 3. Primary Token Match
-        m = _TOKEN_REGEX.match(text, i)
-        assert m
 
-        group_name = m.lastgroup
-        assert group_name is not None
-        token_type = TokenType[group_name]
-        val = m.group()
-        tok_pos = pos + i
+class _State(enum.Enum):
+    INITIAL           = enum.auto()
+    NOT_DIRECTIVE     = enum.auto()
+    AFTER_HASH        = enum.auto()
+    IN_DIRECTIVE      = enum.auto()
+    IN_CONDITION      = enum.auto()
+    AFTER_HAS_INCLUDE = enum.auto()
 
-        if token_type == TokenType.BLOCK_COMMENT:
-            end_idx = text.find("*/", i + 2)
-            if end_idx != -1:
-                val = text[i:end_idx+2]
-                yield Token(TokenType.BLOCK_COMMENT, val, tok_pos)
-                i = end_idx + 2
-            else:
-                acc = [val]
-                for next_line in line_iter:
-                    end_idx = next_line.text.find("*/")
-                    if end_idx != -1:
-                        acc.append(next_line.text[:end_idx+2])
-                        yield Token(TokenType.BLOCK_COMMENT, "".join(acc), tok_pos)
-                        text = next_line.text
-                        pos = next_line.pos
-                        i = end_idx + 2
-                        n = len(text)
-                        break
-                    else:
-                        acc.append(next_line.text)
-                else:
-                    yield Token(TokenType.BLOCK_COMMENT, "".join(acc), tok_pos)
-                    return
-            continue
 
-        if token_type == TokenType.RAW_STRING:
-            delim_start = val.find('"') + 1
-            delim = val[delim_start:-1]
-            closing_marker = f"){delim}\""
+_SKIP_TOKENS = {TokenType.NEWLINE, TokenType.WHITESPACE, TokenType.LINE_COMMENT, TokenType.BLOCK_COMMENT}
 
-            end_idx = text.find(closing_marker, i + len(val))
-            if end_idx != -1:
-                close_end = end_idx + len(closing_marker)
-
-                udl_match = _IDENT_REGEX.match(text, close_end)
-                if udl_match:
-                    close_end = udl_match.end()
-
-                val = text[i:close_end]
-                yield Token(TokenType.RAW_STRING, val, tok_pos)
-                i = close_end
-            else:
-                acc = [val]
-                for next_line in line_iter:
-                    end_idx = next_line.text.find(closing_marker)
-                    if end_idx != -1:
-                        close_end = end_idx + len(closing_marker)
-
-                        udl_match = _IDENT_REGEX.match(next_line.text, close_end)
-                        if udl_match:
-                            close_end = udl_match.end()
-
-                        acc.append(next_line.text[:close_end])
-                        yield Token(TokenType.RAW_STRING, "".join(acc), tok_pos)
-                        text = next_line.text
-                        pos = next_line.pos
-                        i = close_end
-                        n = len(text)
-                        break
-                    else:
-                        acc.append(next_line.text)
-                else:
-                    yield Token(TokenType.RAW_STRING, "".join(acc), tok_pos)
-                    return
-            continue
-
-        if token_type not in (TokenType.WHITESPACE, TokenType.BLOCK_COMMENT, TokenType.LINE_COMMENT,
-                              TokenType.NEWLINE):
-            if is_first_token and token_type == TokenType.HASH:
-                in_directive = True
-            elif token_type == TokenType.IDENTIFIER:
-                if in_directive and directive_name is None:
-                    directive_name = val
-                    if val in ("include", "import"):
-                        expect_header = True
-                elif in_directive and val == "__has_include":
-                    expect_header = True
-                else:
-                    # e.g., `#include MACRO`. We hit MACRO, meaning a `<...>` should not be captured here.
-                    expect_header = False
-            elif token_type == TokenType.PUNCT and val == "(":
-                # `__has_include ( <...> )` allows a parenthesis before the header name.
-                pass
-            else:
-                # Any other token (numbers, stray punctuators, strings) breaks the header-name sequence
-                expect_header = False
-
-            is_first_token = False
-
-        # 7. Reset state at new logical line
-        if token_type == TokenType.NEWLINE:
-            is_first_token = True
-            in_directive = False
-            directive_name = None
-            expect_header = False
-
-        if token_type == TokenType.STRING_LIT and expect_header:
-            token_type = TokenType.HEADER_NAME
-            expect_header = False
-
-        yield Token(token_type, val, tok_pos)
-        i += len(val)
-
+_HEADER_REGEX = re.compile(r'<[^>\n]*>|"[^"\n]*"')
 
 _UCN_REGEX_STRING = r"(?:\\u[0-9A-Fa-f]{4}|\\u\{[0-9A-Fa-f]+\}|\\U[0-9A-Fa-f]{8}|\\N\{[^}\n]+\})"
 
