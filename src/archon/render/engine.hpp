@@ -357,6 +357,15 @@ public:
     ///
     void set_fullscreen_mode(bool on);
 
+    /// \brief Switch to or from immersive mode.
+    ///
+    /// This function switches to or from immersive mode for the window of the render
+    /// engine. For more on this, see \ref display::Window::set_immersive_mode().
+    ///
+    /// \sa \ref Config::immersive_mode
+    ///
+    void set_immersive_mode(bool on);
+
     /// \brief Set orientation of virtual trackball.
     ///
     /// This function changes the current orientation of the virtual trackball. The
@@ -481,6 +490,14 @@ struct Engine::Config {
     /// dynamically through use of \ref set_fullscreen_mode().
     ///
     bool fullscreen_mode = false;
+
+    /// \brief Switch to immersive mode immediately.
+    ///
+    /// If set to `true`, immersive mode will be turned on immediately. In any case,
+    /// immersive mode can be turned on and off dynamically through use of \ref
+    /// set_immersive_mode().
+    ///
+    bool immersive_mode = false;
 
     /// \brief Whether frame control is disabled.
     ///

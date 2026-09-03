@@ -4,10 +4,6 @@ add_library(Util
 
 set_target_properties(Util PROPERTIES OUTPUT_NAME "archon-util")
 
-target_link_libraries(Util PUBLIC
-  Core
-  Math
-)
 
 target_sources(Util PUBLIC FILE_SET HEADERS FILES
   archon/util/impl/bit_medium.hpp
@@ -29,6 +25,16 @@ target_sources(Util PUBLIC FILE_SET HEADERS FILES
   archon/util/perspect_proj.hpp
 )
 
+
+target_link_libraries(Util
+  PUBLIC Core
+  PUBLIC Math
+)
+
+
 install(TARGETS Util FILE_SET HEADERS)
 
-add_subdirectory(archon/util/test)
+
+if(ARCHON_INCLUDE_TEST_SUITE)
+  add_subdirectory(archon/util/test)
+endif()

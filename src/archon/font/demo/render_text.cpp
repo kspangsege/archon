@@ -291,7 +291,7 @@ int main(int argc, char* argv[])
 
     font::loader::config loader_config;
     loader_config.logger = &logger;
-    loader_config.sub.register_(freetype_subconfig); // Throws
+    loader_config.sub.set(freetype_subconfig); // Throws
     std::unique_ptr<font::loader> loader;
     if (optional_font_file.has_value() && impl->get_ident() == font::get_freetype_implementation().get_ident()) {
         loader = font::new_freetype_loader_from_font_file(optional_font_file.value(), locale, loader_config); // Throws

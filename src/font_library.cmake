@@ -1,23 +1,5 @@
 include(FindPackageMessage)
 
-add_library(Font
-  archon/font/face.cpp
-  archon/font/loader.cpp
-  archon/font/implementation.cpp
-  archon/font/fallback_implementation.cpp
-  archon/font/freetype_implementation.cpp
-  archon/font/list_implementations.cpp
-  archon/font/list_font_faces.cpp
-)
-
-set_target_properties(Font PROPERTIES OUTPUT_NAME "archon-font")
-
-target_link_libraries(Font PUBLIC
-  Core
-  Util
-  Image
-)
-
 # NOTE: Keep this version in sync with the runtime version check in
 # font/freetype_implementation.cpp, and with the documented dependency version requirements.
 set(_min_version "2.10")
@@ -45,16 +27,21 @@ else()
 endif()
 find_package_message(ARCHON_FREETYPE_MSG "${_msg}" "[${_version}][${_min_version}][${_library}]")
 
-set(ARCHON_FONT_HAVE_FREETYPE 0)
-if(Freetype_FOUND)
-  set(ARCHON_FONT_HAVE_FREETYPE 1)
-  target_link_libraries(Font PRIVATE Freetype::Freetype)
-endif()
 
-configure_file(archon/font/impl/config.h.in archon/font/impl/config.h)
+add_library(Font
+  archon/font/face.cpp
+  archon/font/loader.cpp
+  archon/font/implementation.cpp
+  archon/font/fallback_implementation.cpp
+  archon/font/freetype_implementation.cpp
+  archon/font/list_implementations.cpp
+  archon/font/list_font_faces.cpp
+)
 
-target_sources(Font PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${ARCHON_SOURCE_ROOT}" FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/archon/font/impl/config.h"
+set_target_properties(Font PROPERTIES OUTPUT_NAME "archon-font")
+
+
+target_sources(Font PUBLIC FILE_SET HEADERS FILES
   archon/font/size.hpp
   archon/font/code_point.hpp
   archon/font/face.hpp
@@ -67,8 +54,41 @@ target_sources(Font PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/font.hpp
 )
 
+
+set(ARCHON_FONT_HAVE_FREETYPE 0)
+if(Freetype_FOUND)
+  set(ARCHON_FONT_HAVE_FREETYPE 1)
+endif()
+
+configure_file(archon/font/impl/config.h.in archon/font/impl/config.h)
+
+target_sources(Font PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/archon/font/impl/config.h"
+)
+
+
+target_link_libraries(Font
+  PUBLIC Core
+  PUBLIC Log
+  PUBLIC Math
+  PRIVATE Util
+  PUBLIC Image
+)
+
+if(Freetype_FOUND)
+  target_link_libraries(Font PRIVATE Freetype::Freetype)
+endif()
+
+
 install(TARGETS Font FILE_SET HEADERS)
 
-add_subdirectory(archon/font/test)
+
 add_subdirectory(archon/font/tool)
-add_subdirectory(archon/font/demo)
+
+if(ARCHON_INCLUDE_DEMO_PROGS)
+  add_subdirectory(archon/font/demo)
+endif()
+
+if(ARCHON_INCLUDE_TEST_SUITE)
+  add_subdirectory(archon/font/test)
+endif()

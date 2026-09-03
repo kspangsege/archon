@@ -26,16 +26,16 @@
 using namespace archon;
 
 
-ARCHON_TEST(Core_TypedObjectRegistry_Void)
+ARCHON_TEST(Core_typed_object_registry_Void)
 {
     int a_1 = 0;
     int a_2 = 0;
     long b = 0;
 
-    core::TypedObjectRegistry<void, 3> reg;
-    reg.register_(a_1);
-    reg.register_(a_2);
-    reg.register_(b);
+    core::typed_object_registry<void, 3> reg;
+    reg.set(a_1);
+    reg.set(a_2);
+    reg.set(b);
 
     ARCHON_CHECK_EQUAL(reg.get<int>(), &a_2);
     ARCHON_CHECK_EQUAL(reg.get<long>(), &b);
@@ -43,16 +43,16 @@ ARCHON_TEST(Core_TypedObjectRegistry_Void)
 }
 
 
-ARCHON_TEST(Core_TypedObjectRegistry_ConstVoid)
+ARCHON_TEST(Core_typed_object_registry_ConstVoid)
 {
     const int a_1 = 0;
     const int a_2 = 0;
     const long b = 0;
 
-    core::TypedObjectRegistry<const void, 3> reg;
-    reg.register_(a_1);
-    reg.register_(a_2);
-    reg.register_(b);
+    core::typed_object_registry<const void, 3> reg;
+    reg.set(a_1);
+    reg.set(a_2);
+    reg.set(b);
 
     ARCHON_CHECK_EQUAL(reg.get<const int>(), &a_2);
     ARCHON_CHECK_EQUAL(reg.get<const long>(), &b);
@@ -60,7 +60,7 @@ ARCHON_TEST(Core_TypedObjectRegistry_ConstVoid)
 }
 
 
-ARCHON_TEST(Core_TypedObjectRegistry_Nonvoid)
+ARCHON_TEST(Core_typed_object_registry_Nonvoid)
 {
     struct Base {};
     struct A : Base {};
@@ -69,10 +69,10 @@ ARCHON_TEST(Core_TypedObjectRegistry_Nonvoid)
     A a_1, a_2;
     B b;
 
-    core::TypedObjectRegistry<Base, 3> reg;
-    reg.register_(a_1);
-    reg.register_(a_2);
-    reg.register_(b);
+    core::typed_object_registry<Base, 3> reg;
+    reg.set(a_1);
+    reg.set(a_2);
+    reg.set(b);
 
     ARCHON_CHECK_EQUAL(reg.get<A>(), &a_2);
     ARCHON_CHECK_EQUAL(reg.get<B>(), &b);

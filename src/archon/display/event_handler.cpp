@@ -63,6 +63,12 @@ bool WindowEventHandler::on_mousemove(const display::MouseMotionEvent&)
 }
 
 
+bool WindowEventHandler::on_rel_mousemove(const display::RelativeMouseMotionEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
 bool WindowEventHandler::on_scroll(const display::ScrollEvent&)
 {
     return true; // Do not interrupt event processing

@@ -119,10 +119,47 @@ bool try_grab_pointer(Display* dpy, Window win, bool motion, log::Logger& logger
 }
 
 
+bool try_grab_pointer_xi(Display* dpy, int deviceid, Window win, bool motion, log::Logger& logger)
+{
+    unsigned char mask_bytes[XIMaskLen(XI_LASTEVENT)] = {};
+    if (motion)
+        XISetMask(mask_bytes, XI_Motion);
+    XISetMask(mask_bytes, XI_ButtonPress);
+    XISetMask(mask_bytes, XI_ButtonRelease);
+    XISetMask(mask_bytes, XI_Enter);
+    XISetMask(mask_bytes, XI_Leave);
+
+    XIEventMask mask = {};
+    mask.deviceid = XIAllMasterDevices;
+    mask.mask_len = sizeof mask_bytes;
+    mask.mask = mask_bytes;
+
+    Window grab_window = win;
+    Time time = CurrentTime;
+    Cursor cursor = None; // Leave cursor as is
+    int grab_mode = GrabModeAsync;
+    int paired_device_mode = GrabModeAsync;
+    Bool owner_events = False;
+    Status status = XIGrabDevice(dpy, deviceid, grab_window, time, cursor, grab_mode, paired_device_mode, owner_events, &mask);
+    int ret = status; // Meaning of returned value does not match declared return type (API design error).
+    if (ARCHON_LIKELY(ret == GrabSuccess))
+        return true;
+    logger.error("Grab failed: %s", get_grab_result_name(ret));
+    return false;
+}
+
+
 void ungrab_pointer(Display* dpy) noexcept
 {
     Time time = CurrentTime;
     XUngrabPointer(dpy, time);
+}
+
+
+void ungrab_pointer_xi(Display* dpy, int deviceid) noexcept
+{
+    Time time = CurrentTime;
+    XIUngrabDevice(dpy, deviceid, time);
 }
 
 
@@ -137,6 +174,26 @@ auto get_notify_mode_name(int mode) noexcept -> const char*
             return "NotifyUngrab";
         case NotifyWhileGrabbed:
             return "NotifyWhileGrabbed";
+    }
+    return "?";
+}
+
+
+auto get_notify_mode_name_xi(int mode) noexcept -> const char*
+{
+    switch (mode) {
+        case XINotifyNormal:
+            return "NotifyNormal";
+        case XINotifyGrab:
+            return "NotifyGrab";
+        case XINotifyUngrab:
+            return "NotifyUngrab";
+        case XINotifyWhileGrabbed:
+            return "NotifyWhileGrabbed";
+        case XINotifyPassiveGrab:
+            return "NotifyPassiveGrab";
+        case XINotifyPassiveUngrab:
+            return "NotifyPassiveUngrab";
     }
     return "?";
 }
@@ -163,6 +220,162 @@ auto get_notify_detail_name(int detail) noexcept -> const char*
             return "NotifyDetailNone";
     }
     return "?";
+}
+
+
+auto get_notify_detail_name_xi(int detail) noexcept -> const char*
+{
+    switch (detail) {
+        case XINotifyAncestor:
+            return "NotifyAncestor";
+        case XINotifyVirtual:
+            return "NotifyVirtual";
+        case XINotifyInferior:
+            return "NotifyInferior";
+        case XINotifyNonlinear:
+            return "NotifyNonlinear";
+        case XINotifyNonlinearVirtual:
+            return "NotifyNonlinearVirtual";
+        case XINotifyPointer:
+            return "NotifyPointer";
+        case XINotifyPointerRoot:
+            return "NotifyPointerRoot";
+        case XINotifyDetailNone:
+            return "NotifyDetailNone";
+    }
+    return "?";
+}
+
+
+auto get_device_change_reason_name(int reason) noexcept -> const char*
+{
+    switch (reason) {
+        case XISlaveSwitch:
+            return "SlaveSwitch";
+        case XIDeviceChange:
+            return "DeviceChange";
+    }
+    return "?";
+}
+
+
+auto get_hierarchy_change_flag_name(int flag) noexcept -> const char*
+{
+    switch (flag) {
+        case XIMasterAdded:
+            return "MasterAdded";
+        case XIMasterRemoved:
+            return "MasterRemoved";
+        case XISlaveAttached:
+            return "SlaveAttached";
+        case XISlaveDetached:
+            return "SlaveDetached";
+        case XISlaveAdded:
+            return "SlaveAdded";
+        case XISlaveRemoved:
+            return "SlaveRemoved";
+        case XIDeviceEnabled:
+            return "DeviceEnabled";
+        case XIDeviceDisabled:
+            return "DeviceDisabled";
+    }
+    return "?";
+}
+
+
+// This function compares the two specified Xlib request serial numbers and returns true if,
+// and only if `a` precedes `b`. It does this in a circular manner, because the serial
+// number will wrap around after two to the power of N, where N is the number of bits in
+// `unsigned long`. For this reason, this function works correctly only when the actual
+// distance between `a` and `b`, in number of X requests, is definitely less than half of
+// two to the power of N. Note than N is at least 32 on all platforms.
+//
+bool x11_request_serial_number_precedes(unsigned long a, unsigned long b) noexcept
+{
+    return (a - b > core::int_max<unsigned long>() / 2);
+}
+
+
+auto x11_intern_string(Display* dpy, const char* string) noexcept -> Atom
+{
+    Atom atom = XInternAtom(dpy, string, False);
+    ARCHON_STEADY_ASSERT(atom != None);
+    return atom;
+}
+
+
+struct x11_input_atoms {
+    Atom rel_x, rel_y;
+
+    Atom button_left, button_middle, button_right;
+    Atom button_wheel_up, button_wheel_down;
+    Atom button_horiz_wheel_left, button_horiz_wheel_right;
+    Atom button_side, button_extra;
+};
+
+
+void x11_init_input_atoms(Display* dpy, x11_input_atoms& atoms) noexcept
+{
+    atoms.button_left              = x11_intern_string(dpy, "Button Left");
+    atoms.button_middle            = x11_intern_string(dpy, "Button Middle");
+    atoms.button_right             = x11_intern_string(dpy, "Button Right");
+    atoms.button_wheel_up          = x11_intern_string(dpy, "Button Wheel Up");
+    atoms.button_wheel_down        = x11_intern_string(dpy, "Button Wheel Down");
+    atoms.button_horiz_wheel_left  = x11_intern_string(dpy, "Button Horiz Wheel Left");
+    atoms.button_horiz_wheel_right = x11_intern_string(dpy, "Button Horiz Wheel Right");
+    atoms.button_side              = x11_intern_string(dpy, "Button Side");
+    atoms.button_extra             = x11_intern_string(dpy, "Button Extra");
+
+    atoms.rel_x = x11_intern_string(dpy, "Rel X");
+    atoms.rel_y = x11_intern_string(dpy, "Rel Y");
+}
+
+
+// Each entry specifies the button identifier used by XInput2 for the button function
+// associated with that entry, or zero if the pointer device is reported by XInput2 as not
+// having that button function. The associations between slot index and the 9 standard
+// button functions, as represented by the corresponding XInput2 button labels, is shown
+// below.
+//
+//          | Normalized |
+//    Slot  | X11 button |
+//    index | identifier | XInput2 label
+//   -------|------------|----------------------------
+//    0     | 1          | `Button Left`
+//    1     | 2          | `Button Middle`
+//    2     | 3          | `Button Right`
+//    3     | 4          | `Button Wheel Up`
+//    4     | 5          | `Button Wheel Down`
+//    5     | 6          | `Button Horiz Wheel Left`
+//    6     | 7          | `Button Horiz Wheel Right`
+//    7     | 8          | `Button Side`
+//    8     | 9          | `Button Extra`
+//
+// The button map (`x11_pointer_button_map`) should be considered unaffected by system-level
+// or device-level button re-mapping (such as through use of the `xinput set-button-map`
+// command). This means that system-level and device-level button re-mapping is respected by
+// the Archon display library. For example, if a left-handed user has swapped the left and
+// right mouse buttons and clicks the right button, then, because of the button remapping by
+// the user, XInput2 reports the button identifier that, by default, is associated with the
+// left button, which is the button identifier that will be found in first slot of the
+// button map (`x11_pointer_button_map`). Therefore, the user's "right click" will be
+// correctly interpreted as a "left click". A similar story holds for inversion of scroll
+// direction through swapping of `Button Wheel Up` and `Button Wheel Down`.
+//
+using x11_pointer_button_map = std::array<int, 9>;
+
+
+// Map specified XInput2 button identifier to normalized X11 button identifier
+bool x11_try_normalize_pointer_button(int xi_button, const x11_pointer_button_map& button_map,
+                                      int& x11_button) noexcept
+{
+    auto i = std::find(std::begin(button_map), std::end(button_map), xi_button);
+    if (ARCHON_LIKELY(i != std::end(button_map))) {
+        auto index = i - std::begin(button_map);
+        x11_button = int(1 + index);
+        return true;
+    }
+    return false;
 }
 
 
@@ -207,6 +420,219 @@ bool x11_try_map_pointer_button(unsigned x11_button, bool& is_scroll, display::M
             is_scroll = false;
             button = display::MouseButton::x2;
             return true;
+    }
+    return false;
+}
+
+
+struct x11_pointer_device_properties {
+    x11_pointer_button_map button_map;
+
+    // Valuator indexes
+    int x_valuator;
+    int y_valuator;
+};
+
+
+// Check if device has both "Rel X" and "Rel Y" relative-mode valuators.
+bool x11_vet_pointer_device(const XIAnyClassInfo* const* classes, int n, const x11_input_atoms& atoms,
+                            x11_pointer_device_properties& properties) noexcept
+{
+    x11_pointer_button_map button_map = {};
+    std::optional<int> x_index, y_index;
+    for (int i = 0; i < n; ++i) {
+        const XIAnyClassInfo& info = *classes[i];
+        switch (info.type) {
+            case XIButtonClass: {
+                const XIButtonClassInfo& button_info = reinterpret_cast<const XIButtonClassInfo&>(info);
+                Atom labels[] = {
+                    atoms.button_left,
+                    atoms.button_middle,
+                    atoms.button_right,
+                    atoms.button_wheel_up,
+                    atoms.button_wheel_down,
+                    atoms.button_horiz_wheel_left,
+                    atoms.button_horiz_wheel_right,
+                    atoms.button_side,
+                    atoms.button_extra,
+                };
+                static_assert(std::size(labels) == std::size(button_map));
+                button_map = {};
+                for (int i = 0; i < button_info.num_buttons; ++i) {
+                    Atom label = button_info.labels[i];
+                    auto j = std::find(std::begin(labels), std::end(labels), label);
+                    if (ARCHON_LIKELY(j != std::end(labels))) {
+                        auto index = j - std::begin(labels);
+                        button_map[index] = 1 + i;
+                    }
+                }
+                break;
+            }
+            case XIValuatorClass: {
+                const XIValuatorClassInfo& valuator_info = reinterpret_cast<const XIValuatorClassInfo&>(info);
+                if (valuator_info.mode == XIModeRelative) {
+                    if (valuator_info.label == atoms.rel_x) {
+                        x_index = valuator_info.number;
+                    }
+                    else if (valuator_info.label == atoms.rel_y) {
+                        y_index = valuator_info.number;
+                    }
+                }
+                break;
+            }
+        }
+    }
+    if (x_index.has_value() && y_index.has_value()) {
+        properties = {
+            button_map,
+            x_index.value(),
+            y_index.value(),
+        };
+        return true;
+    }
+    return false;
+}
+
+
+bool x11_is_genuine_motion_event(const XIDeviceEvent& ev, const x11_pointer_device_properties& properties) noexcept
+{
+    bool x_axis_change = bool(XIMaskIsSet(ev.valuators.mask, properties.x_valuator));
+    bool y_axis_change = bool(XIMaskIsSet(ev.valuators.mask, properties.y_valuator));
+    return (x_axis_change || y_axis_change);
+}
+
+
+struct x11_input_seat {
+    bool removed;
+    bool is_relative; // Pointing device has both "Rel X" and "Rel Y" relative-mode valuators
+
+    // Device identifiers
+    int pointer_device;
+    int keyboard_device;
+
+    x11_pointer_device_properties pointer_properties;
+};
+
+
+void x11_handle_xinput_device_change(const XIDeviceChangedEvent& ev, const x11_input_atoms& atoms,
+                                     x11_input_seat& seat) noexcept
+{
+    if (seat.removed || ev.deviceid != seat.pointer_device)
+        return;
+
+    // Ignoring `ev.reason` because both reason codes (SlaveSwitch, DeviceChange) may entail
+    // class changes
+    seat.is_relative = x11_vet_pointer_device(ev.classes, ev.num_classes, atoms, seat.pointer_properties);
+}
+
+
+void x11_handle_xinput_hierarchy_change(const XIHierarchyEvent& ev, x11_input_seat& seat) noexcept
+{
+    if (seat.removed || (ev.flags & XIMasterRemoved) == 0)
+        return;
+
+    // We only care about removal of a selected device. We need to know if one of the
+    // selected devices is removed, so that we do not mistake a subsequently added device,
+    // that happens to be assigned the same device identifier, for the removed one.
+    //
+    // If one of the two master devices of a seat is removed (pointer or keyboard), both are
+    // removed, so we only need to check on one of them (the pointer device).
+    //
+    for (int i = 0; i < ev.num_info; ++i) {
+        const XIHierarchyInfo& info = ev.info[i];
+        if (info.deviceid == seat.pointer_device) {
+            if ((info.flags & XIMasterRemoved) != 0) {
+                seat.removed = true;
+                break;
+            }
+        }
+    }
+}
+
+
+// Find an appropriate relative-mode master pointer device and its associated master
+// keyboard device.
+//
+// The association between the two master devices can be considered fixed for the lifetime
+// of the devices. Note that the destruction of one of the two devices causes immediate
+// destruction of the other. The XInput API does not offer any means for changing the
+// association, other than by destroying the device pair. Additionally, the events that
+// report hierarchy change generally has flags to inform about anything that can change, but
+// has no flag to inform about a change in association. This lends further support to the
+// assumption. Finally, the server, in its current form, never itself breaks the association
+// in a way that is visible to clients.
+//
+// On success, the event barrier is set to the request serial number corresponding to the
+// device hierarchy snapshot, as returned by XIQueryDevice(), on the basis of which the
+// selection was made. XI_DeviceChanged and XI_HierarchyChanged events with earlier serial
+// numbers must be ignored in order to properly track changes to the selected devices.
+//
+bool x11_select_input_seat(Display* dpy, const x11_input_atoms& atoms, x11_input_seat& seat,
+                           unsigned long& event_barrier)
+{
+    int ndevices = {};
+    XIDeviceInfo* devices = XIQueryDevice(dpy, XIAllMasterDevices, &ndevices);
+    ARCHON_SCOPE_EXIT {
+        if (ARCHON_LIKELY(devices))
+            XIFreeDeviceInfo(devices);
+    };
+    for (int i = 0; i < ndevices; ++i) {
+        const XIDeviceInfo& device = devices[i];
+        if (device.use != XIMasterPointer)
+            continue;
+        x11_pointer_device_properties pointer_properties = {};
+        bool is_relative = x11_vet_pointer_device(device.classes, device.num_classes, atoms, pointer_properties);
+        if (is_relative) {
+            bool removed = false;
+            int pointer_device = device.deviceid;
+            int keyboard_device = device.attachment;
+            seat = {
+                removed,
+                is_relative,
+                pointer_device,
+                keyboard_device,
+                pointer_properties,
+            };
+            event_barrier = XLastKnownRequestProcessed(dpy);
+            return true;
+        }
+    }
+    return false;
+}
+
+
+// This function discards queued events that carries a request serial number that precedes
+// the specified barrier. It only considers events that are already are already read from
+// the display connection and queued on the client side. It discards events of all types.
+//
+// Whether a particular serial number precedes the specified barrier is judged as if by
+// x11_request_serial_number_precedes(), which means that x11_discard_prebarrier_events()
+// operates correctly only when the maximum actual distance between a serial number of a
+// queued event and the specified barrier is less than half of two to the power of N, where
+// N is the number of value bits in `unsigned long`. N is at least 32.
+//
+void x11_discard_prebarrier_events(Display* dpy, unsigned long event_barrier) noexcept
+{
+    XEvent ev = {};
+    int n = XEventsQueued(dpy, QueuedAlready);
+    for (;;) {
+        if (ARCHON_LIKELY(n == 0))
+            break;
+        XPeekEvent(dpy, &ev);
+        if (ARCHON_LIKELY(!x11_request_serial_number_precedes(ev.xany.serial, event_barrier)))
+            break;
+        XNextEvent(dpy, &ev); // Discard
+        n -= 1;
+    }
+}
+
+
+bool x11_are_any_xinput_buttons_pressed(const XIButtonState& state)
+{
+    for (int i = 0; i < state.mask_len; ++i) {
+        if ((state.mask[i] & 0xFF) == 0)
+            continue;
+        return true;
     }
     return false;
 }
@@ -337,6 +763,7 @@ int main(int argc, char* argv[])
     std::optional<display::Pos> optional_pos;
     log::LogLevel log_level_limit = log::LogLevel::warn;
     bool report_mouse_motion = false;
+    bool use_xinput = false;
     bool override_redirect = false;
     bool set_input_focus = false;
     bool synchronous_mode = false;
@@ -449,6 +876,10 @@ int main(int argc, char* argv[])
         "Turn on reporting of \"mouse move\" events.",
         cli::raise_flag(report_mouse_motion)); // Throws
 
+    opt("-u, --use-xinput", "", cli::no_attributes, spec,
+        "Use XInput2 events and pointer grabs.",
+        cli::raise_flag(use_xinput)); // Throws
+
     opt("-o, --override-redirect", "", cli::no_attributes, spec,
         "Turn on \"override redirect\" mode for created windows.",
         cli::raise_flag(override_redirect)); // Throws
@@ -542,12 +973,57 @@ int main(int argc, char* argv[])
     Window root = screen_info.root;
 
     bool detectable_autorepeat_enabled = false;
-    if (extension_info.have_xkb && !disable_detectable_autorepeat) {
+    if (extension_info.have_xkb && !disable_detectable_autorepeat && !use_xinput) {
         Bool detectable = True;
         Bool supported = {};
         XkbSetDetectableAutoRepeat(dpy, detectable, &supported);
         if (ARCHON_LIKELY(supported))
             detectable_autorepeat_enabled = true;
+    }
+
+    x11_input_atoms input_atoms = {};
+    x11_init_input_atoms(dpy, input_atoms);
+
+    x11_input_seat input_seat = {};
+    if (use_xinput) {
+        // It is necessary to register interest in XI_DeviceChanged and XI_HierarchyChanged
+        // events before selecting a particular input seat (master input device and master
+        // keyboard device). This ensures that there are no changes to the selected devices that
+        // go unnoticed.
+        //
+        // XI_HierarchyChanged requires XIAllDevices (not just XIAllMasterDevices), hence the
+        // two separate masks.
+        //
+        unsigned char mask_bytes_1[XIMaskLen(XI_LASTEVENT)] = {};
+        XISetMask(mask_bytes_1, XI_DeviceChanged);
+
+        unsigned char mask_bytes_2[XIMaskLen(XI_LASTEVENT)] = {};
+        XISetMask(mask_bytes_2, XI_HierarchyChanged);
+
+        XIEventMask mask_1 = {};
+        mask_1.deviceid = XIAllMasterDevices;
+        mask_1.mask_len = sizeof mask_bytes_1;
+        mask_1.mask = mask_bytes_1;
+
+        XIEventMask mask_2 = {};
+        mask_2.deviceid = XIAllDevices;
+        mask_2.mask_len = sizeof mask_bytes_2;
+        mask_2.mask = mask_bytes_2;
+
+        XIEventMask masks[] = {
+            mask_1,
+            mask_2,
+        };
+
+        XISelectEvents(dpy, root, masks, std::size(masks));
+
+        unsigned long event_barrier = {};
+        if (ARCHON_UNLIKELY(!x11_select_input_seat(dpy, input_atoms, input_seat, event_barrier))) { // Throws
+            logger.error("Failed to find appropriate input seat (associated pointer and keyboard device pair)"); // Throws
+            return EXIT_FAILURE;
+        }
+
+        x11_discard_prebarrier_events(dpy, event_barrier);
     }
 
 #if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
@@ -733,11 +1209,23 @@ int main(int argc, char* argv[])
     logger.info("Default visual of screen:           %s", core::as_flex_int_h(screen_info.default_visual)); // Throws
     logger.info("Selected visual:                    %s", core::as_flex_int_h(visualid)); // Throws
     logger.info("Class of selected visual:           %s", x11::get_visual_class_name(visual_info.c_class)); // Throws
-    logger.info("Detectable auto-repeat enabled:     %s", (detectable_autorepeat_enabled ? "yes" : "no")); // Throws
+    if (!use_xinput) {
+        logger.info("Detectable auto-repeat enabled:     %s", (detectable_autorepeat_enabled ?
+                                                               "yes" : "no")); // Throws
+    }
     logger.info("Use double buffering:               %s", (use_double_buffering ? "yes" : "no")); // Throws
+    if (use_xinput) {
+        logger.info("Pointer device:                     %s", input_seat.pointer_device); // Throws
+        logger.info("Keyboard device:                    %s", input_seat.keyboard_device); // Throws
+    }
 
     if (ARCHON_UNLIKELY(!extension_info.have_xkb)) {
         logger.error("Required X Keyboard Extension is not available");
+        return EXIT_FAILURE;
+    }
+
+    if (ARCHON_UNLIKELY(use_xinput && !extension_info.have_xinput)) {
+        logger.error("Required XInput2 extension is not available");
         return EXIT_FAILURE;
     }
 
@@ -884,17 +1372,19 @@ int main(int argc, char* argv[])
         image::Size size = pixmap_slot.size;
 
         // Create window
-        long event_mask = (KeyPressMask | KeyReleaseMask |
+        long event_mask = (ExposureMask |
+                           StructureNotifyMask |
+                           VisibilityChangeMask |
+                           PropertyChangeMask);
+        if (!use_xinput) {
+            event_mask |= (KeyPressMask | KeyReleaseMask |
                            ButtonPressMask | ButtonReleaseMask |
                            EnterWindowMask | LeaveWindowMask |
                            FocusChangeMask |
-                           ExposureMask |
-                           StructureNotifyMask |
-                           KeymapStateMask |
-                           VisibilityChangeMask |
-                           PropertyChangeMask);
-        if (report_mouse_motion)
-            event_mask |= ButtonMotionMask;
+                           KeymapStateMask);
+            if (report_mouse_motion)
+                event_mask |= ButtonMotionMask;
+        }
         display::Pos pos;
         if (optional_pos.has_value())
             pos = optional_pos.value();
@@ -906,6 +1396,37 @@ int main(int argc, char* argv[])
         attributes.colormap = colormap;
         Window window = XCreateWindow(dpy, root, pos.x, pos.y, unsigned(size.width), unsigned(size.height), 0, depth,
                                       InputOutput, visual_info.visual, valuemask, &attributes);
+
+        // Unfortunately, with XInput2, it is very complicated to set the event mask for a
+        // particular device in a robust way (free of race conditions involving the
+        // disappearance of the specified device). Therefore, it is set for all master
+        // devices.
+        //
+        // Unfortunately, with XInput2, it is impossible to request motion events only while
+        // a button is pressed, so it is necessary to request them for the entire lifetime
+        // of the window.
+        //
+        if (use_xinput) {
+            unsigned char mask_bytes[XIMaskLen(XI_LASTEVENT)] = {};
+            XISetMask(mask_bytes, XI_KeyPress);
+            XISetMask(mask_bytes, XI_KeyRelease);
+            XISetMask(mask_bytes, XI_ButtonPress);
+            XISetMask(mask_bytes, XI_ButtonRelease);
+            if (report_mouse_motion)
+                XISetMask(mask_bytes, XI_Motion);
+            XISetMask(mask_bytes, XI_Enter);
+            XISetMask(mask_bytes, XI_Leave);
+            XISetMask(mask_bytes, XI_FocusIn);
+            XISetMask(mask_bytes, XI_FocusOut);
+            XIEventMask mask = {};
+            mask.deviceid = XIAllMasterDevices;
+            mask.mask_len = sizeof mask_bytes;
+            mask.mask = mask_bytes;
+            XIEventMask masks[] = {
+                mask,
+            };
+            XISelectEvents(dpy, window, masks, std::size(masks));
+        }
 
         // Set window name
         int no = int(window_index + 1);
@@ -1119,7 +1640,16 @@ int main(int argc, char* argv[])
             }
             case XK_g: {
                 if (!slot.grabbed) {
-                    bool success = try_grab_pointer(dpy, slot.window, report_mouse_motion, logger); // Throws
+                    bool success;
+                    if (use_xinput) {
+                        success = try_grab_pointer_xi(dpy, input_seat.pointer_device,
+                                                      slot.window, report_mouse_motion,
+                                                      logger); // Throws
+                    }
+                    else {
+                        success = try_grab_pointer(dpy, slot.window, report_mouse_motion,
+                                                   logger); // Throws
+                    }
                     if (ARCHON_LIKELY(success)) {
                         slot.grabbed = true;
                         log(slot.no, "GRAB");
@@ -1130,7 +1660,12 @@ int main(int argc, char* argv[])
                 }
                 else {
                     slot.grabbed = false;
-                    ungrab_pointer(dpy);
+                    if (use_xinput) {
+                        ungrab_pointer_xi(dpy, input_seat.pointer_device);
+                    }
+                    else {
+                        ungrab_pointer(dpy);
+                    }
                     log(slot.no, "UNGRAB");
                 }
                 break;
@@ -1170,6 +1705,177 @@ int main(int argc, char* argv[])
                 ARCHON_ASSERT(!expect_keymap_notify_2 || ev.type == KeymapNotify);
                 WindowSlot* slot = {};
                 switch (ev.type) {
+                    case GenericEvent:
+                        if (use_xinput && ev.xcookie.extension == extension_info.xinput_opcode) {
+                            Bool success = XGetEventData(dpy, &ev.xcookie);
+                            ARCHON_STEADY_ASSERT(success);
+                            ARCHON_SCOPE_EXIT {
+                                XFreeEventData(dpy, &ev.xcookie);
+                            };
+                            switch (ev.xcookie.evtype) {
+                                case XI_Motion: {
+                                    const XIDeviceEvent& ev_2 = *static_cast<XIDeviceEvent*>(ev.xcookie.data);
+                                    bool good = (!input_seat.removed && ev_2.deviceid == input_seat.pointer_device &&
+                                                 try_get_window_slot(ev_2.event, slot) &&
+                                                 x11_is_genuine_motion_event(ev_2, input_seat.pointer_properties));
+                                    if (ARCHON_LIKELY(good)) {
+                                        if (slot->grabbed || x11_are_any_xinput_buttons_pressed(ev_2.buttons)) {
+                                            math::Vector2F pos = { float(ev_2.event_x), float(ev_2.event_y) };
+                                            auto timestamp = unwrap_session.unwrap_next_timestamp(ev_2.time); // Throws
+                                            log(slot->no, "XI MOUSE MOVE: %s, %s", pos,
+                                                core::as_int(timestamp.count())); // Throws
+                                        }
+                                    }
+                                    break;
+                                }
+                                case XI_ButtonPress:
+                                case XI_ButtonRelease: {
+                                    const XIDeviceEvent& ev_2 = *static_cast<XIDeviceEvent*>(ev.xcookie.data);
+                                    const auto& button_map = input_seat.pointer_properties.button_map;
+                                    int x11_button = {};
+                                    bool good = (!input_seat.removed && ev_2.deviceid == input_seat.pointer_device &&
+                                                 try_get_window_slot(ev_2.event, slot) &&
+                                                 x11_try_normalize_pointer_button(ev_2.detail, button_map,
+                                                                                  x11_button));
+                                    if (ARCHON_LIKELY(good)) {
+                                        bool is_scroll = {};
+                                        display::MouseButton button = {};
+                                        math::Vector2F amount = {};
+                                        bool good_2 = x11_try_map_pointer_button(x11_button, is_scroll,
+                                                                                 button, amount);
+                                        ARCHON_ASSERT(good_2);
+                                        auto timestamp = unwrap_session.unwrap_next_timestamp(ev_2.time); // Throws
+                                        if (is_scroll) {
+                                            if (ev_2.evtype == XI_ButtonPress)
+                                                log(slot->no, "XI SCROLL: %s, %s", amount,
+                                                    core::as_int(timestamp.count())); // Throws
+                                        }
+                                        else {
+                                            std::string_view label = (ev_2.evtype == XI_ButtonPress ?
+                                                                      "XI MOUSE DOWN" : "XI MOUSE UP");
+                                            math::Vector2F pos = { float(ev_2.event_x), float(ev_2.event_y) };
+                                            log(slot->no, "%s: %s, %s, %s", label, button, pos,
+                                                core::as_int(timestamp.count())); // Throws
+                                        }
+                                    }
+                                    break;
+                                }
+                                case XI_KeyPress:
+                                case XI_KeyRelease: {
+                                    const XIDeviceEvent& ev_2 = *static_cast<XIDeviceEvent*>(ev.xcookie.data);
+                                    // FIXME: Using XkbKeycodeToKeysym() is fundamentally
+                                    // incompatible with XInput2, at least when multiple
+                                    // input seats are involved.                                          
+                                    KeyCode keycode = KeyCode(ev_2.detail);
+                                    KeySym keysym = {};
+                                    bool good = (!input_seat.removed && ev_2.deviceid == input_seat.keyboard_device &&
+                                                 try_get_window_slot(ev_2.event, slot) &&
+                                                 try_get_keysym(keycode, keysym));
+                                    if (ARCHON_LIKELY(good)) {
+                                        bool is_repetition = ((ev_2.flags & XIKeyRepeat) != 0);
+                                        std::string_view label = (ev_2.evtype == XI_KeyPress ?
+                                                                  (is_repetition ? "XI KEY REPEAT" :
+                                                                   "XI KEY DOWN") : "XI KEY UP");
+                                        std::string_view key_name = get_key_name(keysym); // Throws
+                                        auto timestamp = unwrap_session.unwrap_next_timestamp(ev_2.time); // Throws
+                                        log(slot->no, "%s: %s, %s -> %s, %s", label, key_name, core::as_int(keycode),
+                                            core::as_int(keysym), core::as_int(timestamp.count())); // Throws
+                                        if (ev_2.evtype == XI_KeyPress) {
+                                            on_keydown(keysym, is_repetition, *slot); // Throws
+                                        }
+                                        else {
+                                            on_keyup(keysym, *slot); // Throws
+                                        }
+                                    }
+                                    break;
+                                }
+                                case XI_Enter: {
+                                    const XIEnterEvent& ev_2 = *static_cast<XIEnterEvent*>(ev.xcookie.data);
+                                    bool good = (!input_seat.removed && ev_2.deviceid == input_seat.pointer_device &&
+                                                 try_get_window_slot(ev_2.event, slot));
+                                    if (ARCHON_LIKELY(good)) {
+                                        log(slot->no, "XI MOUSE OVER: %s, %s", get_notify_mode_name_xi(ev_2.mode),
+                                            get_notify_detail_name_xi(ev_2.detail)); // Throws
+                                    }
+                                    break;
+                                }
+                                case XI_Leave: {
+                                    const XILeaveEvent& ev_2 = *static_cast<XILeaveEvent*>(ev.xcookie.data);
+                                    bool good = (!input_seat.removed && ev_2.deviceid == input_seat.pointer_device &&
+                                                 try_get_window_slot(ev_2.event, slot));
+                                    if (ARCHON_LIKELY(good)) {
+                                        log(slot->no, "XI MOUSE OUT: %s, %s", get_notify_mode_name_xi(ev_2.mode),
+                                            get_notify_detail_name_xi(ev_2.detail)); // Throws
+                                    }
+                                    break;
+                                }
+                                case XI_FocusIn: {
+                                    const XIFocusInEvent& ev_2 = *static_cast<XIFocusInEvent*>(ev.xcookie.data);
+                                    bool good = (!input_seat.removed && ev_2.deviceid == input_seat.keyboard_device &&
+                                                 try_get_window_slot(ev_2.event, slot));
+                                    if (ARCHON_LIKELY(good)) {
+                                        log(slot->no, "XI FOCUS: %s, %s", get_notify_mode_name_xi(ev_2.mode),
+                                            get_notify_detail_name_xi(ev_2.detail)); // Throws
+                                    }
+                                    break;
+                                }
+                                case XI_FocusOut: {
+                                    const XIFocusOutEvent& ev_2 = *static_cast<XIFocusOutEvent*>(ev.xcookie.data);
+                                    bool good = (!input_seat.removed && ev_2.deviceid == input_seat.keyboard_device &&
+                                                 try_get_window_slot(ev_2.event, slot));
+                                    if (ARCHON_LIKELY(good)) {
+                                        log(slot->no, "XI BLUR: %s, %s", get_notify_mode_name_xi(ev_2.mode),
+                                            get_notify_detail_name_xi(ev_2.detail)); // Throws
+                                    }
+                                    break;
+                                }
+                                case XI_DeviceChanged: {
+                                    const XIDeviceChangedEvent& ev_2 =
+                                        *static_cast<XIDeviceChangedEvent*>(ev.xcookie.data);
+                                    logger.info("XI DEVICE CHANGE: %s, %s", ev_2.deviceid,
+                                                get_device_change_reason_name(ev_2.reason)); // Throws
+                                    x11_handle_xinput_device_change(ev_2, input_atoms, input_seat);
+                                    break;
+                                }
+                                case XI_HierarchyChanged: {
+                                    const XIHierarchyEvent& ev_2 = *static_cast<XIHierarchyEvent*>(ev.xcookie.data);
+                                    auto format_info = [](const XIHierarchyInfo& info) {
+                                        return core::as_format_func([&](std::ostream& out) {
+                                            auto format_flags = [&](std::ostream& out) {
+                                                int flags[] = {
+                                                    XIMasterAdded,
+                                                    XIMasterRemoved,
+                                                    XISlaveAttached,
+                                                    XISlaveDetached,
+                                                    XISlaveAdded,
+                                                    XISlaveRemoved,
+                                                    XIDeviceEnabled,
+                                                    XIDeviceDisabled,
+                                                };
+                                                constexpr int n = std::size(flags);
+                                                int flags_2[n] = {};
+                                                std::size_t i = 0;
+                                                for (int flag : flags) {
+                                                    if ((info.flags & flag) != 0)
+                                                        flags_2[i++] = flag;
+                                                }
+                                                out << core::as_list(core::Span(flags_2, i), [](int flag) noexcept {
+                                                    return get_hierarchy_change_flag_name(flag);
+                                                }); // Throws
+                                            };
+                                            out << core::formatted("(%s: %s)", core::as_int(info.deviceid),
+                                                                   core::as_format_func(format_flags)); // Throws
+                                        });
+                                    };
+                                    core::Span infos = { ev_2.info, ev_2.info + ev_2.num_info };
+                                    logger.info("XI HIERARCHY CHANGE: %s",
+                                                core::as_list(infos, format_info)); // Throws
+                                    x11_handle_xinput_hierarchy_change(ev_2, input_seat);
+                                    break;
+                                }
+                            }
+                        }
+                        break;
                     case MotionNotify:
                         if (ARCHON_LIKELY(try_get_window_slot(ev.xmotion.window, slot))) {
                             math::Vector2F pos = { float(ev.xmotion.x), float(ev.xmotion.y) };
@@ -1321,10 +2027,16 @@ int main(int argc, char* argv[])
                         break;
                     case EnterNotify:
                     case LeaveNotify:
-                        if (ARCHON_LIKELY(try_get_window_slot(ev.xcrossing.window, slot))) {
-                            log(slot->no, "%s: %s, %s", (ev.type == EnterNotify ? "MOUSE OVER" : "MOUSE OUT"),
-                                get_notify_mode_name(ev.xcrossing.mode),
-                                get_notify_detail_name(ev.xcrossing.detail)); // Throws
+                        // Not clear why X server sends EnterNotify during mouse drags when
+                        // EnterNotify has not been asked for in the event mask. Seems to be
+                        // a side effect of also enabling certain XInput2 events. Possibly a
+                        // bug.
+                        if (!use_xinput) {
+                            if (ARCHON_LIKELY(try_get_window_slot(ev.xcrossing.window, slot))) {
+                                log(slot->no, "%s: %s, %s", (ev.type == EnterNotify ? "MOUSE OVER" : "MOUSE OUT"),
+                                    get_notify_mode_name(ev.xcrossing.mode),
+                                    get_notify_detail_name(ev.xcrossing.detail)); // Throws
+                            }
                         }
                         break;
                     case FocusIn:

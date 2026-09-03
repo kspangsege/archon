@@ -35,19 +35,19 @@
 namespace archon::core::impl {
 
 
-#if ARCHON_HAVE_UINTPTR_T
+#if ARCHON_HAVE_UINTPTR_T && ARCHON_ENABLE_PLATFORM_OPTIMIZATIONS
 
 
 using type_ident_type = std::uintptr_t;
 
 
-template<class> inline core::Empty type_ident_helper;
+template<class> inline core::empty g_type_ident_helper;
 
 
 template<class T> inline bool try_get_type_ident(impl::type_ident_type& ident) noexcept
 {
     static_assert(std::is_same_v<impl::type_ident_type, std::uintptr_t>);
-    ident = std::uintptr_t(&impl::type_ident_helper<T>);
+    ident = std::uintptr_t(&impl::g_type_ident_helper<T>);
     return true; // Trivial success
 }
 
@@ -58,7 +58,7 @@ template<class T> inline bool try_get_type_ident(impl::type_ident_type& ident) n
 using type_ident_type = std::size_t;
 
 
-class NextTypeIdent {
+class next_type_ident {
 public:
     auto get() noexcept -> type_ident_type
     {
@@ -73,12 +73,12 @@ private:
     type_ident_type m_prev_ident = 0; // Protected by `m_mutex`
 };
 
-inline impl::NextTypeIdent next_type_ident;
+inline impl::next_type_ident g_next_type_ident;
 
 
 template<class T> bool try_get_type_ident(impl::type_ident_type& ident) noexcept
 {
-    static impl::type_ident_type ident_2 = impl::next_type_ident.get();
+    static impl::type_ident_type ident_2 = impl::g_next_type_ident.get();
     if (ARCHON_LIKELY(ident_2 > 0)) {
         ident = ident_2;
         return true; // Success
