@@ -8,7 +8,7 @@ import archon.base as _b
 import archon.text_pos as _tp
 import archon.log as _l
 import archon.command_line_interface as _cli
-import archon.cpp_tokenizer as _ct
+import archon.cpp_preprocess as _cp
 
 
 help_     = _b.Wrap(False)
@@ -38,7 +38,7 @@ logger = _l.LimitLogger(root_logger, log_level.value)
 try:
     with open(path) as file_:
         tracker = _tp.TextPosTracker()
-        for token in _ct.tokenize(file_, tracker):
+        for token in _cp.tokenize(file_, tracker):
             text_pos = tracker.get_text_pos(token.pos)
             logger.info("%s:%s: %s: %s", text_pos.line_no, text_pos.pos_on_line, token.type_.name,
                         _b.clamped_quote(token.text, 64))
