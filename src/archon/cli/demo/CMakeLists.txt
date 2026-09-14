@@ -6,7 +6,7 @@ set_target_properties(CommandlineSubinterfaces PROPERTIES
   OUTPUT_NAME "archon-commandline-subinterfaces"
 )
 
-target_link_libraries(CommandlineSubinterfaces PRIVATE
-  Core
-  Cli
+target_link_libraries(CommandlineSubinterfaces
+  PRIVATE Core
+  PRIVATE Cli
 )

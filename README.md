@@ -39,10 +39,10 @@ on various systems.
 >
 > When a dependency, such as FreeType, is linked dynamically at build time, the dynamic
 > library (`.so`, `.dylib`, `.dll`) that is provided at runtime must be at least the same
-> version as what was used at build time. The Archon source code relies on this. It assumes
-> that dependency versions specified in headers, such as `FREETYPE_MAJOR` and
-> `FREETYPE_MINOR`, can be trusted as specifying the minimum version of the dependency that
-> can occur at runtime.
+> version as was used at build time. The Archon source code relies on this. It assumes that
+> dependency versions specified in headers, such as `FREETYPE_MAJOR` and `FREETYPE_MINOR`,
+> can be trusted as specifying the minimum version of the dependency that can occur at
+> runtime.
 >
 > Behavior is undefined (bad things can happen) if the version of a dynamically linked
 > dependency provided at runtime is lower than what was used at build time. Note that this
@@ -61,35 +61,43 @@ Visual Studio](#building-and-testing-under-visual-studio).
 1. **Configure the project:**
 
    ```sh
-   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+   cmake -S . -B build/release -D CMAKE_BUILD_TYPE=Release
    ```
 
    *(Windows Vcpkg users: You will need to pass your toolchain file to CMake so it can find
-   the dependencies: `-DCMAKE_TOOLCHAIN_FILE=[path to
+   the dependencies: `-D CMAKE_TOOLCHAIN_FILE=[path to
    vcpkg]/scripts/buildsystems/vcpkg.cmake`)*
 
 2. **Build the libraries:**
 
    ```sh
-   cmake --build build -j
+   cmake --build build/release -j
    ```
 
 3. **Install the libraries:**
 
    ```sh
-   cmake --install build
+   cmake --install build/release
    ```
 
-   *(Prepend `sudo` if you need to)*
+   *(requires `sudo` on Linux/macOS)*
 
 
 ## Testing
 
-The test suite for the Archon libraries can be executed using CTest, which is part of
-CMake. After [building](#building-and-installing), execute the test suite as follows:
+First, the Archon test suite needs to be enabled and built
+([building](#building-and-installing)). To build it in debug mode, run these commands:
 
 ```sh
-ctest --test-dir build --output-on-failure
+cmake -S . -B build/debug -D CMAKE_BUILD_TYPE=Debug -D ARCHON_BUILD_TEST_SUITE=YES
+cmake --build build/debug -j
+```
+
+The test suite can then be executed using CTest, which is part of CMake. Execute it as
+follows:
+
+```sh
+ctest --test-dir build/debug --output-on-failure
 ```
 
 The test suite can also be executed through use of the [convenience shell script
@@ -104,15 +112,24 @@ Programs](#demo-programs) below.
 
 ## Building and Testing under Visual Studio
 
-1. Launch Visual Studio.
-2. Choose "Open a local folder".
-3. Select the folder holding the checked out Archon project.
-4. Wait for Visual Studio to finish CMake generation.
-5. From the "Test" menu, choose "Run CTests for Archon".
+If you use Vcpkg to provide [dependencies](#installing-dependencies), ensure Visual Studio
+knows about your Vcpkg installation by running:
 
-Alternatively, after CMake generation has finished:
-1. Open `src/archon/test.cpp` inside Visual Studio, and make it the active window.
-2. From the "Debug" menu, choose "Start Without Debugging".
+```sh
+vcpkg integrate install
+```
+
+Launch Visual Studio and run the following steps:
+1. Choose **"Open a folder"** and select the Archon project.
+2. Wait a moment for Visual Studio to finish its initial CMake generation.
+3. By default, the tests and demos are disabled. To enable them, go to the top menu and
+   select **Project > CMake Settings for Archon**.
+4. In the CMake Settings GUI that opens, scroll down to the **CMake variables and cache**
+   section.
+5. Check the box for `ARCHON_BUILD_TEST_SUITE` (and `ARCHON_BUILD_DEMO_PROGS` if desired)
+   and save the file (`Ctrl+S`). Visual Studio will automatically reconfigure.
+6. From the **"Build"** menu, choose **"Build All"**.
+7. Open the **Test Explorer** (from the "Test" menu) and click **"Run All Tests"**.
 
 Alternatively, if Git for Windows is available, use the [convenience shell
 script](#convenience-shell-script).

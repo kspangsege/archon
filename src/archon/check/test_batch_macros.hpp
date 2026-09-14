@@ -50,9 +50,9 @@
 /// \brief Define a type-like test case variant specifier.
 ///
 /// This macro defines a variant specifier where the test type is the specified type, and
-/// the test value is \ref core::Empty. The variant name (\p name) is used as a suffix of
-/// the name of the generated test case, so it is allowed to start with a digit, or be
-/// purely numeric. See \ref ARCHON_TEST_BATCH() for an example of how to use it.
+/// the test value is an instance of \ref core::empty. The variant name (\p name) is used as
+/// a suffix of the name of the generated test case, so it is allowed to start with a digit,
+/// or be purely numeric. See \ref ARCHON_TEST_BATCH() for an example of how to use it.
 ///
 /// \sa \ref ARCHON_TEST_VALUE()
 /// \sa \ref ARCHON_TEST_TYPE_AND_VALUE()
@@ -274,7 +274,7 @@ namespace archon::check::impl {
 template<class T> class TestType {
 public:
     using type = T;
-    static constexpr core::Empty value = {};
+    static constexpr core::empty value = {};
     std::string_view name;
     TestType(std::string_view n)
         : name(n)

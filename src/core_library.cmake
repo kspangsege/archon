@@ -28,23 +28,8 @@ add_library(Core
 
 set_target_properties(Core PROPERTIES OUTPUT_NAME "archon-core")
 
-if(MSVC OR MINGW)
-  # platform_info.cpp needs to link against GetFileVersionInfoSizeExW,
-  # GetFileVersionInfoExW, and VerQueryValueW.
-  target_link_libraries(Core PRIVATE version.lib)
-endif()
 
-file(RELATIVE_PATH "ARCHON_SOURCE_FROM_BUILD_PATH" "${ARCHON_BUILD_ROOT}" "${ARCHON_SOURCE_ROOT}")
-
-set(ARCHON_ASSUME_VISUAL_STUDIO_CMAKE_GENERATOR 0)
-if(CMAKE_GENERATOR MATCHES "^Visual Studio")
-  set(ARCHON_ASSUME_VISUAL_STUDIO_CMAKE_GENERATOR 1)
-endif()
-
-configure_file(archon/core/impl/config.h.in archon/core/impl/config.h)
-
-target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${ARCHON_SOURCE_ROOT}" FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/archon/core/impl/config.h"
+target_sources(Core PUBLIC FILE_SET HEADERS FILES
   archon/core/features.hpp
   archon/core/archon_version.hpp
   archon/core/type.hpp
@@ -58,6 +43,7 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/formattable_value_ref.hpp
   archon/core/terminate.hpp
   archon/core/assert.hpp
+  archon/core/iterator.hpp
   archon/core/impl/utility.hpp
   archon/core/utility.hpp
   archon/core/scope_exit.hpp
@@ -181,7 +167,35 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/text_parser.hpp
 )
 
+
+file(RELATIVE_PATH "ARCHON_SOURCE_FROM_BUILD_PATH" "${ARCHON_BUILD_ROOT}" "${ARCHON_SOURCE_ROOT}")
+
+set(ARCHON_ASSUME_VISUAL_STUDIO_CMAKE_GENERATOR 0)
+if(CMAKE_GENERATOR MATCHES "^Visual Studio")
+  set(ARCHON_ASSUME_VISUAL_STUDIO_CMAKE_GENERATOR 1)
+endif()
+
+configure_file(archon/core/impl/config.h.in archon/core/impl/config.h)
+
+target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/archon/core/impl/config.h"
+)
+
+
+if(MSVC OR MINGW)
+  # platform_info.cpp needs to link against GetFileVersionInfoSizeExW,
+  # GetFileVersionInfoExW, and VerQueryValueW.
+  target_link_libraries(Core PRIVATE version.lib)
+endif()
+
+
 install(TARGETS Core FILE_SET HEADERS)
 
-add_subdirectory(archon/core/test)
-add_subdirectory(archon/core/demo)
+
+if(ARCHON_INCLUDE_DEMO_PROGS)
+  add_subdirectory(archon/core/demo)
+endif()
+
+if(ARCHON_INCLUDE_TEST_SUITE)
+  add_subdirectory(archon/core/test)
+endif()
