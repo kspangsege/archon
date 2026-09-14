@@ -45,11 +45,11 @@ class TokenType(enum.Enum):
     BAD_CHAR       = enum.auto()
     HEADER_NAME    = enum.auto()
     PLACEMARKER    = enum.auto()
-    END_OF_INPUT   = enum.auto()
 
 
-def parse(tokens: typing.Iterable[Token], error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
-    return _parse(tokens, error_handler)
+def parse(tokens: typing.Iterable[Token], end_pos: int,
+          error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
+    return _parse(tokens, end_pos, error_handler)
 
 
 type Directive = DefineDirective | GenericDirective
@@ -70,15 +70,15 @@ class GenericDirective(DirectiveBase):
     tokens: list[Token]
 
 
-def preprocess(tokens: typing.Iterable[Token], macro_registry: dict[str, MacroDef],
+def preprocess(tokens: typing.Iterable[Token], end_pos: int, macro_registry: dict[str, MacroDef],
                error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
-    return _preprocess(tokens, macro_registry, error_handler)
+    return _preprocess(tokens, end_pos, macro_registry, error_handler)
 
 
 # Scan token stream for macro invocations
 #
-def scan(context: ScanContext, error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
-    return _scan(context, error_handler)
+def scan(context: ScanContext, end_pos: int, error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+    return _scan(context, end_pos, error_handler)
 
 
 class ScanContext(abc.ABC):
@@ -212,8 +212,6 @@ def _tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections
             yield Token(token_type, text, pos)
             i = j
 
-    yield Token(TokenType.END_OF_INPUT, "", tracker.current())
-
 
 class _TokenizeState(enum.Enum):
     INITIAL           = enum.auto()
@@ -277,14 +275,18 @@ class _Line:
     text: str
 
 
-def _parse(tokens: typing.Iterable[Token], error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
+def _parse(tokens: typing.Iterable[Token], end_pos: int,
+           error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
     state = _ParseState.INITIAL
     directive_pos = 0
     buffer_ = list[Token]()
-    for token in tokens:
+    while True:
+        token = next(tokens, None)
         match state:
             case _ParseState.INITIAL:
-                if token.type_ in _IS_SPACE_OR_END_OF_LINE:
+                if not token:
+                    break
+                if token.type_ in _IS_SPACE_OR_NEWLINE:
                     yield token
                     continue
                 if token.type_ is not TokenType.HASH:
@@ -295,22 +297,26 @@ def _parse(tokens: typing.Iterable[Token], error_handler: ErrorHandler) -> colle
                 state = _ParseState.IN_DIRECTIVE
                 continue
             case _ParseState.GENERAL:
+                if not token:
+                    break
                 yield token
-                if token.type_ in _IS_END_OF_LINE:
+                if token.type_ is TokenType.NEWLINE:
                     state = _ParseState.INITIAL
                 continue
             case _ParseState.IN_DIRECTIVE:
-                if token.type_ not in _IS_END_OF_LINE:
+                if token and token.type_ is not TokenType.NEWLINE:
                     buffer_.append(token)
                     continue
                 i = len(buffer_)
                 while i > 0 and buffer_[i - 1].type_ in _IS_SPACE:
                     i -= 1
-                end_pos = token.pos
-                if dir_ := _parse_directive(directive_pos, end_pos, buffer_[:i], error_handler):
-                    yield dir_
+                end_pos_2 = token.pos if token else end_pos
+                if directive := _parse_directive(directive_pos, end_pos_2, buffer_[:i], error_handler):
+                    yield directive
                 yield from buffer_[i:]
                 buffer_.clear()
+                if not token:
+                    break
                 yield token
                 state = _ParseState.INITIAL
                 continue
@@ -418,16 +424,16 @@ def _parse_define_directive(pos: int, end_pos: int, tokens: list[Token], i: int,
     return DefineDirective(pos, name, params, is_variadic, replacement)
 
 
-def _preprocess(tokens: typing.Iterable[Token], macro_registry: dict[str, MacroDef],
+def _preprocess(tokens: typing.Iterable[Token], end_pos: int, macro_registry: dict[str, MacroDef],
                 error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
     # FIXME: Need to also parse and process preprocessor directives (_parse())        
     context = _PreprocessContext(tokens, macro_registry)
-    return _scan(context, error_handler)
+    return _scan(context, end_pos, error_handler)
 
 
 class _PreprocessContext(ScanContext):
     def __init__(self, tokens: typing.Iterable[Token], macro_registry: dict[str, MacroDef]) -> None:
-        self._tokens         = iter(tokens)
+        self._tokens         = tokens
         self._macro_registry = macro_registry
 
     @typing.override
@@ -444,7 +450,7 @@ class _PreprocessContext(ScanContext):
         assert False        
 
 
-def _scan(context: ScanContext, error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+def _scan(context: ScanContext, end_pos: int, error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
     @dataclasses.dataclass(slots=True, frozen=True)
     class ArgDelim:
         begin: int
@@ -507,11 +513,10 @@ def _scan(context: ScanContext, error_handler: ErrorHandler) -> collections.abc.
         tokens = [token]
         while True:
             token = context.next_token()
-            assert token
-            if token.type_ not in _IS_SPACE:
+            if not token or token.type_ not in _IS_SPACE:
                 break
             tokens.append(token)
-        if token.type_ is not TokenType.PUNCT or token.text != "(":
+        if not token or token.type_ is not TokenType.PUNCT or token.text != "(":
             yield from tokens
             continue
         tokens = []
@@ -520,10 +525,10 @@ def _scan(context: ScanContext, error_handler: ErrorHandler) -> collections.abc.
         paren_level = 0
         while True:
             token = context.next_token()
-            assert token
-            if token.type_ is TokenType.END_OF_INPUT:
-                error_handler(token.pos, "Expected closing parenthesis or comma in invocation of function-like macro "
-                              "%s", _b.clamped_quote(name, 64))
+            if not token:
+                pos = token.pos if token else end_pos
+                error_handler(pos, "Expected closing parenthesis or comma in invocation of function-like macro %s",
+                              _b.clamped_quote(name, 64))
                 break
             if token.type_ is TokenType.PUNCT:
                 if token.text == ",":
@@ -565,10 +570,6 @@ def _scan(context: ScanContext, error_handler: ErrorHandler) -> collections.abc.
 
 
 _IS_SPACE = {TokenType.NEWLINE, TokenType.WHITESPACE, TokenType.LINE_COMMENT, TokenType.BLOCK_COMMENT}
-
-_IS_END_OF_LINE = {TokenType.NEWLINE, TokenType.END_OF_INPUT}
-
-_IS_SPACE_OR_END_OF_LINE = _IS_SPACE | _IS_END_OF_LINE
 
 
 def _resolve_identifier_ucns(identifier: str, pos: int, error_handler: ErrorHandler) -> str | None:
