@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typing
+import abc
 import dataclasses
 import collections.abc
 import enum
@@ -9,11 +10,6 @@ import unicodedata
 
 import archon.base as _b
 import archon.text_pos as _tp
-
-
-def parse(input_: typing.TextIO, tracker: _tp.TextPosTracker,
-          error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
-    return _parse(tokenize(input_, tracker), error_handler)
 
 
 # Tokenize C++ source code in accordance with a C++26 preprocessor.
@@ -48,11 +44,11 @@ class TokenType(enum.Enum):
     PUNCT          = enum.auto()
     BAD_CHAR       = enum.auto()
     HEADER_NAME    = enum.auto()
+    PLACEMARKER    = enum.auto()
     END_OF_INPUT   = enum.auto()
 
 
-def parse_from_tokens(tokens: typing.Iterable[Token],
-                      error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
+def parse(tokens: typing.Iterable[Token], error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
     return _parse(tokens, error_handler)
 
 
@@ -74,15 +70,48 @@ class GenericDirective(DirectiveBase):
     tokens: list[Token]
 
 
-class ErrorHandler(typing.Protocol):
-    def __call__(self, pos: int, message: str, *args: typing.Any) -> None:
+def preprocess(tokens: typing.Iterable[Token], macro_registry: dict[str, MacroDef],
+               error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+    return _preprocess(tokens, macro_registry, error_handler)
+
+
+# Scan token stream for macro invocations
+#
+def scan(context: ScanContext, error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+    return _scan(context, error_handler)
+
+
+class ScanContext(abc.ABC):
+    @abc.abstractmethod
+    def next_token(self) -> Token | None:
         ...
+
+    @abc.abstractmethod
+    def lookup_macro(self, name: str) -> MacroDef | None:
+        ...
+
+    @abc.abstractmethod
+    def handle_macro_invoc(self, name: str, definition: MacroDef, arguments: list[list[Token]] | None,
+                           va_args: list[Token] | None) -> None:
+        ...
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class MacroDef:
+    params: list[str] | None
+    is_variadic: bool
+    replacement: list[Token]
 
 
 # Resolve UCNs and verify Unicode Normal Form C
 #
 def resolve_identifier_ucns(identifier: str, pos: int, error_handler: ErrorHandler) -> str | None:
     return _resolve_identifier_ucns(identifier, pos, error_handler)
+
+
+class ErrorHandler(typing.Protocol):
+    def __call__(self, pos: int, message: str, *args: typing.Any) -> None:
+        ...
 
 
 
@@ -387,6 +416,152 @@ def _parse_define_directive(pos: int, end_pos: int, tokens: list[Token], i: int,
         i += 1
     replacement = tokens[i:]
     return DefineDirective(pos, name, params, is_variadic, replacement)
+
+
+def _preprocess(tokens: typing.Iterable[Token], macro_registry: dict[str, MacroDef],
+                error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+    # FIXME: Need to also parse and process preprocessor directives (_parse())        
+    context = _PreprocessContext(tokens, macro_registry)
+    return _scan(context, error_handler)
+
+
+class _PreprocessContext(ScanContext):
+    def __init__(self, tokens: typing.Iterable[Token], macro_registry: dict[str, MacroDef]) -> None:
+        self._tokens         = iter(tokens)
+        self._macro_registry = macro_registry
+
+    @typing.override
+    def next_token(self) -> Token | None:
+        return next(self._tokens, None)        
+
+    @typing.override
+    def lookup_macro(self, name: str) -> MacroDef | None:
+        return self._macro_registry.get(name)        
+
+    @typing.override
+    def handle_macro_invoc(self, name: str, definition: MacroDef, arguments: list[list[Token]] | None,
+                           va_args: list[Token] | None) -> None:
+        assert False        
+
+
+def _scan(context: ScanContext, error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+    @dataclasses.dataclass(slots=True, frozen=True)
+    class ArgDelim:
+        begin: int
+        end:   int
+        pos:   int
+
+    tokens:        list[Token]
+    tokens_offset: int
+    arg_delims:    list[ArgDelim]
+
+    def record_arg(token: Token) -> int:
+        begin = tokens_offset
+        end   = len(tokens)
+        arg_delims.append(ArgDelim(begin, end, token.pos))
+        return end
+
+    def get_arg(begin: int, end: int) -> list[Token]:
+        assert begin <= end <= len(arg_delims)
+        assert end > 0
+        if begin < end:
+            i = arg_delims[begin].begin
+            j = arg_delims[end - 1].end
+            while i < j and tokens[i].type_ in _IS_SPACE:
+                i += 1
+            while i < j and tokens[j - 1].type_ in _IS_SPACE:
+                j -= 1
+            return tokens[i:j]
+        return []
+
+    def get_arg_or_placemarker(begin: int, end: int) -> list[Token]:
+        assert begin < len(arg_delims)
+        arg = get_arg(begin, end)
+        if arg:
+            return arg
+        text = ""
+        pos = arg_delims[min(begin, end - 1)].pos
+        token = Token(TokenType.PLACEMARKER, text, pos)
+        return [token]
+
+    token = context.next_token()
+    while token:
+        if token.type_ is not TokenType.IDENTIFIER:
+            yield token
+            token = context.next_token()
+            continue
+        name = _resolve_identifier_ucns(token.text, token.pos, error_handler)
+        if name is None:
+            yield token
+            token = context.next_token()
+            continue
+        definition = context.lookup_macro(name)
+        if not definition:
+            yield token
+            token = context.next_token()
+            continue
+        if definition.params is None:
+            context.handle_macro_invoc(name, definition, None, None) # Object-like macro
+            token = context.next_token()
+            continue
+        tokens = [token]
+        while True:
+            token = context.next_token()
+            assert token
+            if token.type_ not in _IS_SPACE:
+                break
+            tokens.append(token)
+        if token.type_ is not TokenType.PUNCT or token.text != "(":
+            yield from tokens
+            continue
+        tokens = []
+        tokens_offset = 0
+        arg_delims = []
+        paren_level = 0
+        while True:
+            token = context.next_token()
+            assert token
+            if token.type_ is TokenType.END_OF_INPUT:
+                error_handler(token.pos, "Expected closing parenthesis or comma in invocation of function-like macro "
+                              "%s", _b.clamped_quote(name, 64))
+                break
+            if token.type_ is TokenType.PUNCT:
+                if token.text == ",":
+                    if paren_level == 0:
+                        tokens_offset = record_arg(token) + 1
+                elif token.text == "(":
+                    paren_level += 1
+                elif token.text == ")":
+                    if paren_level == 0:
+                        record_arg(token)
+                        n = len(definition.params)
+                        if len(arg_delims) < n:
+                            pos = arg_delims[-1].pos
+                            error_handler(pos, "Too few arguments in invocation of function-like macro %s",
+                                          _b.clamped_quote(name, 64))
+                            break
+                        if not definition.is_variadic and len(arg_delims) > n and (len(arg_delims) > 1 or
+                                                                                   get_arg(0, 1)):
+                            if n > 0:
+                                pos = arg_delims[n - 1].pos
+                            else:
+                                arg = get_arg(0, 1)
+                                pos = arg[0].pos if arg else arg_delims[0].pos
+                            error_handler(pos, "Too many arguments in invocation of function-like macro %s",
+                                          _b.clamped_quote(name, 64))
+                            break
+                        arguments = list[list[Token]]()
+                        for i in range(n):
+                            arg = get_arg_or_placemarker(i, i + 1)
+                            arguments.append(arg)
+                        va_args = None
+                        if definition.is_variadic:
+                            va_args = get_arg_or_placemarker(n, len(arg_delims))
+                        context.handle_macro_invoc(name, definition, arguments, va_args) # Function-like macro
+                        break
+                    paren_level -= 1
+            tokens.append(token)
+        token = context.next_token()
 
 
 _IS_SPACE = {TokenType.NEWLINE, TokenType.WHITESPACE, TokenType.LINE_COMMENT, TokenType.BLOCK_COMMENT}
