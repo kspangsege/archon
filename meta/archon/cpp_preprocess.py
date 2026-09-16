@@ -22,21 +22,19 @@ def tokenize(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker
     return _tokenize(input_, file_index, tracker)
 
 
-def parse(tokens: typing.Iterable[Token], file_index: int, tracker: _tp.TextPosTracker,
-          error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
-    return _parse(tokens, file_index, tracker, error_handler)
+def parse(tokens: typing.Iterable[Token], error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
+    return _parse(tokens, error_handler)
 
 
-def preprocess(tokens: typing.Iterable[Token | Directive], file_index: int, tracker: _tp.TextPosTracker,
-               macro_registry: dict[str, MacroDef], error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
-    return _preprocess(tokens, file_index, tracker, macro_registry, error_handler)
+def preprocess(tokens: typing.Iterable[Token | Directive], macro_registry: dict[str, MacroDef],
+               error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+    return _preprocess(tokens, macro_registry, error_handler)
 
 
 # Scan token stream for macro invocations
 #
-def scan(context: ScanContext, file_index: int, tracker: _tp.TextPosTracker,
-         error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
-    return _scan(context, file_index, tracker, error_handler)
+def scan(context: ScanContext, error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+    return _scan(context, error_handler)
 
 
 # Resolve UCNs and verify Unicode Normal Form C
@@ -46,8 +44,9 @@ def resolve_identifier_ucns(identifier: str, pos_info: PositionInfo, error_handl
 
 
 class ScanContext(abc.ABC):
+    # Token sequence ends after an END_OF_INPUT token has been returned
     @abc.abstractmethod
-    def next_token(self) -> Token | None:
+    def next_token(self) -> Token:
         ...
 
     @abc.abstractmethod
@@ -113,6 +112,7 @@ class TokenType(enum.Enum):
     BAD_CHAR       = enum.auto()
     HEADER_NAME    = enum.auto()
     PLACEMARKER    = enum.auto()
+    END_OF_INPUT   = enum.auto()
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -249,6 +249,10 @@ def _tokenize(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracke
             yield Token(token_type, text, position.to_info())
             i = j
 
+    text = ""
+    position = Position(file_index = file_index, pos_in_file = tracker.current())
+    yield Token(TokenType.END_OF_INPUT, text, position.to_info())
+
 
 class _TokenizeState(enum.Enum):
     INITIAL           = enum.auto()
@@ -312,16 +316,16 @@ class _Line:
     text: str
 
 
-def _parse(tokens: typing.Iterable[Token], file_index: int, tracker: _tp.TextPosTracker,
-           error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
+def _parse(tokens: typing.Iterable[Token], error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
     state = _ParseState.INITIAL
     buffer_ = list[Token]()
     tokens_iter = iter(tokens)
     while True:
-        token = next(tokens_iter, None)
+        token = next(tokens_iter)
         match state:
             case _ParseState.INITIAL:
-                if not token:
+                if token.type_ is TokenType.END_OF_INPUT:
+                    yield token
                     break
                 if token.type_ in _IS_SPACE:
                     yield token
@@ -334,30 +338,27 @@ def _parse(tokens: typing.Iterable[Token], file_index: int, tracker: _tp.TextPos
                 state = _ParseState.IN_DIRECTIVE
                 continue
             case _ParseState.GENERAL:
-                if not token:
-                    break
                 yield token
+                if token.type_ is TokenType.END_OF_INPUT:
+                    break
                 if token.type_ is TokenType.NEWLINE:
                     state = _ParseState.INITIAL
                 continue
             case _ParseState.IN_DIRECTIVE:
-                if token and token.type_ is not TokenType.NEWLINE:
+                if token.type_ is not TokenType.NEWLINE and token.type_ is not TokenType.END_OF_INPUT:
                     buffer_.append(token)
                     continue
                 i = len(buffer_)
                 while i > 0 and buffer_[i - 1].type_ in _IS_SPACE:
                     i -= 1
-                if token:
-                    end_pos = token.pos_info(0)
-                else:
-                    end_pos = Position(file_index = file_index, pos_in_file = tracker.current())
+                end_pos = token.pos_info(0)
                 if directive := _parse_directive(directive_pos, end_pos, buffer_[:i], error_handler):
                     yield directive
                 yield from buffer_[i:]
                 buffer_.clear()
-                if not token:
-                    break
                 yield token
+                if token.type_ is TokenType.END_OF_INPUT:
+                    break
                 state = _ParseState.INITIAL
                 continue
         typing.assert_never(state)
@@ -465,11 +466,11 @@ def _parse_define_directive(pos: Position, end_pos: Position, tokens: list[Token
     return DefineDirective(pos, name, params, is_variadic, replacement)
 
 
-def _preprocess(tokens: typing.Iterable[Token | Directive], file_index: int, tracker: _tp.TextPosTracker,
-                macro_registry: dict[str, MacroDef], error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+def _preprocess(tokens: typing.Iterable[Token | Directive], macro_registry: dict[str, MacroDef],
+                error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
     # FIXME: Need to also parse and process preprocessor directives (_parse())        
     context = _PreprocessContext(tokens, macro_registry)
-    return _scan(context, file_index, tracker, error_handler)
+    return _scan(context, error_handler)
 
 
 class _PreprocessContext(ScanContext):
@@ -478,10 +479,10 @@ class _PreprocessContext(ScanContext):
         self._macro_registry = macro_registry
 
     @typing.override
-    def next_token(self) -> Token | None:
+    def next_token(self) -> Token:
                 
-        token = next(self._tokens, None)
-        if token is None or isinstance(token, Token):
+        token = next(self._tokens)
+        if isinstance(token, Token):
             return token
         assert False                
 
@@ -495,8 +496,7 @@ class _PreprocessContext(ScanContext):
         assert False        
 
 
-def _scan(context: ScanContext, file_index: int, tracker: _tp.TextPosTracker,
-          error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+def _scan(context: ScanContext, error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
     @dataclasses.dataclass(slots=True, frozen=True)
     class ArgDelim:
         begin: int
@@ -537,7 +537,10 @@ def _scan(context: ScanContext, file_index: int, tracker: _tp.TextPosTracker,
         return [token]
 
     token = context.next_token()
-    while token:
+    while True:
+        if token.type_ is TokenType.END_OF_INPUT:
+            yield token
+            break
         if token.type_ is not TokenType.IDENTIFIER:
             yield token
             token = context.next_token()
@@ -559,10 +562,10 @@ def _scan(context: ScanContext, file_index: int, tracker: _tp.TextPosTracker,
         tokens = [token]
         while True:
             token = context.next_token()
-            if not token or token.type_ not in _IS_SPACE:
+            if token.type_ not in _IS_SPACE:
                 break
             tokens.append(token)
-        if not token or token.type_ is not TokenType.PUNCT or token.text != "(":
+        if token.type_ is not TokenType.PUNCT or token.text != "(":
             yield from tokens
             continue
         tokens = []
@@ -571,11 +574,8 @@ def _scan(context: ScanContext, file_index: int, tracker: _tp.TextPosTracker,
         paren_level = 0
         while True:
             token = context.next_token()
-            if not token:
-                if token:
-                    pos = token.pos_info(0)
-                else:
-                    pos = Position(file_index = file_index, pos_in_file = tracker.current())
+            if token.type_ is TokenType.END_OF_INPUT:
+                pos = token.pos_info(0)
                 error_handler(pos, "Expected closing parenthesis or comma in invocation of function-like macro %s",
                               _b.clamped_quote(name, 64))
                 break
@@ -593,6 +593,7 @@ def _scan(context: ScanContext, file_index: int, tracker: _tp.TextPosTracker,
                             pos = arg_delims[-1].pos
                             error_handler(pos, "Too few arguments in invocation of function-like macro %s",
                                           _b.clamped_quote(name, 64))
+                            token = context.next_token()
                             break
                         if not definition.is_variadic and len(arg_delims) > n and (len(arg_delims) > 1 or
                                                                                    get_arg(0, 1)):
@@ -603,6 +604,7 @@ def _scan(context: ScanContext, file_index: int, tracker: _tp.TextPosTracker,
                                 pos = arg[0].pos_info(0) if arg else arg_delims[0].pos
                             error_handler(pos, "Too many arguments in invocation of function-like macro %s",
                                           _b.clamped_quote(name, 64))
+                            token = context.next_token()
                             break
                         arguments = list[list[Token]]()
                         for i in range(n):
@@ -612,10 +614,10 @@ def _scan(context: ScanContext, file_index: int, tracker: _tp.TextPosTracker,
                         if definition.is_variadic:
                             va_args = get_arg_or_placemarker(n, len(arg_delims))
                         context.handle_macro_invoc(name, definition, arguments, va_args) # Function-like macro
+                        token = context.next_token()
                         break
                     paren_level -= 1
             tokens.append(token)
-        token = context.next_token()
 
 
 _IS_SPACE = {TokenType.NEWLINE, TokenType.WHITESPACE, TokenType.LINE_COMMENT, TokenType.BLOCK_COMMENT}

@@ -66,8 +66,8 @@ class ScanContext(_cp.ScanContext):
         self._tokens         = iter(tokens)
         self._macro_registry = macro_registry
     @typing.override
-    def next_token(self) -> _cp.Token | None:
-        return next(self._tokens, None)
+    def next_token(self) -> _cp.Token:
+        return next(self._tokens)
     @typing.override
     def lookup_macro(self, name: str) -> _cp.MacroDef | None:
         return self._macro_registry.get(name)
@@ -76,15 +76,15 @@ class ScanContext(_cp.ScanContext):
                            va_args: list[_cp.Token] | None) -> None:
         assert False    
 
-MAIN_FILE_INDEX     = 0
-ROOT_FILE_INDEX     = 1
-SUBMACRO_FILE_INDEX = 2
+MAIN_FILE_INDEX          = 0
+ROOT_TEXT_FILE_INDEX     = 1
+SUBMACRO_TEXT_FILE_INDEX = 2
 
 try:
     with open(path) as file_:
         tokens = _cp.tokenize(file_, MAIN_FILE_INDEX, main_tracker)
         initial = True
-        for elem in _cp.parse(tokens, MAIN_FILE_INDEX, main_tracker, error_handler):
+        for elem in _cp.parse(tokens, error_handler):
             if not isinstance(elem, _cp.DefineDirective) or elem.name != MACRO_NAME:
                 continue
             define = elem
@@ -94,21 +94,23 @@ try:
             if define.params != MACRO_PARAMS:
                 error_handler(define.pos, "Unexpected macro parameters")
                 sys.exit(1)
-            submacro_tracker = _tp.TextPosTracker()
-            submacro_tokens = list(_cp.tokenize(io.StringIO(SUBMACRO_TEXT), SUBMACRO_FILE_INDEX, submacro_tracker))
+            submacro_text_tracker = _tp.TextPosTracker()
+            submacro_text_tokens = list(_cp.tokenize(io.StringIO(SUBMACRO_TEXT), SUBMACRO_TEXT_FILE_INDEX,
+                                                     submacro_text_tracker))
             registry = {
                 MACRO_NAME:    _cp.MacroDef(MACRO_PARAMS, False, define.replacement),
-                SUBMACRO_NAME: _cp.MacroDef(SUBMACRO_PARAMS, False, submacro_tokens),
+                SUBMACRO_NAME: _cp.MacroDef(SUBMACRO_PARAMS, False, submacro_text_tokens),
             }
             root_text_tracker = _tp.TextPosTracker()
-            root_text_tokens = list(_cp.tokenize(io.StringIO(ROOT_TEXT), ROOT_FILE_INDEX, root_text_tracker))
-            output = list(_cp.preprocess(root_text_tokens, ROOT_FILE_INDEX, root_text_tracker, registry,
-                                         error_handler))
+            root_text_tokens = list(_cp.tokenize(io.StringIO(ROOT_TEXT), ROOT_TEXT_FILE_INDEX, root_text_tracker))
+            output = list(_cp.preprocess(root_text_tokens, registry, error_handler))
+            position = _cp.Position(file_index = ROOT_TEXT_FILE_INDEX, pos_in_file = root_text_tracker.current())
+            output.append(_cp.Token(_cp.TokenType.END_OF_INPUT, "", position.to_info()))
             registry = {
                 POLICY_DEFINER_NAME: _cp.MacroDef(POLICY_DEFINER_PARAMS, False, []),
             }
             context = ScanContext(output, registry)
-            for _ in _cp.scan(context, ROOT_FILE_INDEX, root_text_tracker, error_handler):
+            for _ in _cp.scan(context, error_handler):
                 pass
             break
 except FileNotFoundError as e:
