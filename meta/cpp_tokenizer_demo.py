@@ -38,8 +38,10 @@ logger = _l.LimitLogger(root_logger, log_level.value)
 try:
     with open(path) as file_:
         tracker = _tp.TextPosTracker()
-        for token in _cp.tokenize(file_, tracker):
-            text_pos = tracker.get_text_pos(token.pos)
+        for token in _cp.tokenize(input_ = file_, file_index = 0, tracker = tracker):
+            pos = token.pos_info(0)
+            assert pos.file_index == 0
+            text_pos = tracker.get_text_pos(pos.pos_in_file)
             logger.info("%s:%s: %s: %s", text_pos.line_no, text_pos.pos_on_line, token.type_.name,
                         _b.clamped_quote(token.text, 64))
 except FileNotFoundError as e:

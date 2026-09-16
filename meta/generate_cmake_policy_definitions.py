@@ -20,6 +20,7 @@ SUBMACRO_PARAMS = ["dummy", "policy_ident", "description", "major", "minor", "pa
 POLICY_DEFINER_NAME = "DEFINE_POLICY"
 POLICY_DEFINER_PARAMS = ["policy_ident", "description", "major", "minor", "patch"]
 ROOT_TEXT     = "%s(, %s)" % (MACRO_NAME, SUBMACRO_NAME)
+# FIXME: Define the sub-macro inside ROOT_TEXT                    
 SUBMACRO_TEXT = "%s(%s)" % (POLICY_DEFINER_NAME, ", ".join(POLICY_DEFINER_PARAMS))
 
 assert set(POLICY_DEFINER_PARAMS).issubset(SUBMACRO_PARAMS)
@@ -53,15 +54,12 @@ class Error(Exception):
     pass
 
 main_tracker = _tp.TextPosTracker()
-def error_handler(pos: int, message: str, *args: typing.Any) -> None:
-    text_pos = main_tracker.get_text_pos(pos)
+def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
+    assert pos.file_index == 0
+    text_pos = main_tracker.get_text_pos(pos.pos_in_file)
     context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
     _l.FileContextLogger(logger, context).error(message, *args)
     raise Error from None
-
-def tokenize_snippet(text: str) -> list[_cp.Token]:
-    tracker = _tp.TextPosTracker()
-    return list(_cp.tokenize(io.StringIO(text), tracker))
 
 class ScanContext(_cp.ScanContext):
     def __init__(self, tokens: list[_cp.Token], macro_registry: dict[str, _cp.MacroDef]) -> None:
@@ -78,11 +76,15 @@ class ScanContext(_cp.ScanContext):
                            va_args: list[_cp.Token] | None) -> None:
         assert False    
 
+MAIN_FILE_INDEX     = 0
+ROOT_FILE_INDEX     = 1
+SUBMACRO_FILE_INDEX = 2
+
 try:
     with open(path) as file_:
-        tokens = _cp.tokenize(file_, main_tracker)
+        tokens = _cp.tokenize(file_, MAIN_FILE_INDEX, main_tracker)
         initial = True
-        for elem in _cp.parse(tokens, error_handler):
+        for elem in _cp.parse(tokens, MAIN_FILE_INDEX, main_tracker, error_handler):
             if not isinstance(elem, _cp.DefineDirective) or elem.name != MACRO_NAME:
                 continue
             define = elem
@@ -92,17 +94,21 @@ try:
             if define.params != MACRO_PARAMS:
                 error_handler(define.pos, "Unexpected macro parameters")
                 sys.exit(1)
-            submacro_tokens = tokenize_snippet(SUBMACRO_TEXT)
+            submacro_tracker = _tp.TextPosTracker()
+            submacro_tokens = list(_cp.tokenize(io.StringIO(SUBMACRO_TEXT), SUBMACRO_FILE_INDEX, submacro_tracker))
             registry = {
                 MACRO_NAME:    _cp.MacroDef(MACRO_PARAMS, False, define.replacement),
                 SUBMACRO_NAME: _cp.MacroDef(SUBMACRO_PARAMS, False, submacro_tokens),
             }
-            output = list(_cp.preprocess(tokenize_snippet(ROOT_TEXT), registry, error_handler))
+            root_text_tracker = _tp.TextPosTracker()
+            root_text_tokens = list(_cp.tokenize(io.StringIO(ROOT_TEXT), ROOT_FILE_INDEX, root_text_tracker))
+            output = list(_cp.preprocess(root_text_tokens, ROOT_FILE_INDEX, root_text_tracker, registry,
+                                         error_handler))
             registry = {
                 POLICY_DEFINER_NAME: _cp.MacroDef(POLICY_DEFINER_PARAMS, False, []),
             }
             context = ScanContext(output, registry)
-            for _ in _cp.scan(context, error_handler):
+            for _ in _cp.scan(context, ROOT_FILE_INDEX, root_text_tracker, error_handler):
                 pass
             break
 except FileNotFoundError as e:

@@ -18,67 +18,31 @@ import archon.text_pos as _tp
 #
 # The C++ source code is assumed to use ASCII only.
 #
-def tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[Token]:
-    return _tokenize(input_, tracker)
+def tokenize(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[Token]:
+    return _tokenize(input_, file_index, tracker)
 
 
-@dataclasses.dataclass(slots=True, frozen=True)
-class Token:
-    type_: TokenType
-    text:  str
-    pos:   int
-
-
-class TokenType(enum.Enum):
-    NEWLINE        = enum.auto()
-    WHITESPACE     = enum.auto()
-    LINE_COMMENT   = enum.auto()
-    BLOCK_COMMENT  = enum.auto()
-    HASH_HASH      = enum.auto()
-    HASH           = enum.auto()
-    RAW_STRING_LIT = enum.auto()
-    STRING_LIT     = enum.auto()
-    CHAR_LIT       = enum.auto()
-    NUMBER         = enum.auto()
-    IDENTIFIER     = enum.auto()
-    PUNCT          = enum.auto()
-    BAD_CHAR       = enum.auto()
-    HEADER_NAME    = enum.auto()
-    PLACEMARKER    = enum.auto()
-
-
-def parse(tokens: typing.Iterable[Token], end_pos: int,
+def parse(tokens: typing.Iterable[Token], file_index: int, tracker: _tp.TextPosTracker,
           error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
-    return _parse(tokens, end_pos, error_handler)
+    return _parse(tokens, file_index, tracker, error_handler)
 
 
-type Directive = DefineDirective | GenericDirective
-
-@dataclasses.dataclass(slots=True, frozen=True)
-class DirectiveBase:
-    pos: int
-
-@dataclasses.dataclass(slots=True, frozen=True)
-class DefineDirective(DirectiveBase):
-    name:        str
-    params:      list[str] | None
-    is_variadic: bool
-    replacement: list[Token]
-
-@dataclasses.dataclass(slots=True, frozen=True)
-class GenericDirective(DirectiveBase):
-    tokens: list[Token]
-
-
-def preprocess(tokens: typing.Iterable[Token], end_pos: int, macro_registry: dict[str, MacroDef],
-               error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
-    return _preprocess(tokens, end_pos, macro_registry, error_handler)
+def preprocess(tokens: typing.Iterable[Token | Directive], file_index: int, tracker: _tp.TextPosTracker,
+               macro_registry: dict[str, MacroDef], error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+    return _preprocess(tokens, file_index, tracker, macro_registry, error_handler)
 
 
 # Scan token stream for macro invocations
 #
-def scan(context: ScanContext, end_pos: int, error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
-    return _scan(context, end_pos, error_handler)
+def scan(context: ScanContext, file_index: int, tracker: _tp.TextPosTracker,
+         error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+    return _scan(context, file_index, tracker, error_handler)
+
+
+# Resolve UCNs and verify Unicode Normal Form C
+#
+def resolve_identifier_ucns(identifier: str, pos_info: PositionInfo, error_handler: ErrorHandler) -> str | None:
+    return _resolve_identifier_ucns(identifier, pos_info, error_handler)
 
 
 class ScanContext(abc.ABC):
@@ -103,24 +67,96 @@ class MacroDef:
     replacement: list[Token]
 
 
-# Resolve UCNs and verify Unicode Normal Form C
-#
-def resolve_identifier_ucns(identifier: str, pos: int, error_handler: ErrorHandler) -> str | None:
-    return _resolve_identifier_ucns(identifier, pos, error_handler)
+type Directive = DefineDirective | GenericDirective
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class DirectiveBase:
+    pos: Position
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class DefineDirective(DirectiveBase):
+    name:        str
+    params:      list[str] | None
+    is_variadic: bool
+    replacement: list[Token]
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class GenericDirective(DirectiveBase):
+    tokens: list[Token]
 
 
 class ErrorHandler(typing.Protocol):
-    def __call__(self, pos: int, message: str, *args: typing.Any) -> None:
+    def __call__(self, pos: Position, message: str, *args: typing.Any) -> None:
         ...
 
 
+@dataclasses.dataclass(slots=True, frozen=True)
+class Token:
+    type_:    TokenType
+    text:     str
+    pos_info: PositionInfo
+
+
+class TokenType(enum.Enum):
+    NEWLINE        = enum.auto()
+    WHITESPACE     = enum.auto()
+    LINE_COMMENT   = enum.auto()
+    BLOCK_COMMENT  = enum.auto()
+    HASH_HASH      = enum.auto()
+    HASH           = enum.auto()
+    RAW_STRING_LIT = enum.auto()
+    STRING_LIT     = enum.auto()
+    CHAR_LIT       = enum.auto()
+    NUMBER         = enum.auto()
+    IDENTIFIER     = enum.auto()
+    PUNCT          = enum.auto()
+    BAD_CHAR       = enum.auto()
+    HEADER_NAME    = enum.auto()
+    PLACEMARKER    = enum.auto()
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class PositionInfo:
+    base_position:    Position
+    additional_parts: list[PositionInfoPart] | None = None
+
+    def __call__(self, offset: int) -> Position:
+        base_position = self.base_position
+        offset_2 = offset
+        if self.additional_parts:
+            for part in self.additional_parts:
+                if offset_2 < part.rel_offset:
+                    break
+                base_position = part.base_position
+                offset_2 -= part.rel_offset
+        return base_position.shift(offset_2)
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class PositionInfoPart:
+    rel_offset:    int
+    base_position: Position
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class Position:
+    file_index:  int
+    pos_in_file: int
+
+    def shift(self, offset: int) -> Position:
+        return Position(file_index = self.file_index, pos_in_file = self.pos_in_file + offset)
+
+    def to_info(self) -> PositionInfo:
+        return PositionInfo(self)
 
 
 
 
 
 
-def _tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[Token]:
+
+
+def _tokenize(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[Token]:
     line_iter = _logical_lines(input_, tracker)
 
     line:     str
@@ -209,7 +245,8 @@ def _tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections
                         state = _TokenizeState.IN_CONDITION
                     case _:
                         typing.assert_never(state)
-            yield Token(token_type, text, pos)
+            position = Position(file_index = file_index, pos_in_file = pos)
+            yield Token(token_type, text, position.to_info())
             i = j
 
 
@@ -275,25 +312,25 @@ class _Line:
     text: str
 
 
-def _parse(tokens: typing.Iterable[Token], end_pos: int,
+def _parse(tokens: typing.Iterable[Token], file_index: int, tracker: _tp.TextPosTracker,
            error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
     state = _ParseState.INITIAL
-    directive_pos = 0
     buffer_ = list[Token]()
+    tokens_iter = iter(tokens)
     while True:
-        token = next(tokens, None)
+        token = next(tokens_iter, None)
         match state:
             case _ParseState.INITIAL:
                 if not token:
                     break
-                if token.type_ in _IS_SPACE_OR_NEWLINE:
+                if token.type_ in _IS_SPACE:
                     yield token
                     continue
                 if token.type_ is not TokenType.HASH:
                     yield token
                     state = _ParseState.GENERAL
                     continue
-                directive_pos = token.pos
+                directive_pos = token.pos_info(0)
                 state = _ParseState.IN_DIRECTIVE
                 continue
             case _ParseState.GENERAL:
@@ -310,8 +347,11 @@ def _parse(tokens: typing.Iterable[Token], end_pos: int,
                 i = len(buffer_)
                 while i > 0 and buffer_[i - 1].type_ in _IS_SPACE:
                     i -= 1
-                end_pos_2 = token.pos if token else end_pos
-                if directive := _parse_directive(directive_pos, end_pos_2, buffer_[:i], error_handler):
+                if token:
+                    end_pos = token.pos_info(0)
+                else:
+                    end_pos = Position(file_index = file_index, pos_in_file = tracker.current())
+                if directive := _parse_directive(directive_pos, end_pos, buffer_[:i], error_handler):
                     yield directive
                 yield from buffer_[i:]
                 buffer_.clear()
@@ -331,7 +371,8 @@ class _ParseState(enum.Enum):
     IN_DIRECTIVE = enum.auto()
 
 
-def _parse_directive(pos: int, end_pos: int, tokens: list[Token], error_handler: ErrorHandler) -> Directive | None:
+def _parse_directive(pos: Position, end_pos: Position, tokens: list[Token],
+                     error_handler: ErrorHandler) -> Directive | None:
     i = 0
     while i < len(tokens) and tokens[i].type_ in _IS_SPACE:
         i += 1
@@ -345,7 +386,7 @@ def _parse_directive(pos: int, end_pos: int, tokens: list[Token], error_handler:
     return GenericDirective(pos, tokens[i:])
 
 
-def _parse_define_directive(pos: int, end_pos: int, tokens: list[Token], i: int,
+def _parse_define_directive(pos: Position, end_pos: Position, tokens: list[Token], i: int,
                             error_handler: ErrorHandler) -> DefineDirective | None:
     while i < len(tokens) and tokens[i].type_ in _IS_SPACE:
         i += 1
@@ -355,12 +396,12 @@ def _parse_define_directive(pos: int, end_pos: int, tokens: list[Token], i: int,
         return None
 
     if tokens[i].type_ is not TokenType.IDENTIFIER:
-        error_handler(tokens[i].pos, "Macro name must be an identifier")
+        error_handler(tokens[i].pos_info(0), "Macro name must be an identifier")
         return None
 
     token: Token | None
     token = tokens[i]
-    name = _resolve_identifier_ucns(token.text, token.pos, error_handler)
+    name = _resolve_identifier_ucns(token.text, token.pos_info, error_handler)
     if name is None:
         return None
     i += 1
@@ -375,7 +416,7 @@ def _parse_define_directive(pos: int, end_pos: int, tokens: list[Token], i: int,
         while True:
             if i < len(tokens):
                 token = tokens[i]
-                token_pos = token.pos
+                token_pos = token.pos_info(0)
                 i += 1
                 if token.type_ in _IS_SPACE:
                     continue
@@ -386,7 +427,7 @@ def _parse_define_directive(pos: int, end_pos: int, tokens: list[Token], i: int,
                 expect_param = False
                 if token:
                     if token.type_ is TokenType.IDENTIFIER:
-                        param = _resolve_identifier_ucns(token.text, token.pos, error_handler)
+                        param = _resolve_identifier_ucns(token.text, token.pos_info, error_handler)
                         if param is None:
                             return None
                         params.append(param)
@@ -424,21 +465,25 @@ def _parse_define_directive(pos: int, end_pos: int, tokens: list[Token], i: int,
     return DefineDirective(pos, name, params, is_variadic, replacement)
 
 
-def _preprocess(tokens: typing.Iterable[Token], end_pos: int, macro_registry: dict[str, MacroDef],
-                error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+def _preprocess(tokens: typing.Iterable[Token | Directive], file_index: int, tracker: _tp.TextPosTracker,
+                macro_registry: dict[str, MacroDef], error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
     # FIXME: Need to also parse and process preprocessor directives (_parse())        
     context = _PreprocessContext(tokens, macro_registry)
-    return _scan(context, end_pos, error_handler)
+    return _scan(context, file_index, tracker, error_handler)
 
 
 class _PreprocessContext(ScanContext):
-    def __init__(self, tokens: typing.Iterable[Token], macro_registry: dict[str, MacroDef]) -> None:
-        self._tokens         = tokens
+    def __init__(self, tokens: typing.Iterable[Token | Directive], macro_registry: dict[str, MacroDef]) -> None:
+        self._tokens         = iter(tokens)
         self._macro_registry = macro_registry
 
     @typing.override
     def next_token(self) -> Token | None:
-        return next(self._tokens, None)        
+                
+        token = next(self._tokens, None)
+        if token is None or isinstance(token, Token):
+            return token
+        assert False                
 
     @typing.override
     def lookup_macro(self, name: str) -> MacroDef | None:
@@ -450,12 +495,13 @@ class _PreprocessContext(ScanContext):
         assert False        
 
 
-def _scan(context: ScanContext, end_pos: int, error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+def _scan(context: ScanContext, file_index: int, tracker: _tp.TextPosTracker,
+          error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
     @dataclasses.dataclass(slots=True, frozen=True)
     class ArgDelim:
         begin: int
         end:   int
-        pos:   int
+        pos:   Position
 
     tokens:        list[Token]
     tokens_offset: int
@@ -464,7 +510,7 @@ def _scan(context: ScanContext, end_pos: int, error_handler: ErrorHandler) -> co
     def record_arg(token: Token) -> int:
         begin = tokens_offset
         end   = len(tokens)
-        arg_delims.append(ArgDelim(begin, end, token.pos))
+        arg_delims.append(ArgDelim(begin, end, token.pos_info(0)))
         return end
 
     def get_arg(begin: int, end: int) -> list[Token]:
@@ -487,7 +533,7 @@ def _scan(context: ScanContext, end_pos: int, error_handler: ErrorHandler) -> co
             return arg
         text = ""
         pos = arg_delims[min(begin, end - 1)].pos
-        token = Token(TokenType.PLACEMARKER, text, pos)
+        token = Token(TokenType.PLACEMARKER, text, pos.to_info())
         return [token]
 
     token = context.next_token()
@@ -496,7 +542,7 @@ def _scan(context: ScanContext, end_pos: int, error_handler: ErrorHandler) -> co
             yield token
             token = context.next_token()
             continue
-        name = _resolve_identifier_ucns(token.text, token.pos, error_handler)
+        name = _resolve_identifier_ucns(token.text, token.pos_info, error_handler)
         if name is None:
             yield token
             token = context.next_token()
@@ -526,7 +572,10 @@ def _scan(context: ScanContext, end_pos: int, error_handler: ErrorHandler) -> co
         while True:
             token = context.next_token()
             if not token:
-                pos = token.pos if token else end_pos
+                if token:
+                    pos = token.pos_info(0)
+                else:
+                    pos = Position(file_index = file_index, pos_in_file = tracker.current())
                 error_handler(pos, "Expected closing parenthesis or comma in invocation of function-like macro %s",
                               _b.clamped_quote(name, 64))
                 break
@@ -551,7 +600,7 @@ def _scan(context: ScanContext, end_pos: int, error_handler: ErrorHandler) -> co
                                 pos = arg_delims[n - 1].pos
                             else:
                                 arg = get_arg(0, 1)
-                                pos = arg[0].pos if arg else arg_delims[0].pos
+                                pos = arg[0].pos_info(0) if arg else arg_delims[0].pos
                             error_handler(pos, "Too many arguments in invocation of function-like macro %s",
                                           _b.clamped_quote(name, 64))
                             break
@@ -572,31 +621,32 @@ def _scan(context: ScanContext, end_pos: int, error_handler: ErrorHandler) -> co
 _IS_SPACE = {TokenType.NEWLINE, TokenType.WHITESPACE, TokenType.LINE_COMMENT, TokenType.BLOCK_COMMENT}
 
 
-def _resolve_identifier_ucns(identifier: str, pos: int, error_handler: ErrorHandler) -> str | None:
+def _resolve_identifier_ucns(identifier: str, pos_info: PositionInfo, error_handler: ErrorHandler) -> str | None:
     class Error(Exception):
         pass
     def replace(m: re.Match[str]) -> str:
         which = m.lastindex
         assert which is not None and 1 <= which <= 4
         text = m.group(which)
-        subpos = pos + m.start()
+        offset = m.start()
 
         if which == 4:
             try:
                 return unicodedata.lookup(text)
             except KeyError:
-                error_handler(subpos, "Invalid Unicode character name in UCN: %s", _b.clamped_quote(text, 64))
+                error_handler(pos_info(offset), "Invalid Unicode character name in UCN: %s",
+                              _b.clamped_quote(text, 64))
                 raise Error from None
 
         code_point = int(text, 16)
         if 0xD800 <= code_point < 0xE000:
-            error_handler(subpos, "Illegal surrogate code point in UCN: U+%04X" % code_point)
+            error_handler(pos_info(offset), "Illegal surrogate code point in UCN: U+%04X" % code_point)
             raise Error from None
 
         try:
             return chr(code_point)
         except ValueError:
-            error_handler(subpos, f"UCN code point out of range: U+%04X" % code_point)
+            error_handler(pos_info(offset), f"UCN code point out of range: U+%04X" % code_point)
             raise Error from None
 
     try:
@@ -606,7 +656,7 @@ def _resolve_identifier_ucns(identifier: str, pos: int, error_handler: ErrorHand
 
     if unicodedata.is_normalized("NFC", resolved):
         return resolved
-    error_handler(pos, "Identifier does not conform to Unicode NFC")
+    error_handler(pos_info(0), "Identifier does not conform to Unicode NFC")
     return None
 
 
