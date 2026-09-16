@@ -94,7 +94,7 @@ template<class I, class G> void kdtree_sort(int k, I begin, I end, G&& get_comp)
 ///
 template<class I, class G, class T, class P>
 bool kdtree_find(int k, I begin, I end, G&& get_comp, const T* components,
-                 std::optional<core::Type<T>> max_dist, P& point, T& dist);
+                 std::optional<core::type<T>> max_dist, P& point, T& dist);
 
 
 
@@ -318,7 +318,7 @@ template<class I, class G> inline void kdtree_sort(int k, I begin, I end, G&& ge
 
 template<class I, class G, class T, class P>
 inline bool kdtree_find(int k, I begin, I end, G&& get_comp, const T* components,
-                        std::optional<core::Type<T>> max_dist, P& point, T& dist)
+                        std::optional<core::type<T>> max_dist, P& point, T& dist)
 {
     impl::Kdtree<I, G> tree = { k, begin, end, std::forward<G>(get_comp) }; // Throws
     return tree.template find<T>(components, std::move(max_dist), point, dist); // Throws

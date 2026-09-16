@@ -178,7 +178,7 @@ int main(int argc, char* argv[])
     load_config.detected_file_format = &detected_file_format;
 
     image::FileFormat::SpecialLoadConfigRegistry special_load_config_registry;
-    special_load_config_registry.register_(png_load_config); // Throws
+    special_load_config_registry.set(png_load_config); // Throws
     load_config.special = &special_load_config_registry;
 
     bool errors_occurred = false;

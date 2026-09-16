@@ -6,11 +6,14 @@ set_target_properties(DisplaySnooper PROPERTIES
   OUTPUT_NAME "archon-display-snooper"
 )
 
-target_link_libraries(DisplaySnooper PRIVATE
-  Core
-  Log
-  Cli
-  Display
+target_link_libraries(DisplaySnooper
+  PRIVATE Core
+  PRIVATE Log
+  PRIVATE Cli
+  PRIVATE Math
+  PRIVATE Util
+  PRIVATE Image
+  PRIVATE Display
 )
 
 
@@ -22,10 +25,11 @@ set_target_properties(ImageViewer PROPERTIES
   OUTPUT_NAME "archon-image-viewer"
 )
 
-target_link_libraries(ImageViewer PRIVATE
-  Core
-  Log
-  Cli
-  Image
-  Display
+target_link_libraries(ImageViewer
+  PRIVATE Core
+  PRIVATE Log
+  PRIVATE Cli
+  PRIVATE Util
+  PRIVATE Image
+  PRIVATE Display
 )

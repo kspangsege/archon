@@ -2631,6 +2631,7 @@ auto x11::get_screen_info(Display* dpy, const x11::ExtensionInfo& extension_info
     info.default_visual = XVisualIDFromVisual(DefaultVisual(dpy, screen));
     info.default_colormap = DefaultColormap(dpy, screen);
 
+    static_cast<void>(extension_info);
 #if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
     const char* str = glXQueryExtensionsString(dpy, screen);
     if (ARCHON_LIKELY(str)) {

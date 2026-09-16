@@ -1,0 +1,602 @@
+from __future__ import annotations
+
+import typing
+import dataclasses
+import collections.abc
+import enum
+import re
+import pathlib
+
+import archon.base as _b
+import archon.text_pos as _tp
+import archon.log as _l
+import archon.cmake.uncertainty_reason as _cur
+
+
+def parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
+          error_handler: ErrorHandler) -> collections.abc.Iterator[Invoc]:
+    return _parse(input_, tracker, warning_handler, error_handler)
+
+
+def is_flow_control_command(command_name_cf: str) -> bool:
+    return command_name_cf in _FLOW_CONTROL_MAP
+
+
+class ErrorHandler(typing.Protocol):
+    def __call__(self, pos: int, message: str, *args: typing.Any) -> None:
+        ...
+
+
+type Invoc = IfInvoc | ForeachInvoc | WhileInvoc | MacroDefInvoc | FunctionDefInvoc | BlockInvoc | ReturnInvoc | \
+    BreakInvoc | ContinueInvoc | GenericInvoc
+
+type GeneralizedInvoc = Invoc | ClosingInvoc | IfBranch
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class InvocBase:
+    command_name: str
+    arguments:    list[Protoargument]
+    pos:          int
+    lparen_pos:   int
+    rparen_pos:   int
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class StructuredInvoc(InvocBase):
+    children: list[Invoc]
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class ExplicitlyClosedInvoc(StructuredInvoc):
+    closing_invoc: ClosingInvoc
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class ClosingInvoc(InvocBase):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class IfInvoc(ExplicitlyClosedInvoc):
+    elseif_branches: list[IfBranch]
+    else_branch:     IfBranch | None
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class IfBranch(StructuredInvoc):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class ForeachInvoc(ExplicitlyClosedInvoc):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class WhileInvoc(ExplicitlyClosedInvoc):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class MacroDefInvoc(ExplicitlyClosedInvoc):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class FunctionDefInvoc(ExplicitlyClosedInvoc):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class BlockInvoc(ExplicitlyClosedInvoc):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class ReturnInvoc(InvocBase):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class BreakInvoc(InvocBase):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class ContinueInvoc(InvocBase):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class GenericInvoc(InvocBase):
+    command_name_cf: str
+
+
+type Protoargument = CertainProtoargument | UncertainProtoargument
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class ProtoargumentBase:
+    type_:     ProtoargumentType
+    orig_text: str
+    pos:       int
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class CertainProtoargument(ProtoargumentBase):
+    string:     _tp.PosMappedString
+    is_derived: bool
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class UncertainProtoargument(ProtoargumentBase):
+    reason: _cur.ExpansionUncertaintyReason
+
+
+class ProtoargumentType(enum.Enum):
+    BARE      = 0
+    QUOTED    = 1
+    BRACKETED = 2
+
+
+
+
+
+
+
+
+def _parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
+           error_handler: ErrorHandler) -> collections.abc.Iterator[Invoc]:
+    protoinvocations = _protoparse(input_, tracker, warning_handler, error_handler)
+    current = next(protoinvocations, None)
+
+    def parse(parent_type: _ParentType, silent: bool = False) -> collections.abc.Iterator[Invoc]:
+        nonlocal current
+        while True:
+            if not current:
+                return
+            match current.flow_control:
+                case None:
+                    yield GenericInvoc(current.command_name, current.arguments, current.pos, current.lparen_pos,
+                                       current.rparen_pos, current.command_name_cf)
+                    current = advance(current)
+                    continue
+
+                case _FlowControl.IF:
+                    orig = current
+                    current = advance(current)
+                    children = list(parse(_ParentType.IF))
+                    last = orig
+                    elseif_branches: list[IfBranch]  = []
+                    else_branch:     IfBranch | None = None
+                    while current and current.flow_control is _FlowControl.ELSEIF:
+                        orig_2 = current
+                        current = advance(current)
+                        children_2 = list(parse(_ParentType.ELSEIF))
+                        branch = IfBranch(orig_2.command_name, orig_2.arguments, orig_2.pos, orig_2.lparen_pos,
+                                          orig_2.rparen_pos, children_2)
+                        elseif_branches.append(branch)
+                        last = orig_2
+                    if current and current.flow_control is _FlowControl.ELSE:
+                        orig_2 = current
+                        current = advance(current)
+                        children_2 = list(parse(_ParentType.ELSE))
+                        branch = IfBranch(orig_2.command_name, orig_2.arguments, orig_2.pos, orig_2.lparen_pos,
+                                          orig_2.rparen_pos, children_2)
+                        else_branch = branch
+                        last = orig_2
+                    while current and current.flow_control in (_FlowControl.ELSEIF, _FlowControl.ELSE):
+                        parent_type_2 = _PARENT_TYPE_MAP[current.flow_control]
+                        if not silent:
+                            error_handler(current.pos, "%s() after %s()", current.command_name, last.command_name)
+                        orig_2 = current
+                        current = advance(current)
+                        for _ in parse(parent_type_2, silent=True):
+                            pass
+                        last = orig_2
+                    if not current:
+                        if not silent:
+                            error_handler(last.pos, "Unclosed %s()", last.command_name)
+                        return
+                    assert current.flow_control is _FlowControl.ENDIF
+                    closing_invoc = ClosingInvoc(current.command_name, current.arguments, current.pos,
+                                                 current.lparen_pos, current.rparen_pos)
+                    yield IfInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos, orig.rparen_pos,
+                                  children, closing_invoc, elseif_branches, else_branch)
+                    current = advance(current)
+                    continue
+
+                case _FlowControl.ELSEIF | _FlowControl.ELSE | _FlowControl.ENDIF:
+                    if parent_type in [_ParentType.IF, _ParentType.ELSEIF, _ParentType.ELSE]:
+                        return
+                    if not silent:
+                        error_handler(current.pos, "Unmatched %s()", current.command_name)
+                    current = advance(current)
+                    continue
+
+                case _FlowControl.FOREACH | _FlowControl.WHILE | _FlowControl.MACRO | _FlowControl.FUNCTION | \
+                     _FlowControl.BLOCK:
+                    orig = current
+                    orig_command = current.flow_control
+                    current = advance(current)
+                    children = list(parse(_PARENT_TYPE_MAP[orig_command]))
+                    if not current:
+                        if not silent:
+                            error_handler(orig.pos, "Unclosed %s()", orig.command_name)
+                        return
+                    assert current.flow_control is _FLOW_CONTROL_END_MAP[orig_command]
+                    closing_invoc = ClosingInvoc(current.command_name, current.arguments, current.pos,
+                                                 current.lparen_pos, current.rparen_pos)
+                    if orig_command == _FlowControl.FOREACH:
+                        yield ForeachInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
+                                           orig.rparen_pos, children, closing_invoc)
+                    elif orig_command == _FlowControl.WHILE:
+                        yield WhileInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
+                                         orig.rparen_pos, children, closing_invoc)
+                    elif orig_command == _FlowControl.MACRO:
+                        yield MacroDefInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
+                                            orig.rparen_pos, children, closing_invoc)
+                    elif orig_command == _FlowControl.FUNCTION:
+                        yield FunctionDefInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
+                                               orig.rparen_pos, children, closing_invoc)
+                    elif orig_command == _FlowControl.BLOCK:
+                        yield BlockInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
+                                         orig.rparen_pos, children, closing_invoc)
+                    else:
+                        typing.assert_never(orig_command)
+                    current = advance(current)
+                    continue
+
+                case _FlowControl.ENDFOREACH | _FlowControl.ENDWHILE | _FlowControl.ENDMACRO | \
+                     _FlowControl.ENDFUNCTION | _FlowControl.ENDBLOCK:
+                    if parent_type is _PARENT_TYPE_MAP[current.flow_control]:
+                        return
+                    if not silent:
+                        error_handler(current.pos, "Unmatched %s()", current.command_name)
+                    current = advance(current)
+                    continue
+
+                case _FlowControl.RETURN:
+                    yield ReturnInvoc(current.command_name, current.arguments, current.pos, current.lparen_pos,
+                                      current.rparen_pos)
+                    current = advance(current)
+                    continue
+
+                case _FlowControl.BREAK:
+                    yield BreakInvoc(current.command_name, current.arguments, current.pos, current.lparen_pos,
+                                     current.rparen_pos)
+                    current = advance(current)
+                    continue
+
+                case _FlowControl.CONTINUE:
+                    yield ContinueInvoc(current.command_name, current.arguments, current.pos, current.lparen_pos,
+                                        current.rparen_pos)
+                    current = advance(current)
+                    continue
+
+            typing.assert_never(current.flow_control)
+
+    def advance(prev: _Protoinvoc) -> _Protoinvoc | None:
+        return next(protoinvocations, None)
+
+    return parse(_ParentType.ROOT)
+
+
+class _ParentType(enum.Enum):
+    ROOT     = 0
+    IF       = 1
+    ELSEIF   = 2
+    ELSE     = 3
+    FOREACH  = 4
+    WHILE    = 5
+    MACRO    = 6
+    FUNCTION = 7
+    BLOCK    = 8
+
+
+def _protoparse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
+                error_handler: ErrorHandler) -> collections.abc.Iterator[_Protoinvoc]:
+    class State(enum.Enum):
+        INITIAL   = 0
+        HAVE_NAME = 1
+        IN_ARGS   = 2
+
+    class InvocInfo:
+        def __init__(self, pos: int) -> None:
+            self.command_name = ""
+            self.args         = list[Protoargument]()
+            self.invalid      = False
+            self.pos          = pos
+            self.lparen_pos   = 0
+
+    state = State.INITIAL
+    level:     int
+    have_args: bool
+    invoc_info: InvocInfo | None = None
+
+    for token in _tokenize(input_, tracker, error_handler):
+        match state:
+            case State.INITIAL:
+                if isinstance(token, _UnquotedToken):
+                    invoc_info = InvocInfo(token.pos)
+                    if not re.fullmatch(r"[A-Za-z_][0-9A-Za-z_]*", token.text):
+                        error_handler(token.pos, "Invalid command name (%s)", _b.quote(token.text))
+                        invoc_info.invalid = True
+                    invoc_info.command_name = token.text
+                    state = State.HAVE_NAME
+                    continue
+                if isinstance(token, _LParenToken):
+                    invoc_info = InvocInfo(token.pos)
+                    error_handler(token.pos, "Missing command name")
+                    invoc_info.invalid = True
+                    state = State.IN_ARGS
+                    level = 0
+                    have_args = False
+                    invoc_info.lparen_pos = token.pos
+                    continue
+                if isinstance(token, _RParenToken):
+                    error_handler(token.pos, "Stray closing parenthesis")
+                    continue
+                invoc_info = InvocInfo(token.pos)
+                error_handler(token.pos, "Invalid command name")
+                invoc_info.invalid = True
+                state = State.HAVE_NAME
+                continue
+
+            case State.HAVE_NAME:
+                assert invoc_info
+                if isinstance(token, _LParenToken):
+                    state = State.IN_ARGS
+                    level = 0
+                    have_args = False
+                    invoc_info.lparen_pos = token.pos
+                    continue
+                if isinstance(token, _RParenToken):
+                    error_handler(token.pos, "Stray closing parenthesis")
+                    state = State.INITIAL
+                    continue
+                error_handler(token.pos, "Stray command argument (%s)", _b.quote(token.text))
+                invoc_info.invalid = True
+                continue
+
+            case State.IN_ARGS:
+                assert invoc_info
+                require_preceding_whitespace = True
+                reset_have_args = False
+                type_ = ProtoargumentType.BARE
+                prefix_size = 0
+                suffix_size = 0
+                if isinstance(token, _LParenToken):
+                    level += 1
+                    reset_have_args = True
+                elif isinstance(token, _RParenToken):
+                    assert level >= 0
+                    if level == 0:
+                        if not invoc_info.invalid:
+                            command_name_cf = invoc_info.command_name.casefold()
+                            command = _FLOW_CONTROL_MAP.get(command_name_cf)
+                            rparen_pos = token.pos
+                            yield _Protoinvoc(invoc_info.command_name, command_name_cf, command, invoc_info.args,
+                                              invoc_info.pos, invoc_info.lparen_pos, rparen_pos)
+                        state = State.INITIAL
+                        continue
+                    level -= 1
+                    require_preceding_whitespace = False
+                elif isinstance(token, _UnquotedToken):
+                    pass
+                elif isinstance(token, _QuotedToken):
+                    type_ = ProtoargumentType.QUOTED
+                    prefix_size = 1
+                    suffix_size = 1
+                elif isinstance(token, _BracketToken):
+                    type_ = ProtoargumentType.BRACKETED
+                    prefix_size = token.prefix_size
+                    suffix_size = token.suffix_size
+                else:
+                    assert False
+                if have_args and require_preceding_whitespace and not token.preceded_by_whitespace:
+                    warning_handler(token.pos, "Missing whitespace between arguments")
+                i = prefix_size
+                j = len(token.text) - suffix_size
+                string = _tp.PosMappedString.from_linear_string(token.text[i:j], token.pos + i)
+                is_derived = False
+                invoc_info.args.append(CertainProtoargument(type_, token.text, token.pos, string, is_derived))
+                have_args = True
+                if reset_have_args:
+                    have_args = False
+                continue
+
+        typing.assert_never(state)
+
+    if state != State.INITIAL:
+        assert invoc_info
+        error_handler(invoc_info.pos, "Unterminated command invocation")
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _Protoinvoc:
+    command_name:    str
+    command_name_cf: str
+    flow_control:    _FlowControl | None
+    arguments:       list[Protoargument]
+    pos:             int
+    lparen_pos:      int
+    rparen_pos:      int
+
+
+class _FlowControl(enum.Enum):
+    IF          =  0
+    ELSEIF      =  1
+    ELSE        =  2
+    ENDIF       =  3
+    FOREACH     =  4
+    ENDFOREACH  =  5
+    WHILE       =  6
+    ENDWHILE    =  7
+    MACRO       =  8
+    ENDMACRO    =  9
+    FUNCTION    = 10
+    ENDFUNCTION = 11
+    BLOCK       = 12
+    ENDBLOCK    = 13
+    RETURN      = 14
+    BREAK       = 15
+    CONTINUE    = 16
+
+
+_FLOW_CONTROL_MAP = {
+    "if":          _FlowControl.IF,
+    "elseif":      _FlowControl.ELSEIF,
+    "else":        _FlowControl.ELSE,
+    "endif":       _FlowControl.ENDIF,
+    "foreach":     _FlowControl.FOREACH,
+    "endforeach":  _FlowControl.ENDFOREACH,
+    "while":       _FlowControl.WHILE,
+    "endwhile":    _FlowControl.ENDWHILE,
+    "macro":       _FlowControl.MACRO,
+    "endmacro":    _FlowControl.ENDMACRO,
+    "function":    _FlowControl.FUNCTION,
+    "endfunction": _FlowControl.ENDFUNCTION,
+    "block":       _FlowControl.BLOCK,
+    "endblock":    _FlowControl.ENDBLOCK,
+    "return":      _FlowControl.RETURN,
+    "break":       _FlowControl.BREAK,
+    "continue":    _FlowControl.CONTINUE,
+}
+
+
+_FLOW_CONTROL_END_MAP = {
+    _FlowControl.IF:       _FlowControl.ENDIF,
+    _FlowControl.FOREACH:  _FlowControl.ENDFOREACH,
+    _FlowControl.WHILE:    _FlowControl.ENDWHILE,
+    _FlowControl.MACRO:    _FlowControl.ENDMACRO,
+    _FlowControl.FUNCTION: _FlowControl.ENDFUNCTION,
+    _FlowControl.BLOCK:    _FlowControl.ENDBLOCK,
+}
+
+
+_PARENT_TYPE_MAP = {
+    _FlowControl.IF:          _ParentType.IF,
+    _FlowControl.ELSEIF:      _ParentType.ELSEIF,
+    _FlowControl.ELSE:        _ParentType.ELSE,
+    _FlowControl.ENDIF:       _ParentType.IF,
+    _FlowControl.FOREACH:     _ParentType.FOREACH,
+    _FlowControl.ENDFOREACH:  _ParentType.FOREACH,
+    _FlowControl.WHILE:       _ParentType.WHILE,
+    _FlowControl.ENDWHILE:    _ParentType.WHILE,
+    _FlowControl.MACRO:       _ParentType.MACRO,
+    _FlowControl.ENDMACRO:    _ParentType.MACRO,
+    _FlowControl.FUNCTION:    _ParentType.FUNCTION,
+    _FlowControl.ENDFUNCTION: _ParentType.FUNCTION,
+    _FlowControl.BLOCK:       _ParentType.BLOCK,
+    _FlowControl.ENDBLOCK:    _ParentType.BLOCK,
+}
+
+
+def _tokenize(input_: typing.TextIO, tracker: _tp.FilePosTracker,
+              error_handler: ErrorHandler) -> collections.abc.Iterator[_Token]:
+    chunk = ""
+    eof = False
+    prev_token_is_whitespace = False
+    while True:
+        line = input_.readline()
+        if line:
+            chunk += line
+        else:
+            eof = True
+        pos = 0
+        while pos < len(chunk):
+            m = _TOKEN_REGEX.match(chunk, pos)
+            assert m
+            token_text = m.group(0)
+            new_pos = m.end()
+
+            if m.group("SPACE") or m.group("COMMENT"):
+                tracker.scan_chunk(token_text)
+                prev_token_is_whitespace = True
+                pos = new_pos
+                continue
+
+            if new_pos == len(chunk) and not eof:
+                break
+
+            token_pos = tracker.scan_chunk(token_text)
+            preceded_by_whitespace = prev_token_is_whitespace
+            prev_token_is_whitespace = False
+            pos = new_pos
+
+            if m.group("UNQUOTED"):
+                yield _UnquotedToken(token_text, preceded_by_whitespace, token_pos)
+                continue
+
+            if m.group("QUOTED"):
+                yield _QuotedToken(token_text, preceded_by_whitespace, token_pos)
+                continue
+
+            if m.group("LPAREN"):
+                yield _LParenToken(token_text, preceded_by_whitespace, token_pos)
+                continue
+
+            if m.group("RPAREN"):
+                yield _RParenToken(token_text, preceded_by_whitespace, token_pos)
+                continue
+
+            if m.group("BRACKET"):
+                eqs = m.group("eqs2")
+                prefix_size = 2 + len(eqs)
+                suffix_size = 2 + len(eqs)
+                if len(token_text) > prefix_size + suffix_size and token_text[prefix_size] == "\n":
+                    prefix_size += 1
+                yield _BracketToken(token_text, preceded_by_whitespace, token_pos, prefix_size, suffix_size)
+                continue
+
+            if m.group("UNTERM_COMMENT"):
+                error_handler(token_pos, "Unterminated bracketed comment")
+                continue
+
+            if m.group("UNTERM_BRACKET"):
+                error_handler(token_pos, "Unterminated bracket string")
+                continue
+
+            if m.group("UNTERM_QUOTED"):
+                error_handler(token_pos, "Unterminated quoted string")
+                continue
+
+            if m.group("UNTERM_ESCAPE"):
+                error_handler(token_pos, "Unterminated escape sequence")
+                continue
+
+            assert False
+
+        if eof:
+            break
+        chunk = chunk[pos:]
+
+
+type _Token = _UnquotedToken | _QuotedToken | _BracketToken | _LParenToken | _RParenToken
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _TokenBase:
+    text:                   str
+    preceded_by_whitespace: bool
+    pos:                    int
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _UnquotedToken(_TokenBase):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _QuotedToken(_TokenBase):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _BracketToken(_TokenBase):
+    prefix_size: int
+    suffix_size: int
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _LParenToken(_TokenBase):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _RParenToken(_TokenBase):
+    pass
+
+
+_TOKEN_REGEX = re.compile(
+    r'(?P<COMMENT>#\[(?P<eqs1>=*)\[.*?\](?P=eqs1)\]|#(?!\[=*\[)[^\n]*)|'
+    r'(?P<BRACKET>\[(?P<eqs2>=*)\[.*?\](?P=eqs2)\])|'
+    r'(?P<QUOTED>"(?:\\.|[^"\\])*")|'
+    r'(?P<UNTERM_COMMENT>#\[=*\[.*)|'
+    r'(?P<UNTERM_BRACKET>\[=*\[.*)|'
+    r'(?P<UNTERM_QUOTED>".*)|'
+    r'(?P<LPAREN>\()|'
+    r'(?P<RPAREN>\))|'
+    r'(?P<SPACE>\s+)|'
+    r'(?P<UNQUOTED>(?:\\[^\n]|[^\s()"#\\])+)|'
+    r'(?P<UNTERM_ESCAPE>\\)',
+    re.DOTALL,
+)

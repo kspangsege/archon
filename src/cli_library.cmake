@@ -1,9 +1,5 @@
 add_library(Cli INTERFACE)
 
-target_link_libraries(Cli INTERFACE
-  Core
-  Log
-)
 
 target_sources(Cli PUBLIC FILE_SET HEADERS FILES
   archon/cli/impl/call.hpp
@@ -46,7 +42,20 @@ target_sources(Cli PUBLIC FILE_SET HEADERS FILES
   archon/cli.hpp
 )
 
+
+target_link_libraries(Cli
+  INTERFACE Core
+  INTERFACE Log
+)
+
+
 install(TARGETS Cli FILE_SET HEADERS)
 
-add_subdirectory(archon/cli/test)
-add_subdirectory(archon/cli/demo)
+
+if(ARCHON_INCLUDE_DEMO_PROGS)
+  add_subdirectory(archon/cli/demo)
+endif()
+
+if(ARCHON_INCLUDE_TEST_SUITE)
+  add_subdirectory(archon/cli/test)
+endif()

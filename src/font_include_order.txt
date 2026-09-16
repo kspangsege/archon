@@ -1,0 +1,13 @@
+archon/font.hpp FORCE
+
+archon/font/font_namespace.hpp
+archon/font/impl/config.h
+archon/font/size.hpp
+archon/font/code_point.hpp
+archon/font/face.hpp
+archon/font/loader.hpp
+archon/font/implementation.hpp
+archon/font/fallback_implementation.hpp
+archon/font/freetype_implementation.hpp
+archon/font/list_implementations.hpp
+archon/font/list_font_faces.hpp
