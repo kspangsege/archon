@@ -19,9 +19,8 @@ SUBMACRO_NAME = "SELECT_POLICY_ARGS"
 SUBMACRO_PARAMS = ["dummy", "policy_ident", "description", "major", "minor", "patch", "status"]
 POLICY_DEFINER_NAME = "DEFINE_POLICY"
 POLICY_DEFINER_PARAMS = ["policy_ident", "description", "major", "minor", "patch"]
-ROOT_TEXT     = "%s(, %s)" % (MACRO_NAME, SUBMACRO_NAME)
-# FIXME: Define the sub-macro inside ROOT_TEXT                    
-SUBMACRO_TEXT = "%s(%s)" % (POLICY_DEFINER_NAME, ", ".join(POLICY_DEFINER_PARAMS))
+ROOT_TEXT = "#define %s %s(%s)\n%s(, %s)" % (SUBMACRO_NAME, POLICY_DEFINER_NAME, ", ".join(POLICY_DEFINER_PARAMS),
+                                             MACRO_NAME, SUBMACRO_NAME)
 
 assert set(POLICY_DEFINER_PARAMS).issubset(SUBMACRO_PARAMS)
 
@@ -74,17 +73,15 @@ class ScanContext(_cp.ScanContext):
     @typing.override
     def handle_macro_invoc(self, name: str, definition: _cp.MacroDef, arguments: list[list[_cp.Token]] | None,
                            va_args: list[_cp.Token] | None) -> None:
-        assert False    
+        logger.info("---------------->> '%s'", name)        
 
-MAIN_FILE_INDEX          = 0
-ROOT_TEXT_FILE_INDEX     = 1
-SUBMACRO_TEXT_FILE_INDEX = 2
+MAIN_FILE_INDEX      = 0
+ROOT_TEXT_FILE_INDEX = 1
 
 try:
     with open(path) as file_:
-        tokens = _cp.tokenize(file_, MAIN_FILE_INDEX, main_tracker)
         initial = True
-        for elem in _cp.parse(tokens, error_handler):
+        for elem in _cp.parse(file_, MAIN_FILE_INDEX, main_tracker, error_handler):
             if not isinstance(elem, _cp.DefineDirective) or elem.name != MACRO_NAME:
                 continue
             define = elem
@@ -94,22 +91,18 @@ try:
             if define.params != MACRO_PARAMS:
                 error_handler(define.pos, "Unexpected macro parameters")
                 sys.exit(1)
-            submacro_text_tracker = _tp.TextPosTracker()
-            submacro_text_tokens = list(_cp.tokenize(io.StringIO(SUBMACRO_TEXT), SUBMACRO_TEXT_FILE_INDEX,
-                                                     submacro_text_tracker))
             registry = {
-                MACRO_NAME:    _cp.MacroDef(MACRO_PARAMS, False, define.replacement),
-                SUBMACRO_NAME: _cp.MacroDef(SUBMACRO_PARAMS, False, submacro_text_tokens),
+                MACRO_NAME: _cp.MacroDef(MACRO_PARAMS, False, define.replacement),
             }
             root_text_tracker = _tp.TextPosTracker()
-            root_text_tokens = list(_cp.tokenize(io.StringIO(ROOT_TEXT), ROOT_TEXT_FILE_INDEX, root_text_tracker))
-            output = list(_cp.preprocess(root_text_tokens, registry, error_handler))
+            tokens = list(_cp.preprocess(io.StringIO(ROOT_TEXT), ROOT_TEXT_FILE_INDEX, root_text_tracker, registry,
+                                         error_handler))
             position = _cp.Position(file_index = ROOT_TEXT_FILE_INDEX, pos_in_file = root_text_tracker.current())
-            output.append(_cp.Token(_cp.TokenType.END_OF_INPUT, "", position.to_info()))
+            tokens.append(_cp.Token(_cp.TokenType.END_OF_INPUT, "", position.to_info()))
             registry = {
                 POLICY_DEFINER_NAME: _cp.MacroDef(POLICY_DEFINER_PARAMS, False, []),
             }
-            context = ScanContext(output, registry)
+            context = ScanContext(tokens, registry)
             for _ in _cp.scan(context, error_handler):
                 pass
             break

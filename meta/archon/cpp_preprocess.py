@@ -12,6 +12,18 @@ import archon.base as _b
 import archon.text_pos as _tp
 
 
+def preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker,
+               macro_registry: dict[str, MacroDef], error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+    tokens = parse(input_, file_index, tracker, error_handler)
+    return _preprocess(tokens, macro_registry, error_handler)
+
+
+def parse(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker,
+          error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
+    tokens = _tokenize(input_, file_index, tracker)
+    return _parse(tokens, error_handler)
+
+
 # Tokenize C++ source code in accordance with a C++26 preprocessor.
 #
 # The input must be "newline normalized" (text mode).
@@ -22,12 +34,13 @@ def tokenize(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker
     return _tokenize(input_, file_index, tracker)
 
 
-def parse(tokens: typing.Iterable[Token], error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
+def parse_tokens(tokens: typing.Iterable[Token],
+                 error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
     return _parse(tokens, error_handler)
 
 
-def preprocess(tokens: typing.Iterable[Token | Directive], macro_registry: dict[str, MacroDef],
-               error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+def preprocess_tokens(tokens: typing.Iterable[Token | Directive], macro_registry: dict[str, MacroDef],
+                      error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
     return _preprocess(tokens, macro_registry, error_handler)
 
 
@@ -468,7 +481,6 @@ def _parse_define_directive(pos: Position, end_pos: Position, tokens: list[Token
 
 def _preprocess(tokens: typing.Iterable[Token | Directive], macro_registry: dict[str, MacroDef],
                 error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
-    # FIXME: Need to also parse and process preprocessor directives (_parse())        
     context = _PreprocessContext(tokens, macro_registry)
     return _scan(context, error_handler)
 
@@ -481,10 +493,16 @@ class _PreprocessContext(ScanContext):
     @typing.override
     def next_token(self) -> Token:
                 
-        token = next(self._tokens)
-        if isinstance(token, Token):
-            return token
-        assert False                
+        while True:
+            token = next(self._tokens)
+            if isinstance(token, Token):
+                return token
+            if isinstance(token, DefineDirective):
+                directive = token
+                self._macro_registry[directive.name] = MacroDef(directive.params, directive.is_variadic,
+                                                                directive.replacement)
+                continue
+            assert False                
 
     @typing.override
     def lookup_macro(self, name: str) -> MacroDef | None:
