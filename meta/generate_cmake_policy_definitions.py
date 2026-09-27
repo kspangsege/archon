@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import typing
+import dataclasses
 import collections.abc
+import enum
+import re
 import sys
 import pathlib
 import io
@@ -11,18 +14,11 @@ import archon.text_pos as _tp
 import archon.log as _l
 import archon.command_line_interface as _cli
 import archon.cpp_preprocess as _cp
+import archon.cmake.policy as _cp2
 
 
 MACRO_NAME = "CM_FOR_EACH_POLICY_TABLE"
 MACRO_PARAMS = ["POLICY", "SELECT"]
-SUBMACRO_NAME = "SELECT_POLICY_ARGS"
-SUBMACRO_PARAMS = ["dummy", "policy_ident", "description", "major", "minor", "patch", "status"]
-POLICY_DEFINER_NAME = "DEFINE_POLICY"
-POLICY_DEFINER_PARAMS = ["policy_ident", "description", "major", "minor", "patch"]
-ROOT_TEXT = "#define %s %s(%s)\n%s(, %s)" % (SUBMACRO_NAME, POLICY_DEFINER_NAME, ", ".join(POLICY_DEFINER_PARAMS),
-                                             MACRO_NAME, SUBMACRO_NAME)
-
-assert set(POLICY_DEFINER_PARAMS).issubset(SUBMACRO_PARAMS)
 
 
 help_     = _b.Wrap(False)
@@ -52,62 +48,250 @@ logger = _l.LimitLogger(root_logger, log_level.value)
 class Error(Exception):
     pass
 
-main_tracker = _tp.TextPosTracker()
+tracker = _tp.TextPosTracker()
+
+def extract_definition() -> _cp.DefineDirective:
+    try:
+        with open(path) as file_:
+            initial = True
+            dummy_file_index = 0
+            for elem in _cp.parse(file_, dummy_file_index, tracker, error_handler):
+                match elem:
+                    case _cp.DefineDirective() as define:
+                        if define.name == MACRO_NAME:
+                            if define.is_variadic:
+                                error_handler(define.pos, "Unexpected variadic macro")
+                            if define.params != MACRO_PARAMS:
+                                error_handler(define.pos, "Unexpected macro parameters")
+                            return define
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.END_OF_INPUT:
+                            error_handler(token.pos, "Macro %s not found" % MACRO_NAME)
+    except FileNotFoundError as e:
+        logger.error("Failed to open %s: %s", _b.quote(str(path)), e.strerror)
+    assert False
+
 def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
     assert pos.file_index == 0
-    text_pos = main_tracker.get_text_pos(pos.pos_in_file)
+    text_pos = tracker.get_text_pos(pos.pos_in_file)
     context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
     _l.FileContextLogger(logger, context).error(message, *args)
     raise Error from None
 
-class ScanContext(_cp.ScanContext):
-    def __init__(self, tokens: list[_cp.Token], macro_registry: dict[str, _cp.MacroDef]) -> None:
-        self._tokens         = iter(tokens)
-        self._macro_registry = macro_registry
-    @typing.override
-    def next_token(self) -> _cp.Token:
-        return next(self._tokens)
-    @typing.override
-    def lookup_macro(self, name: str) -> _cp.MacroDef | None:
-        return self._macro_registry.get(name)
-    @typing.override
-    def handle_macro_invoc(self, name: str, definition: _cp.MacroDef, arguments: list[list[_cp.Token]] | None,
-                           va_args: list[_cp.Token] | None) -> None:
-        logger.info("---------------->> '%s'", name)        
+def get_replace_elem_pos(elem: _cp.ReplaceElem) -> _cp.Position:
+    return elem.left.pos if isinstance(elem, _cp.FuseOper) else elem.pos
 
-MAIN_FILE_INDEX      = 0
-ROOT_TEXT_FILE_INDEX = 1
+class State(enum.Enum):
+    INITIAL                            = enum.auto()
+    NEED_LPAREN                        = enum.auto()
+    NEED_FIRST_ARG                     = enum.auto()
+    NEED_COMMA_AFTER_FIRST_ARG         = enum.auto()
+    NEED_POLICY_ID_ARG                 = enum.auto()
+    NEED_COMMA_AFTER_POLICY_ID_ARG     = enum.auto()
+    NEED_DESCRIPTION_ARG               = enum.auto()
+    NEED_COMMA_AFTER_DESCRIPTION_ARG   = enum.auto()
+    NEED_VERSION_MAJOR_ARG             = enum.auto()
+    NEED_COMMA_AFTER_VERSION_MAJOR_ARG = enum.auto()
+    NEED_VERSION_MINOR_ARG             = enum.auto()
+    NEED_COMMA_AFTER_VERSION_MINOR_ARG = enum.auto()
+    NEED_VERSION_PATCH_ARG             = enum.auto()
+    NEED_COMMA_AFTER_VERSION_PATCH_ARG = enum.auto()
+    NEED_STATUS_ARG                    = enum.auto()
+    NEED_RPAREN                        = enum.auto()
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class Policy:
+    num:           int
+    description:   str
+    version_major: int
+    version_minor: int
+    version_patch: int
+
+policies = list[Policy]()
 
 try:
-    with open(path) as file_:
-        initial = True
-        for elem in _cp.parse(file_, MAIN_FILE_INDEX, main_tracker, error_handler):
-            if not isinstance(elem, _cp.DefineDirective) or elem.name != MACRO_NAME:
-                continue
-            define = elem
-            if define.is_variadic:
-                error_handler(define.pos, "Unexpected variadic macro")
-                sys.exit(1)
-            if define.params != MACRO_PARAMS:
-                error_handler(define.pos, "Unexpected macro parameters")
-                sys.exit(1)
-            registry = {
-                MACRO_NAME: _cp.MacroDef(MACRO_PARAMS, False, define.replacement),
-            }
-            root_text_tracker = _tp.TextPosTracker()
-            tokens = list(_cp.preprocess(io.StringIO(ROOT_TEXT), ROOT_TEXT_FILE_INDEX, root_text_tracker, registry,
-                                         error_handler))
-            position = _cp.Position(file_index = ROOT_TEXT_FILE_INDEX, pos_in_file = root_text_tracker.current())
-            tokens.append(_cp.Token(_cp.TokenType.END_OF_INPUT, "", position.to_info()))
-            registry = {
-                POLICY_DEFINER_NAME: _cp.MacroDef(POLICY_DEFINER_PARAMS, False, []),
-            }
-            context = ScanContext(tokens, registry)
-            for _ in _cp.scan(context, error_handler):
-                pass
-            break
-except FileNotFoundError as e:
-    logger.error("Failed to open %s: %s", _b.quote(str(path)), e.strerror)
-    sys.exit(1)
+    define = extract_definition()
+    state = State.INITIAL
+    for elem in define.replacement:
+        match elem:
+            case _cp.Token() as token:
+                if token.is_space():
+                    continue
+        match state:
+            case State.INITIAL:
+                match elem:
+                    case _cp.ParamRef() as ref:
+                        if ref.param_index == 1:
+                            state = State.NEED_LPAREN
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected start of %s(...) invocation" % MACRO_PARAMS[1])
+                assert False
+            case State.NEED_LPAREN:
+                match elem:
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.PUNCT and token.text == "(":
+                            state = State.NEED_FIRST_ARG
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected opening parenthesis of %s(...) invocation" % MACRO_PARAMS[1])
+                assert False
+            case State.NEED_FIRST_ARG:
+                match elem:
+                    case _cp.ParamRef() as ref:
+                        if ref.param_index == 0:
+                            state = State.NEED_COMMA_AFTER_FIRST_ARG
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected %s argument" % MACRO_PARAMS[0])
+                assert False
+            case State.NEED_COMMA_AFTER_FIRST_ARG:
+                match elem:
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.PUNCT and token.text == ",":
+                            state = State.NEED_POLICY_ID_ARG
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected comma after %s argument" % MACRO_PARAMS[0])
+                assert False
+            case State.NEED_POLICY_ID_ARG:
+                match elem:
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.IDENTIFIER:
+                            if m := re.fullmatch(r"CMP(\d+)", token.text, re.ASCII):
+                                policy_num = int(m.group(1))
+                                state = State.NEED_COMMA_AFTER_POLICY_ID_ARG
+                                continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected policy ID argument")
+                assert False
+            case State.NEED_COMMA_AFTER_POLICY_ID_ARG:
+                match elem:
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.PUNCT and token.text == ",":
+                            state = State.NEED_DESCRIPTION_ARG
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected comma after policy ID argument")
+                assert False
+            case State.NEED_DESCRIPTION_ARG:
+                match elem:
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.STRING_LIT:
+                            string = _cp.unpack_plain_string_lit(token.text, token.pos, token.derived, error_handler)
+                            assert string is not None
+                            description = string
+                            state = State.NEED_COMMA_AFTER_DESCRIPTION_ARG
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected description argument")
+                assert False
+            case State.NEED_COMMA_AFTER_DESCRIPTION_ARG:
+                match elem:
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.STRING_LIT:
+                            string = _cp.unpack_plain_string_lit(token.text, token.pos, token.derived, error_handler)
+                            assert string is not None
+                            description += string
+                            continue
+                        if token.type_ is _cp.TokenType.PUNCT and token.text == ",":
+                            state = State.NEED_VERSION_MAJOR_ARG
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected comma after description argument")
+                assert False
+            case State.NEED_VERSION_MAJOR_ARG:
+                match elem:
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.NUMBER and re.fullmatch(r"\d+", token.text, re.ASCII):
+                            version_major = int(token.text)
+                            state = State.NEED_COMMA_AFTER_VERSION_MAJOR_ARG
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected major version component argument")
+                assert False
+            case State.NEED_COMMA_AFTER_VERSION_MAJOR_ARG:
+                match elem:
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.PUNCT and token.text == ",":
+                            state = State.NEED_VERSION_MINOR_ARG
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected comma after major version component argument")
+                assert False
+            case State.NEED_VERSION_MINOR_ARG:
+                match elem:
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.NUMBER and re.fullmatch(r"\d+", token.text, re.ASCII):
+                            version_minor = int(token.text)
+                            state = State.NEED_COMMA_AFTER_VERSION_MINOR_ARG
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected minor version component argument")
+                assert False
+            case State.NEED_COMMA_AFTER_VERSION_MINOR_ARG:
+                match elem:
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.PUNCT and token.text == ",":
+                            state = State.NEED_VERSION_PATCH_ARG
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected comma after minor version component argument")
+                assert False
+            case State.NEED_VERSION_PATCH_ARG:
+                match elem:
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.NUMBER and re.fullmatch(r"\d+", token.text, re.ASCII):
+                            version_patch = int(token.text)
+                            state = State.NEED_COMMA_AFTER_VERSION_PATCH_ARG
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected patch version component argument")
+                assert False
+            case State.NEED_COMMA_AFTER_VERSION_PATCH_ARG:
+                match elem:
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.PUNCT and token.text == ",":
+                            state = State.NEED_STATUS_ARG
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected comma after patch version component argument")
+                assert False
+            case State.NEED_STATUS_ARG:
+                match elem:
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.IDENTIFIER and token.text in {"NEW", "WARN"}:
+                            state = State.NEED_RPAREN
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected status argument")
+                assert False
+            case State.NEED_RPAREN:
+                match elem:
+                    case _cp.Token() as token:
+                        if token.type_ is _cp.TokenType.PUNCT and token.text == ")":
+                            policies.append(Policy(policy_num, description, version_major, version_minor,
+                                                   version_patch))
+                            state = State.INITIAL
+                            continue
+                pos = get_replace_elem_pos(elem)
+                error_handler(pos, "Expected closing parenthesis of %s(...) invocation" % MACRO_PARAMS[1])
+                assert False
+        typing.assert_never(state)
 except Error:
     sys.exit(1)
+
+
+toggleable = set(_cp2.Policy.__members__)
+
+for policy in policies:
+    policy_id = "CMP%04d" % policy.num
+    descr = policy.description
+    if descr.endswith("."):
+        descr = descr[:-1]
+    version = "_cve.Version(%s, %s, %s)" % (policy.version_major, policy.version_minor, policy.version_patch)
+    if policy_id in toggleable:
+        invoc = "_define_policy(%r, %r, %s, toggleable=Policy.%s)" % (policy_id, descr, version, policy_id)
+    else:
+        invoc = "_define_policy(%r, %r, %s)" % (policy_id, descr, version)
+    print(invoc)

@@ -2055,7 +2055,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             # negotiated policy version. This appears to be in line with CMake's behavior.
             return True  # NEW
 
-        if not definition.suppress_warning and not suppress_warning:
+        if not suppress_warning:
             warn(context.file_index, invoc.pos, "Policy %s is not in effect: %s", definition.name,
                  definition.description)
         return False  # OLD

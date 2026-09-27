@@ -31,12 +31,11 @@ def get_definitions() -> collections.abc.Iterator[Definition]:
 # otherwise togglable.
 @dataclasses.dataclass(slots=True, frozen=True)
 class Definition:
-    name:             str
-    description:      str
-    intro_version:    _cve.Version
-    force_version:    _cve.Version | None
-    suppress_warning: bool
-    toggleable:       Policy | None
+    name:          str
+    description:   str
+    intro_version: _cve.Version
+    force_version: _cve.Version | None
+    toggleable:    Policy | None
 
 
 
@@ -51,18 +50,17 @@ _definitions_by_policy = dict[Policy, Definition]()
 
 
 def _define_policy(name: str, description: str, intro_version: _cve.Version, force_version: _cve.Version | None = None,
-                   suppress_warning: bool = False, toggleable: Policy | None = None) -> None:
+                   toggleable: Policy | None = None) -> None:
     assert name not in _definitions_by_name
     assert not toggleable or toggleable not in _definitions_by_policy
-    definition = Definition(name, description, intro_version, force_version, suppress_warning, toggleable)
+    definition = Definition(name, description, intro_version, force_version, toggleable)
     _definitions.append(definition)
     _definitions_by_name[name] = definition
     if toggleable:
         _definitions_by_policy[toggleable] = definition
 
 
-_define_policy("CMP0180", "project() normal variable shadowing", _cve.Version(3, 31, 0), suppress_warning=True,
-               toggleable=Policy.CMP0180)
+_define_policy("CMP0180", "project() normal variable shadowing", _cve.Version(3, 31, 0), toggleable=Policy.CMP0180)
 
 
 assert _definitions_by_policy.keys() == set(Policy)
