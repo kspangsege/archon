@@ -955,6 +955,9 @@ class _Unpacker:
         self._error_handler = error_handler
 
     def unpack_identifier(self, text: str) -> str | None:
+        # FIXME: Verify that no UCN encodes a control character or a character in the basic character set (code_point > 127)       
+        # FIXME: Verify that the unpacked identifier conforms to the XID_Start / XID_Continue constraint (unpacked.isidentifier())        
+
         def replace(m: re.Match[str]) -> str:
             subtext = m.group()
             discr = subtext[1]
@@ -978,12 +981,14 @@ class _Unpacker:
     def unpack_plain_string_lit(self, text: str) -> str | None:
         i = text.find('"') + 1
         if i > 1:
-            self._error_handler(self._pos, "String literal prefixes are not allowed")
+            pos = self._get_subpos(0)
+            self._error_handler(pos, "String literal prefixes are not allowed")
             return None
 
         j = text.rfind('"')
         if j < len(text) - 1:
-            self._error_handler(self._pos, "String literal suffixes are not allowed")
+            pos = self._get_subpos(j + 1)
+            self._error_handler(pos, "String literal suffixes are not allowed")
             return None
 
         def replace(m: re.Match[str]) -> str:
@@ -993,18 +998,17 @@ class _Unpacker:
             if unpacked is not None:
                 return unpacked
             which = m.lastindex
-            if discr == "x":
-                assert which is not None
-                digits = m.group(which)
-                code_point = int(digits, 16)
-                return chr(code_point)
-            if discr in "o01234567":
-                assert which is not None
-                digits = m.group(which)
-                code_point = int(digits, 8)
-                return chr(code_point)
             offset = i + m.start()
             if which is not None:
+                if discr == "x":
+                    digits = m.group(which)
+                    code_point = int(digits, 16)
+                    return self._char_from_code_point(code_point, offset)
+                if discr in "o01234567":
+                    assert which is not None
+                    digits = m.group(which)
+                    code_point = int(digits, 8)
+                    return self._char_from_code_point(code_point, offset)
                 char = self._resolve_ucn(discr, m, which, offset)
                 if char is not None:
                     return char
@@ -1025,13 +1029,7 @@ class _Unpacker:
                 subpos = self._get_subpos(offset)
                 self._error_handler(subpos, "Illegal surrogate code point in UCN: U+%04X" % code_point)
                 raise _Error from None
-
-            try:
-                return chr(code_point)
-            except ValueError:
-                subpos = self._get_subpos(offset)
-                self._error_handler(subpos, "UCN code point out of range: U+%04X" % code_point)
-                raise _Error from None
+            return self._char_from_code_point(code_point, offset)
 
         if discr == "N":
             name = m.group(which)
@@ -1043,6 +1041,14 @@ class _Unpacker:
                 raise _Error from None
 
         return None
+
+    def _char_from_code_point(self, code_point: int, offset: int) -> str:
+        try:
+            return chr(code_point)
+        except ValueError:
+            subpos = self._get_subpos(offset)
+            self._error_handler(subpos, "Code point out of range: U+%04X" % code_point)
+            raise _Error from None
 
     def _get_subpos(self, offset: int) -> Position:
         return self._pos if self._derived else self._pos.shift(offset)
