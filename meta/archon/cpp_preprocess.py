@@ -61,13 +61,13 @@ def preprocess_elements(elements: typing.Iterable[Element], macro_registry: dict
 
 # Resolve UCNs and verify Unicode Normal Form C
 #
-def unpack_identifier(text: str, pos: Position, derived: bool, error_handler: ErrorHandler) -> str | None:
-    unpacker = _Unpacker(pos, derived, error_handler)
+def unpack_identifier(text: str, pos: Position, synthetic: bool, error_handler: ErrorHandler) -> str | None:
+    unpacker = _TokenUnpacker(pos, synthetic, error_handler)
     return unpacker.unpack_identifier(text)
 
 
-def unpack_plain_string_lit(text: str, pos: Position, derived: bool, error_handler: ErrorHandler) -> str | None:
-    unpacker = _Unpacker(pos, derived, error_handler)
+def unpack_plain_string_lit(text: str, pos: Position, synthetic: bool, error_handler: ErrorHandler) -> str | None:
+    unpacker = _TokenUnpacker(pos, synthetic, error_handler)
     return unpacker.unpack_plain_string_lit(text)
 
 
@@ -80,7 +80,7 @@ class MacroDef:
 
 type Element = Directive | Token
 
-type Directive = DefineDirective | GenericDirective
+type Directive = NullDirective | DefineDirective | GenericDirective
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class DirectiveBase:
@@ -92,6 +92,10 @@ class DefineDirective(DirectiveBase):
     params:      list[str] | None
     is_variadic: bool
     replacement: list[ReplaceElem]
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class NullDirective(DirectiveBase):
+    pass
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class GenericDirective(DirectiveBase):                              
@@ -126,10 +130,10 @@ class StringifyOper:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class Token:
-    type_:   TokenType
-    text:    str
-    pos:     Position
-    derived: bool = False
+    type_:     TokenType
+    text:      str
+    pos:       Position
+    synthetic: bool = False
 
     def is_space(self) -> bool:
         return self.type_ in _SPACE
@@ -144,7 +148,7 @@ class Token:
         return self.type_ in _SPECIAL
 
     def subpos(self, offset: int) -> Position:
-        return self.pos if self.derived else self.pos.shift(offset)
+        return self.pos if self.synthetic else self.pos.shift(offset)
 
 
 class TokenType(enum.Enum):
@@ -261,8 +265,7 @@ def _tokenize(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracke
                         k = text.find('"')
                         assert k != -1
                         delim = text[k+1:-1]
-                        # FIXME: Require that delimiter characters are in the "basic character set"        
-                        if len(delim) > 16 or re.search(r"[\\\s)]", delim, re.ASCII):
+                        if len(delim) > 16 or not all(33 <= ord(c) <= 126 and c not in ")\\" for c in delim):
                             token_type = TokenType.BAD_RAW_STRING_DELIM
                         else:
                             if consume(closing_marker=')%s"' % delim, udl_suffix=True):
@@ -448,7 +451,7 @@ def _parse_directive(pos: Position, end_pos: Position, tokens: list[Token],
     while i < len(tokens) and tokens[i].type_ in _SPACE:
         i += 1
     if i == len(tokens):
-        return None # Null directive
+        return NullDirective(pos)
     if tokens[i].type_ is TokenType.IDENTIFIER:
         name = tokens[i].text
         match name:
@@ -472,7 +475,7 @@ def _parse_define_directive(pos: Position, end_pos: Position, tokens: list[Token
 
     token: Token | None
     token = tokens[i]
-    name = unpack_identifier(token.text, token.pos, token.derived, error_handler)
+    name = unpack_identifier(token.text, token.pos, token.synthetic, error_handler)
     if name is None:
         return None
     i += 1
@@ -498,7 +501,7 @@ def _parse_define_directive(pos: Position, end_pos: Position, tokens: list[Token
                 expect_param = False
                 if token:
                     if token.type_ is TokenType.IDENTIFIER:
-                        param = unpack_identifier(token.text, token.pos, token.derived, error_handler)
+                        param = unpack_identifier(token.text, token.pos, token.synthetic, error_handler)
                         if param is None:
                             return None
                         if param in params:
@@ -575,7 +578,7 @@ def _parse_macro_replacement_tokens(macro_name: str, params: list[str] | None, i
                     if token.type_ not in _SPACE:
                         break
                 if token.type_ is TokenType.IDENTIFIER:
-                    name = unpack_identifier(token.text, token.pos, token.derived, _null_error_handler)
+                    name = unpack_identifier(token.text, token.pos, token.synthetic, _null_error_handler)
                     if name is not None:
                         success, index = lookup_param(name)
                         if success:
@@ -585,7 +588,7 @@ def _parse_macro_replacement_tokens(macro_name: str, params: list[str] | None, i
                               "of macro %s", _b.clamped_quote(macro_name, 64))
                 return None
             if token.type_ is TokenType.IDENTIFIER:
-                name = unpack_identifier(token.text, token.pos, token.derived, _null_error_handler)
+                name = unpack_identifier(token.text, token.pos, token.synthetic, _null_error_handler)
                 if name is not None:
                     success, index = lookup_param(name)
                     if success:
@@ -609,16 +612,16 @@ def _parse_macro_replacement_tokens(macro_name: str, params: list[str] | None, i
             continue
         while True:
             if not elements_2:
-                error_handler(token.pos, "Missing left operand of `##` (token fusing operator) in definition of macro "
-                              "%s", _b.clamped_quote(macro_name, 64))
+                error_handler(token.pos, "Missing left operand of `##` (fuse operator) in definition of macro %s",
+                              _b.clamped_quote(macro_name, 64))
                 return None
             left  = elements_2.pop()
             if not isinstance(left, Token) or left.type_ not in _SPACE:
                 break
         while True:
-            if i == n - 1:
-                error_handler(token.pos, "Missing right operand of `##` (token fusing operator) in definition of "
-                              "macro %s", _b.clamped_quote(macro_name, 64))
+            if i == n:
+                error_handler(token.pos, "Missing right operand of `##` (fuse operator) in definition of macro %s",
+                              _b.clamped_quote(macro_name, 64))
                 return None
             right = elements_1[i]
             i += 1
@@ -626,9 +629,10 @@ def _parse_macro_replacement_tokens(macro_name: str, params: list[str] | None, i
                 break
         rights = (FuseOper.Right(right, token.pos),)
         if not isinstance(left, FuseOper):
-            elements_2[-1] = FuseOper(left, rights)
+            fuse_oper = FuseOper(left, rights)
         else:
-            elements_2[-1] = FuseOper(left.left, left.rights + rights)
+            fuse_oper = FuseOper(left.left, left.rights + rights)
+        elements_2.append(fuse_oper)
 
     return elements_2
 
@@ -704,8 +708,11 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
             match elem:
                 case Token():
                     pass
+                case NullDirective() as define:
+                    continue
                 case DefineDirective() as define:
                     macro_registry[define.name] = MacroDef(define.params, define.is_variadic, define.replacement)
+                    elem = next_elem()
                     continue
                 case GenericDirective() as generic:
                     raise NotImplementedError        
@@ -718,7 +725,7 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
                     break
                 elem = next_elem()
                 continue
-            name = unpack_identifier(token.text, token.pos, token.derived, _null_error_handler)
+            name = unpack_identifier(token.text, token.pos, token.synthetic, _null_error_handler)
             if name is None:
                 # Invalid identifier cannot match name of defined macro
                 yield token
@@ -752,7 +759,7 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
                             found_lparen = True
                             break
                         if token_2.type_ in _SPACE:
-                            tokens.append(token)
+                            tokens.append(token_2)
                             continue
                 break
             if not found_lparen:
@@ -769,7 +776,7 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
                 match elem:
                     case Token() as token_2:
                         if token_2.type_ is TokenType.IDENTIFIER:
-                            name_2 = unpack_identifier(token_2.text, token_2.pos, token_2.derived,
+                            name_2 = unpack_identifier(token_2.text, token_2.pos, token_2.synthetic,
                                                         _null_error_handler)
                             if name_2 in active_set:
                                 token_2 = Token(TokenType.HIDDEN_IDENT, token_2.text, token_2.pos)
@@ -790,8 +797,8 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
                             break
                         tokens.append(token_2)
                         continue
-                    case DefineDirective() | GenericDirective() as direc:
-                        pos = direc.pos
+                    case NullDirective() | DefineDirective() | GenericDirective() as directive:
+                        pos = directive.pos
                         error_handler(pos, "Preprocessor directive inside macro argument is not allowed")
                         continue
                 typing.assert_never(elem)
@@ -878,18 +885,19 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
             fuse = elem
             accum: Token | None
             composed: bool
-            def add(token: Token, operator_pos: Position) -> None:
+            def add(token: Token, operator_pos: Position) -> bool:
                 nonlocal accum, composed
                 if accum is None:
                     assert not composed
                     accum = token
-                    return
+                    return True
                 # Keep position of first operator that performs a nontrivial fusing operation
                 fuse_pos = token.pos if composed else operator_pos
                 accum = fuse_tokens(accum, token, fuse_pos)
                 if accum is None:
-                    return None
+                    return False
                 composed = True
+                return True
             assert fuse.rights
             accum = None
             if tokens := expand_atom(fuse.left, fuse_context=True):
@@ -901,7 +909,8 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
                 n = len(tokens)
                 if n == 0:
                     continue
-                add(tokens[0], right.pos)
+                if not add(tokens[0], right.pos):
+                    return None
                 if n == 1:
                     continue
                 if accum is not None:
@@ -914,7 +923,8 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
             tokens = expand_atom(last_right.atom, fuse_context=True)
             n = len(tokens)
             if n > 0:
-                add(tokens[0], last_right.pos)
+                if not add(tokens[0], last_right.pos):
+                    return None
             if accum is not None:
                 replacement.append(accum)
             replacement += tokens[1:]
@@ -924,15 +934,16 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
     def fuse_tokens(left: Token, right: Token, pos: Position) -> Token | None:
         assert left.type_ in _REGULAR
         assert right.type_ in _REGULAR
-        text = left.text + right.text
+        fusion = left.text + right.text
         dummy_file_index = 0
         dummy_tracker = _tp.TextPosTracker()
-        with io.StringIO(text) as input_:
+        with io.StringIO(fusion) as input_:
             tokens = list(_tokenize(input_, dummy_file_index, dummy_tracker))
-        if len(tokens) != 1 or tokens[0].type_ not in _REGULAR:
-            error_handler(pos, "Concatenation %s is not a valid preprocessing token" % _b.clamped_quote(text, 64))
+        assert tokens and tokens[-1].type_ is TokenType.END_OF_INPUT
+        if len(tokens) != 2 or tokens[0].type_ not in _REGULAR:
+            error_handler(pos, "Fusion %s is not a valid preprocessing token" % _b.clamped_quote(fusion, 64))
             return None
-        return Token(tokens[0].type_, text, pos)
+        return Token(tokens[0].type_, fusion, pos, synthetic=True)
 
     return process(elements)
 
@@ -948,10 +959,10 @@ def _null_error_handler(pos: Position, message: str, *args: typing.Any) -> None:
     return
 
 
-class _Unpacker:
-    def __init__(self, pos: Position, derived: bool, error_handler: ErrorHandler) -> None:
+class _TokenUnpacker:
+    def __init__(self, pos: Position, synthetic: bool, error_handler: ErrorHandler) -> None:
         self._pos           = pos
-        self._derived       = derived
+        self._synthetic     = synthetic
         self._error_handler = error_handler
 
     def unpack_identifier(self, text: str) -> str | None:
@@ -964,9 +975,13 @@ class _Unpacker:
             which = m.lastindex
             offset = m.start()
             assert which is not None
-            char = self._resolve_ucn(discr, m, which, offset)
-            assert char is not None
-            return char
+            code_point = self._resolve_ucn(discr, m, which, offset)
+            assert code_point is not None
+            if code_point < 128:
+                subpos = self._get_subpos(offset)
+                self._error_handler(subpos, "UCN code point less than 128 not allowed in identifier")
+                raise _Error from None
+            return self._char_from_code_point(code_point, offset)
 
         try:
             unpacked = _UCN_REGEX.sub(replace, text)
@@ -1000,6 +1015,7 @@ class _Unpacker:
             which = m.lastindex
             offset = i + m.start()
             if which is not None:
+                code_point: int | None
                 if discr == "x":
                     digits = m.group(which)
                     code_point = int(digits, 16)
@@ -1009,9 +1025,9 @@ class _Unpacker:
                     digits = m.group(which)
                     code_point = int(digits, 8)
                     return self._char_from_code_point(code_point, offset)
-                char = self._resolve_ucn(discr, m, which, offset)
-                if char is not None:
-                    return char
+                code_point = self._resolve_ucn(discr, m, which, offset)
+                if code_point is not None:
+                    return self._char_from_code_point(code_point, offset)
             subpos = self._get_subpos(offset)
             self._error_handler(subpos, "Invalid escape sequence")
             raise _Error from None
@@ -1021,7 +1037,7 @@ class _Unpacker:
         except _Error:
             return None
 
-    def _resolve_ucn(self, discr: str, m: re.Match[str], which: int, offset: int) -> str | None:
+    def _resolve_ucn(self, discr: str, m: re.Match[str], which: int, offset: int) -> int | None:
         if discr == "u" or discr == "U":
             digits = m.group(which)
             code_point = int(digits, 16)
@@ -1029,16 +1045,20 @@ class _Unpacker:
                 subpos = self._get_subpos(offset)
                 self._error_handler(subpos, "Illegal surrogate code point in UCN: U+%04X" % code_point)
                 raise _Error from None
-            return self._char_from_code_point(code_point, offset)
+            return code_point
 
         if discr == "N":
             name = m.group(which)
             try:
-                return unicodedata.lookup(name)
+                string = unicodedata.lookup(name)
+                if len(string) == 1:
+                    code_point = ord(string)
+                    return code_point
             except KeyError:
-                subpos = self._get_subpos(offset)
-                self._error_handler(subpos, "Invalid Unicode character name in UCN: %s", _b.clamped_quote(name, 64))
-                raise _Error from None
+                pass
+            subpos = self._get_subpos(offset)
+            self._error_handler(subpos, "Invalid Unicode character name in UCN: %s", _b.clamped_quote(name, 64))
+            raise _Error from None
 
         return None
 
@@ -1051,7 +1071,7 @@ class _Unpacker:
             raise _Error from None
 
     def _get_subpos(self, offset: int) -> Position:
-        return self._pos if self._derived else self._pos.shift(offset)
+        return self._pos if self._synthetic else self._pos.shift(offset)
 
 
 class _Error(Exception):

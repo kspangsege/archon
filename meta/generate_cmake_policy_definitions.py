@@ -178,7 +178,7 @@ try:
                 match elem:
                     case _cp.Token() as token:
                         if token.type_ is _cp.TokenType.STRING_LIT:
-                            string = _cp.unpack_plain_string_lit(token.text, token.pos, token.derived, error_handler)
+                            string = _cp.unpack_plain_string_lit(token.text, token.pos, token.synthetic, error_handler)
                             assert string is not None
                             description = string
                             state = State.NEED_COMMA_AFTER_DESCRIPTION_ARG
@@ -190,7 +190,7 @@ try:
                 match elem:
                     case _cp.Token() as token:
                         if token.type_ is _cp.TokenType.STRING_LIT:
-                            string = _cp.unpack_plain_string_lit(token.text, token.pos, token.derived, error_handler)
+                            string = _cp.unpack_plain_string_lit(token.text, token.pos, token.synthetic, error_handler)
                             assert string is not None
                             description += string
                             continue
