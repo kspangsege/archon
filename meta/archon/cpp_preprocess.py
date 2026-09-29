@@ -29,7 +29,8 @@ def parse(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker,
 #
 # The input must be "newline normalized" (text mode).
 #
-# The C++ source code is assumed to use ASCII only.
+# The C++ source code is assumed to use the basic character set only. UCNs above ASCII are
+# allowed.
 #
 # The output is a stream of preprocessing tokens not including token type `HIDDEN_IDENT`. At
 # the end of input, an `END_OF_INPUT` token is generated.
@@ -385,12 +386,16 @@ class _Line:
     text: str
 
 
+# FIXME: Change this parsing step to perform only shallow parsing of directives
+# (NullDirective, RegularDirective, ErrorDirective). Then provide a separate function to
+# fully parse directives. This allows the full directive parsing to be delayed until the
+# point where the directive needs to be executed and it allows the directive to be ignored
+# entirely inside disabled code (`#if 0`)          
 def _parse(tokens: typing.Iterable[Token], error_handler: ErrorHandler) -> collections.abc.Iterator[Element]:
     # FIXME: Deal with error tokens inside directives (NO_RAW_STRING_LPAREN, BAD_RAW_STRING_DELIM, UNTERM_RAW_STRING_LIT, UNTERM_STRING_LIT, UNTERM_CHAR_LIT, UNTERM_BLOCK_COMMENT, BAD_CHAR)    
     # FIXME: Detect illegal occurrences of `__VA_ARGS__` and `__VA_OPT__` in directives   
     # FIXME: Find way to deal with `__VA_ARGS__` and `__VA_OPT__` outside directives   
     # FIXME: Detect constructions of `__VA_ARGS__` and `__VA_OPT__` through fusing during macro expansion (all such cases are illegal)     
-    # FIXME: Do not generate errors directly, as that would prevent those errors from being suppressed inside disabled code (`#if 0`)    
     state = _ParseState.INITIAL
     buffer_ = list[Token]()
     tokens_iter = iter(tokens)
@@ -569,7 +574,7 @@ def _parse_macro_replacement_tokens(macro_name: str, params: list[str] | None, i
             if token.type_ is TokenType.HASH:
                 pos = token.pos
                 while True:
-                    if i == n - 1:
+                    if i == n:
                         error_handler(pos, "Missing operand of `#` (stringify operator) in definition of macro %s",
                                       _b.clamped_quote(macro_name, 64))
                         return None
@@ -743,7 +748,7 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
                 continue
             if macro.params is None:
                 # Object-like macro
-                replacement = construct_replacement(macro, arguments=None, va_args=None)
+                replacement = expand_replacement(macro, arguments=None, va_args=None)
                 if replacement is not None:
                     push(name, replacement)
                 elem = next_elem()
@@ -827,13 +832,13 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
             va_args = None
             if macro.is_variadic:
                 va_args = get_arg(n, len(arg_delims))
-            replacement = construct_replacement(macro, arguments, va_args)
+            replacement = expand_replacement(macro, arguments, va_args)
             if replacement is not None:
                 push(name, replacement)
             elem = next_elem()
 
-    def construct_replacement(macro: MacroDef, arguments: list[list[Token]] | None,
-                              va_args: list[Token] | None) -> list[Token] | None:
+    def expand_replacement(macro: MacroDef, arguments: list[list[Token]] | None,
+                           va_args: list[Token] | None) -> list[Token] | None:
         @dataclasses.dataclass(slots=True)
         class ArgSlot:
             tokens:      list[Token]
@@ -866,72 +871,94 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
                 case StringifyOper() as oper:
                     slot = get_arg_slot(oper.param_index)
                     if slot.stringified is None:
-                        slot.stringified = stringify_arg(slot.tokens)
+                        slot.stringified = stringify(slot.tokens, oper.pos)
                     return [slot.stringified]
             typing.assert_never(atom)
 
-        def preexpand_arg(tokens: list[Token]) -> list[Token]:
-            return list(process(tokens))
-
-        def stringify_arg(tokens: list[Token]) -> Token:
-            raise NotImplementedError        
-
-        replacement = list[Token]()
-        for elem in macro.replacement:
-            if not isinstance(elem, FuseOper):
-                atom = elem
-                replacement += expand_atom(atom, fuse_context=False)
-                continue
-            fuse = elem
-            accum: Token | None
-            composed: bool
-            def add(token: Token, operator_pos: Position) -> bool:
-                nonlocal accum, composed
-                if accum is None:
-                    assert not composed
-                    accum = token
-                    return True
-                # Keep position of first operator that performs a nontrivial fusing operation
-                fuse_pos = token.pos if composed else operator_pos
-                accum = fuse_tokens(accum, token, fuse_pos)
-                if accum is None:
-                    return False
-                composed = True
-                return True
-            assert fuse.rights
-            accum = None
-            if tokens := expand_atom(fuse.left, fuse_context=True):
-                replacement += tokens[:-1]
-                accum = tokens[-1]
-            composed = False
-            for right in fuse.rights[:-1]:
-                tokens = expand_atom(right.atom, fuse_context=True)
+        try:
+            replacement = list[Token]()
+            for elem in macro.replacement:
+                if not isinstance(elem, FuseOper):
+                    atom = elem
+                    replacement += expand_atom(atom, fuse_context=False)
+                    continue
+                fuse = elem
+                accum: Token | None
+                composed: bool
+                def add(token: Token, operator_pos: Position) -> None:
+                    nonlocal accum, composed
+                    if accum is None:
+                        assert not composed
+                        accum = token
+                        return
+                    # Keep position of first operator that performs a nontrivial fusing operation
+                    fuse_pos = token.pos if composed else operator_pos
+                    accum = fuse_tokens(accum, token, fuse_pos)
+                    composed = True
+                assert fuse.rights
+                accum = None
+                if tokens := expand_atom(fuse.left, fuse_context=True):
+                    replacement += tokens[:-1]
+                    accum = tokens[-1]
+                composed = False
+                for right in fuse.rights[:-1]:
+                    tokens = expand_atom(right.atom, fuse_context=True)
+                    n = len(tokens)
+                    if n == 0:
+                        continue
+                    add(tokens[0], right.pos)
+                    if n == 1:
+                        continue
+                    if accum is not None:
+                        replacement.append(accum)
+                    replacement += tokens[1:-1]
+                    accum = tokens[-1]
+                    composed = False
+                    continue
+                last_right = fuse.rights[-1]
+                tokens = expand_atom(last_right.atom, fuse_context=True)
                 n = len(tokens)
-                if n == 0:
-                    continue
-                if not add(tokens[0], right.pos):
-                    return None
-                if n == 1:
-                    continue
+                if n > 0:
+                    add(tokens[0], last_right.pos)
                 if accum is not None:
                     replacement.append(accum)
-                replacement += tokens[1:-1]
-                accum = tokens[-1]
-                composed = False
+                replacement += tokens[1:]
+            return replacement
+        except ExpandError:
+            return None
+
+    def preexpand_arg(tokens: list[Token]) -> list[Token]:
+        return list(process(tokens))
+
+    def stringify(tokens: list[Token], pos: Position) -> Token:
+        parts = list[str]()
+        pending_space = False
+        def flush_space() -> None:
+            nonlocal pending_space
+            if pending_space:
+                parts.append(" ")
+                pending_space = False
+        for token in tokens:
+            if token.type_ in _SPACE:
+                pending_space = True
                 continue
-            last_right = fuse.rights[-1]
-            tokens = expand_atom(last_right.atom, fuse_context=True)
-            n = len(tokens)
-            if n > 0:
-                if not add(tokens[0], last_right.pos):
-                    return None
-            if accum is not None:
-                replacement.append(accum)
-            replacement += tokens[1:]
+            flush_space()
+            part = token.text
+            # C++26 mandates that escaping only takes place in string and character literals
+            if token.type_ in {TokenType.RAW_STRING_LIT, TokenType.STRING_LIT, TokenType.CHAR_LIT}:
+                part = part.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+            parts.append(part)
+        flush_space()
+        text = '"%s"' % "".join(parts)
+        dummy_pos = Position(0, 0)
+        dummy_synthetic = False
+        valid = unpack_plain_string_lit(text, dummy_pos, dummy_synthetic, _null_error_handler) is not None
+        if valid:
+            return Token(TokenType.STRING_LIT, text, pos, synthetic=True)
+        error_handler(pos, "Stringification is not a valid preprocessing token")
+        raise ExpandError
 
-        return replacement
-
-    def fuse_tokens(left: Token, right: Token, pos: Position) -> Token | None:
+    def fuse_tokens(left: Token, right: Token, pos: Position) -> Token:
         assert left.type_ in _REGULAR
         assert right.type_ in _REGULAR
         fusion = left.text + right.text
@@ -942,8 +969,11 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
         assert tokens and tokens[-1].type_ is TokenType.END_OF_INPUT
         if len(tokens) != 2 or tokens[0].type_ not in _REGULAR:
             error_handler(pos, "Fusion %s is not a valid preprocessing token" % _b.clamped_quote(fusion, 64))
-            return None
+            raise ExpandError
         return Token(tokens[0].type_, fusion, pos, synthetic=True)
+
+    class ExpandError(Exception):
+        pass
 
     return process(elements)
 
@@ -966,8 +996,8 @@ class _TokenUnpacker:
         self._error_handler = error_handler
 
     def unpack_identifier(self, text: str) -> str | None:
-        # FIXME: Verify that no UCN encodes a control character or a character in the basic character set (code_point > 127)       
-        # FIXME: Verify that the unpacked identifier conforms to the XID_Start / XID_Continue constraint (unpacked.isidentifier())        
+        # FIXME: Verify that the unpacked identifier conforms to the XID_Start /
+        # XID_Continue constraint (unpacked.isidentifier())        
 
         def replace(m: re.Match[str]) -> str:
             subtext = m.group()
@@ -980,12 +1010,12 @@ class _TokenUnpacker:
             if code_point < 128:
                 subpos = self._get_subpos(offset)
                 self._error_handler(subpos, "UCN code point less than 128 not allowed in identifier")
-                raise _Error from None
+                raise _UnpackError from None
             return self._char_from_code_point(code_point, offset)
 
         try:
             unpacked = _UCN_REGEX.sub(replace, text)
-        except _Error:
+        except _UnpackError:
             return None
 
         if unicodedata.is_normalized("NFC", unpacked):
@@ -994,26 +1024,22 @@ class _TokenUnpacker:
         return None
 
     def unpack_plain_string_lit(self, text: str) -> str | None:
-        i = text.find('"') + 1
-        if i > 1:
-            pos = self._get_subpos(0)
-            self._error_handler(pos, "String literal prefixes are not allowed")
-            return None
-
-        j = text.rfind('"')
-        if j < len(text) - 1:
-            pos = self._get_subpos(j + 1)
-            self._error_handler(pos, "String literal suffixes are not allowed")
+        if len(text) < 2 or text[0] != '"' or text[-1] != '"':
+            self._error_handler(self._pos, "Invalid plain string literal")
             return None
 
         def replace(m: re.Match[str]) -> str:
             subtext = m.group()
+            offset = 1 + m.start()
+            if len(subtext) == 1:
+                pos = self._get_subpos(offset)
+                self._error_handler(pos, "Final stray backslash")
+                raise _UnpackError from None
             discr = subtext[1]
             unpacked = _SIMPLE_ESCAPES.get(discr)
             if unpacked is not None:
                 return unpacked
             which = m.lastindex
-            offset = i + m.start()
             if which is not None:
                 code_point: int | None
                 if discr == "x":
@@ -1030,11 +1056,11 @@ class _TokenUnpacker:
                     return self._char_from_code_point(code_point, offset)
             subpos = self._get_subpos(offset)
             self._error_handler(subpos, "Invalid escape sequence")
-            raise _Error from None
+            raise _UnpackError from None
 
         try:
-            return _STRING_ESCAPE_REGEX.sub(replace, text[i:j])
-        except _Error:
+            return _STRING_ESCAPE_REGEX.sub(replace, text[1:-1])
+        except _UnpackError:
             return None
 
     def _resolve_ucn(self, discr: str, m: re.Match[str], which: int, offset: int) -> int | None:
@@ -1044,7 +1070,7 @@ class _TokenUnpacker:
             if 0xD800 <= code_point < 0xE000:
                 subpos = self._get_subpos(offset)
                 self._error_handler(subpos, "Illegal surrogate code point in UCN: U+%04X" % code_point)
-                raise _Error from None
+                raise _UnpackError from None
             return code_point
 
         if discr == "N":
@@ -1058,7 +1084,7 @@ class _TokenUnpacker:
                 pass
             subpos = self._get_subpos(offset)
             self._error_handler(subpos, "Invalid Unicode character name in UCN: %s", _b.clamped_quote(name, 64))
-            raise _Error from None
+            raise _UnpackError from None
 
         return None
 
@@ -1068,13 +1094,13 @@ class _TokenUnpacker:
         except ValueError:
             subpos = self._get_subpos(offset)
             self._error_handler(subpos, "Code point out of range: U+%04X" % code_point)
-            raise _Error from None
+            raise _UnpackError from None
 
     def _get_subpos(self, offset: int) -> Position:
         return self._pos if self._synthetic else self._pos.shift(offset)
 
 
-class _Error(Exception):
+class _UnpackError(Exception):
     pass
 
 
@@ -1103,7 +1129,8 @@ _STRING_ESCAPE_REGEX_STRING = (_UCN_REGEX_STRING + "|"
                                r"\\x\{([0-9A-Fa-f]+)\}|"
                                r"\\([0-7]{1,3})|"
                                r"\\o\{([0-7]+)\}|"
-                               r"\\.")
+                               r"\\.|"
+                               r"\\")  # Fallback for invalid final stray backslash
 
 _UCN_REGEX = re.compile(_UCN_REGEX_STRING)
 
