@@ -168,7 +168,7 @@ class TokenType(enum.Enum):
     NUMBER                = enum.auto()
     IDENTIFIER            = enum.auto()
     PUNCT                 = enum.auto()
-    BAD_CHAR              = enum.auto()
+    STRAY_CHAR            = enum.auto()
 
     # Special
     HEADER_NAME           = enum.auto()
@@ -205,6 +205,8 @@ class Position:
 
 
 
+# FIXME: Fix tokenization of raw string literals. Line splicing must be disabled between the
+# opening and closing quotation marks.           
 def _tokenize(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[Token]:
     line_iter = _logical_lines(input_, tracker)
 
@@ -356,7 +358,7 @@ _TOKEN_REGEX = re.compile("|".join("(?P<%s>%s)" % (name, expr) for name, expr in
     ("NUMBER",              r"(?:\d|\.\d)(?:\.|[eEpP][+-]|%s|\'?\w)*" % _UCN_REGEX_STRING),
     ("IDENTIFIER",          _IDENTIFIER_REGEX_STRING),
     ("PUNCT",               _PUNCT_REGEX_STRING),
-    ("BAD_CHAR",            r"."),
+    ("STRAY_CHAR",          r"."),
 ]), re.ASCII)
 
 
@@ -398,7 +400,7 @@ class _Line:
 # point where the directive needs to be executed and it allows the directive to be ignored
 # entirely inside disabled code (`#if 0`)          
 def _parse(tokens: typing.Iterable[Token], error_handler: ErrorHandler) -> collections.abc.Iterator[Element]:
-    # FIXME: Deal with error tokens inside directives (NO_RAW_STRING_LPAREN, BAD_RAW_STRING_DELIM, UNTERM_RAW_STRING_LIT, UNTERM_STRING_LIT, UNTERM_CHAR_LIT, UNTERM_BLOCK_COMMENT, BAD_CHAR)    
+    # FIXME: Deal with error tokens inside directives (NO_RAW_STRING_LPAREN, BAD_RAW_STRING_DELIM, UNTERM_RAW_STRING_LIT, UNTERM_STRING_LIT, UNTERM_CHAR_LIT, UNTERM_BLOCK_COMMENT)    
     # FIXME: Detect illegal occurrences of `__VA_ARGS__` and `__VA_OPT__` in directives   
     # FIXME: Find way to deal with `__VA_ARGS__` and `__VA_OPT__` outside directives   
     # FIXME: Detect constructions of `__VA_ARGS__` and `__VA_OPT__` through fusing during macro expansion (all such cases are illegal)     
