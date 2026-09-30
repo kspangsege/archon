@@ -168,6 +168,12 @@ class TokenType(enum.Enum):
     NUMBER                = enum.auto()
     IDENTIFIER            = enum.auto()
     PUNCT                 = enum.auto()
+    BAD_CHAR              = enum.auto()
+
+    # Special
+    HEADER_NAME           = enum.auto()
+    HIDDEN_IDENT          = enum.auto()  # Cannot be leading identifier of macro invocation
+    END_OF_INPUT          = enum.auto()
 
     # Error
     UNTERM_BLOCK_COMMENT  = enum.auto()
@@ -176,12 +182,7 @@ class TokenType(enum.Enum):
     UNTERM_RAW_STRING_LIT = enum.auto()
     UNTERM_STRING_LIT     = enum.auto()
     UNTERM_CHAR_LIT       = enum.auto()
-    BAD_CHAR              = enum.auto()
-
-    # Special
-    HEADER_NAME           = enum.auto()
-    HIDDEN_IDENT          = enum.auto()  # Cannot be leading identifier of macro invocation
-    END_OF_INPUT          = enum.auto()
+    UNTERM_HEADER_NAME    = enum.auto()
 
 
 class ErrorHandler(typing.Protocol):
@@ -277,10 +278,15 @@ def _tokenize(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracke
                     token_type = TokenType[group_name]
             if token_type not in _SPACE:
                 if expect_header and line[i] in '<"':
-                    if m := _HEADER_REGEX.match(line, i):
+                    m = _HEADER_REGEX.match(line, i)
+                    assert m
+                    text = m.group()
+                    j = m.end()
+                    closing = ">" if text[0] == "<" else '"'
+                    if len(text) >= 2 and text[-1] == closing:
                         token_type = TokenType.HEADER_NAME
-                        text = m.group()
-                        j = m.end()
+                    else:
+                        token_type = TokenType.UNTERM_HEADER_NAME
                 expect_header = False
                 match state:
                     case _TokenizeState.INITIAL:
@@ -356,7 +362,7 @@ _TOKEN_REGEX = re.compile("|".join("(?P<%s>%s)" % (name, expr) for name, expr in
 
 _IDENTIFIER_REGEX = re.compile(_IDENTIFIER_REGEX_STRING, re.ASCII)
 
-_HEADER_REGEX = re.compile(r'<[^>\n]*>|"[^"\n]*"')
+_HEADER_REGEX = re.compile(r'<[^>\n]*>?|"[^"\n]*"?')
 
 
 def _logical_lines(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[_Line]:
@@ -978,10 +984,11 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
     return process(elements)
 
 
-_SPACE = {TokenType.NEWLINE, TokenType.WHITESPACE, TokenType.LINE_COMMENT, TokenType.BLOCK_COMMENT}
-_ERROR = {TokenType.UNTERM_BLOCK_COMMENT, TokenType.NO_RAW_STRING_LPAREN, TokenType.BAD_RAW_STRING_DELIM,
-          TokenType.UNTERM_RAW_STRING_LIT, TokenType.UNTERM_STRING_LIT, TokenType.UNTERM_CHAR_LIT, TokenType.BAD_CHAR}
+_SPACE   = {TokenType.NEWLINE, TokenType.WHITESPACE, TokenType.LINE_COMMENT, TokenType.BLOCK_COMMENT}
 _SPECIAL = {TokenType.HEADER_NAME, TokenType.HIDDEN_IDENT, TokenType.END_OF_INPUT}
+_ERROR   = {TokenType.UNTERM_BLOCK_COMMENT, TokenType.NO_RAW_STRING_LPAREN, TokenType.BAD_RAW_STRING_DELIM,
+            TokenType.UNTERM_RAW_STRING_LIT, TokenType.UNTERM_STRING_LIT, TokenType.UNTERM_CHAR_LIT,
+            TokenType.UNTERM_HEADER_NAME}
 _REGULAR = set(TokenType) - _SPACE - _ERROR - _SPECIAL
 
 
