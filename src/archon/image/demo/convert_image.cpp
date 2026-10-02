@@ -206,7 +206,7 @@ int main(int argc, char* argv[])
     // Load
     {
         image::FileFormat::SpecialLoadConfigRegistry special_load_config_registry;
-        special_load_config_registry.register_(png_load_config); // Throws
+        special_load_config_registry.set(png_load_config); // Throws
 
         log::PrefixLogger load_logger(logger, "Load: "); // Throws
 
@@ -251,7 +251,7 @@ int main(int argc, char* argv[])
     // Save
     {
         image::FileFormat::SpecialSaveConfigRegistry special_save_config_registry;
-        special_save_config_registry.register_(png_save_config); // Throws
+        special_save_config_registry.set(png_save_config); // Throws
 
         log::PrefixLogger save_logger(logger, "Save: "); // Throws
 

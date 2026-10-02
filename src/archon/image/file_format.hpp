@@ -91,7 +91,7 @@ public:
     ///   archon::image::PNGSaveConfig png_config;
     ///   png_config.use_adam7_interlacing = true;
     ///   archon::image::FileFormat::SpecialSaveConfigRegistry special_config;
-    ///   special_config.register_(png_config);
+    ///   special_config.set(png_config);
     ///   archon::image::SaveConfig config;
     ///   config.special = &special_config;
     ///   archon::image::save(image, "foo.png", locale, config);
@@ -110,10 +110,10 @@ public:
     /// \sa \ref image::PNGSaveConfig
     /// \sa \ref SpecialLoadConfig, \ref SpecialSaveConfig
     /// \sa \ref LoadConfig::special, \ref SaveConfig::special
-    /// \sa \ref core::TypedObjectRegistry
+    /// \sa \ref core::typed_object_registry
     ///
-    using SpecialLoadConfigRegistry = core::TypedObjectRegistry<const SpecialLoadConfig, 8>;
-    using SpecialSaveConfigRegistry = core::TypedObjectRegistry<const SpecialSaveConfig, 8>;
+    using SpecialLoadConfigRegistry = core::typed_object_registry<const SpecialLoadConfig, 8>;
+    using SpecialSaveConfigRegistry = core::typed_object_registry<const SpecialSaveConfig, 8>;
     /// \}
 
     /// \brief File format identifier.

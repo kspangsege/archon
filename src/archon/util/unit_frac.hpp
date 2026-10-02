@@ -120,9 +120,9 @@ namespace archon::util::unit_frac {
 ///              |<--- 0 --->|<--- 1 --->|<--- 2 --->|<--- 3 --->|          Alternative model
 ///
 template<class F, class I>
-constexpr auto int_to_flt(I int_val, core::Type<I> max_int = core::int_max<I>()) noexcept -> F;
+constexpr auto int_to_flt(I int_val, core::type<I> max_int = core::int_max<I>()) noexcept -> F;
 template<class F, class I>
-constexpr auto int_to_flt_a(I int_val, core::Type<I> max_int = core::int_max<I>()) noexcept -> F;
+constexpr auto int_to_flt_a(I int_val, core::type<I> max_int = core::int_max<I>()) noexcept -> F;
 /// \}
 
 
@@ -154,9 +154,9 @@ constexpr auto int_to_flt_a(I int_val, core::Type<I> max_int = core::int_max<I>(
 /// \sa \ref unit_frac::int_to_flt(), \ref unit_frac::int_to_flt_a()
 ///
 template<class I, class F>
-constexpr auto flt_to_int(F flt_val, core::Type<I> max_int = core::int_max<I>()) noexcept -> I;
+constexpr auto flt_to_int(F flt_val, core::type<I> max_int = core::int_max<I>()) noexcept -> I;
 template<class I, class F>
-constexpr auto flt_to_int_a(F flt_val, core::Type<I> max_int = core::int_max<I>()) noexcept -> I;
+constexpr auto flt_to_int_a(F flt_val, core::type<I> max_int = core::int_max<I>()) noexcept -> I;
 /// \}
 
 
@@ -242,13 +242,13 @@ template<class T> constexpr auto change_bit_width(T v, int m, int n) noexcept ->
 // Implementation
 
 
-template<class F, class I> constexpr auto int_to_flt(I int_val, core::Type<I> max_int) noexcept -> F
+template<class F, class I> constexpr auto int_to_flt(I int_val, core::type<I> max_int) noexcept -> F
 {
     return F(F(int_val) / F(max_int));
 }
 
 
-template<class F, class I> constexpr auto int_to_flt_a(I int_val, core::Type<I> max_int) noexcept -> F
+template<class F, class I> constexpr auto int_to_flt_a(I int_val, core::type<I> max_int) noexcept -> F
 {
     static_assert(core::int_is_odd(core::int_max<I>())); // Needed below
     auto max_int_2 = core::promote(max_int);
@@ -256,7 +256,7 @@ template<class F, class I> constexpr auto int_to_flt_a(I int_val, core::Type<I> 
 }
 
 
-template<class I, class F> constexpr auto flt_to_int(F flt_val, core::Type<I> max_int) noexcept -> I
+template<class I, class F> constexpr auto flt_to_int(F flt_val, core::type<I> max_int) noexcept -> I
 {
     // Intuition: round_half_even(flt_val * max_int) plus clamping behavior
     if (ARCHON_LIKELY(flt_val >= F(0))) {
@@ -316,7 +316,7 @@ template<class I, class F> constexpr auto flt_to_int(F flt_val, core::Type<I> ma
 }
 
 
-template<class I, class F> constexpr auto flt_to_int_a(F flt_val, core::Type<I> max_int) noexcept -> I
+template<class I, class F> constexpr auto flt_to_int_a(F flt_val, core::type<I> max_int) noexcept -> I
 {
     // Intuition: min(floor(flt_val * (max_int + 1)), max_int) plus clamping behavior
     if (ARCHON_LIKELY(flt_val >= F(0))) {

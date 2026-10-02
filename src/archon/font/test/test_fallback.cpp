@@ -71,6 +71,24 @@ bool is_freetype_available() noexcept
 } // unnamed namespace
 
 
+ARCHON_TEST(Font_Fallback_Basics)
+{
+    const font::implementation& impl = font::get_fallback_implementation();
+    ARCHON_CHECK_EQUAL(impl.get_ident(), "fallback");
+    ARCHON_CHECK(impl.is_available());
+    namespace fs = std::filesystem;
+    fs::path resource_path = test_context.get_data_path(g_test_dir_path, "..");
+    font::loader::config config;
+    config.logger = &test_context.logger;
+    std::unique_ptr<font::loader> loader = impl.new_loader(resource_path, test_context.locale, config);
+    ARCHON_CHECK_EQUAL(loader->get_num_faces(), 1);
+    std::unique_ptr<font::face> face = loader->load_default_face();
+    ARCHON_CHECK_NOT(face->is_scalable());
+    ARCHON_CHECK_NOT(face->has_color());
+    ARCHON_CHECK_EQUAL(face->get_num_fixed_sizes(), 1);
+}
+
+
 ARCHON_TEST_BATCH_IF(Font_Fallback_FreetypeRoundtrip, font_size_variants, ::is_freetype_available())
 {
     ::font_spec font_spec = test_value.first;

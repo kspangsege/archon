@@ -261,7 +261,9 @@ public:
     ConnectionImpl& conn;
     const int cookie;
     display::WindowEventHandler* event_handler = this;
+    display::Size size;
 
+    bool in_immersive_mode = false;
     bool has_pending_expose_event = false;
 
     WindowImpl(ConnectionImpl&, int cookie, bool prefer_opengl_adaptive_vsync) noexcept;
@@ -278,6 +280,7 @@ public:
     void set_title(std::string_view) override;
     void set_size(display::Size) override;
     void set_fullscreen_mode(bool) override;
+    void set_immersive_mode(bool) override;
     void fill(util::Color) override;
     void fill(util::Color, const display::Box&) override;
     auto new_texture(display::Size) -> std::unique_ptr<display::Texture> override;
@@ -298,6 +301,7 @@ private:
     SDL_GLContext m_gl_context = nullptr;
 
     auto create_renderer() -> SDL_Renderer*;
+    void do_set_immersive_mode(bool on);
     void do_put_texture(const TextureImpl&, const display::Box& source_area, const display::Box& target_area);
 };
 
@@ -647,16 +651,27 @@ bool ConnectionImpl::process_event_batch()
     m_next_event += 1;
     switch (event.type) {
         case SDL_EVENT_MOUSE_MOTION:
-            if (ARCHON_LIKELY(event.motion.state == 0))
-                break;
             if (ARCHON_LIKELY(lookup_window(event.motion.windowID, window))) {
-                display::MouseMotionEvent event_2;
-                event_2.cookie = window->cookie;
-                event_2.timestamp = map_timestamp(event.motion.timestamp);
-                event_2.pos = { event.motion.x, event.motion.y };
-                bool proceed = window->event_handler->on_mousemove(event_2); // Throws
-                if (ARCHON_LIKELY(proceed))
-                    break;
+                if (window->in_immersive_mode) {
+                    display::RelativeMouseMotionEvent event_2;
+                    event_2.cookie = window->cookie;
+                    event_2.timestamp = map_timestamp(event.motion.timestamp);
+                    event_2.motion = { event.motion.xrel, event.motion.yrel };
+                    bool proceed = window->event_handler->on_rel_mousemove(event_2); // Throws
+                    if (ARCHON_LIKELY(proceed))
+                        break;
+                }
+                else {
+                    if (ARCHON_LIKELY(event.motion.state == 0))
+                        break;
+                    display::MouseMotionEvent event_2;
+                    event_2.cookie = window->cookie;
+                    event_2.timestamp = map_timestamp(event.motion.timestamp);
+                    event_2.pos = { event.motion.x, event.motion.y };
+                    bool proceed = window->event_handler->on_mousemove(event_2); // Throws
+                    if (ARCHON_LIKELY(proceed))
+                        break;
+                }
                 return false; // Interrupt
             }
             break;
@@ -680,7 +695,8 @@ bool ConnectionImpl::process_event_batch()
                 display::MouseButtonEvent event_2;
                 event_2.cookie = window->cookie;
                 event_2.timestamp = map_timestamp(event.button.timestamp);
-                event_2.pos = { event.motion.x, event.motion.y };
+                if (!window->in_immersive_mode)
+                    event_2.pos = { event.motion.x, event.motion.y };
                 event_2.button = map_mouse_button(event.button.button);
                 bool proceed;
                 if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
@@ -782,11 +798,14 @@ bool ConnectionImpl::process_event_batch()
             if (ARCHON_LIKELY(lookup_window(event.window.windowID, window))) {
                 switch (event.type) {
                     case SDL_EVENT_WINDOW_RESIZED: {
+                        display::Size size;
+                        core::int_cast(event.window.data1, size.width); // Throws
+                        core::int_cast(event.window.data2, size.height); // Throws
+                        window->size = size;
                         expose(); // Throws
                         display::WindowSizeEvent event_2;
                         event_2.cookie = window->cookie;
-                        core::int_cast(event.window.data1, event_2.size.width); // Throws
-                        core::int_cast(event.window.data2, event_2.size.height); // Throws
+                        event_2.size = size;
                         bool proceed = window->event_handler->on_resize(event_2); // Throws
                         if (ARCHON_LIKELY(proceed))
                             break;
@@ -1090,6 +1109,8 @@ bool WindowImpl::try_create(std::string_view title, display::Size size, const Co
         return false;
     }
     m_win = win;
+    this->size = { w, h };
+
     Uint32 id = SDL_GetWindowID(m_win);
     if (ARCHON_UNLIKELY(id == 0))
         throw_sdl_error(conn.locale, "SDL_GetWindowID() failed"); // Throws
@@ -1154,6 +1175,9 @@ bool WindowImpl::try_create(std::string_view title, display::Size size, const Co
 
     if (config.opengl_vsync.has_value() && config.enable_opengl_rendering)
         try_set_opengl_vsync_state(config.opengl_vsync.value()); // Throws
+
+    if (config.immersive)
+        do_set_immersive_mode(true); // Throws
 
     return true;
 }
@@ -1249,6 +1273,12 @@ void WindowImpl::set_fullscreen_mode(bool on)
         throw_sdl_error(conn.locale, "SDL_SyncWindow() failed"); // Throws
     }
     throw_sdl_error(conn.locale, "SDL_SetWindowFullscreen() failed"); // Throws
+}
+
+
+void WindowImpl::set_immersive_mode(bool on)
+{
+    do_set_immersive_mode(on); // Throws
 }
 
 
@@ -1364,6 +1394,22 @@ auto WindowImpl::create_renderer() -> SDL_Renderer*
         throw_sdl_error(conn.locale, "SDL_CreateRenderer() failed"); // Throws
     m_renderer = renderer;
     return renderer;
+}
+
+
+void WindowImpl::do_set_immersive_mode(bool on)
+{
+    if (in_immersive_mode && !on) {
+        float x = float(size.width  / 2.0);
+        float y = float(size.height / 2.0);
+        SDL_WarpMouseInWindow(m_win, x, y);
+    }
+    bool success = SDL_SetWindowRelativeMouseMode(m_win, on);
+    if (ARCHON_LIKELY(success)) {
+        in_immersive_mode = on;
+        return;
+    }
+    throw_sdl_error(conn.locale, "SDL_SetWindowRelativeMouseMode() failed"); // Throws
 }
 
 

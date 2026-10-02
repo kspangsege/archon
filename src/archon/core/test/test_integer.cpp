@@ -1487,16 +1487,16 @@ ARCHON_TEST(Core_Integer_SaturatingAdd)
     using narrow_unsigned_type = unsigned char;
 
     auto test_2 = [&](auto tag) {
-        test_1(tag, core::Wrap<wide_signed_type>());
-        test_1(tag, core::Wrap<wide_unsigned_type>());
-        test_1(tag, core::Wrap<narrow_signed_type>());
-        test_1(tag, core::Wrap<narrow_unsigned_type>());
+        test_1(tag, core::wrap<wide_signed_type>());
+        test_1(tag, core::wrap<wide_unsigned_type>());
+        test_1(tag, core::wrap<narrow_signed_type>());
+        test_1(tag, core::wrap<narrow_unsigned_type>());
     };
 
-    test_2(core::Wrap<wide_signed_type>());
-    test_2(core::Wrap<wide_unsigned_type>());
-    test_2(core::Wrap<narrow_signed_type>());
-    test_2(core::Wrap<narrow_unsigned_type>());
+    test_2(core::wrap<wide_signed_type>());
+    test_2(core::wrap<wide_unsigned_type>());
+    test_2(core::wrap<narrow_signed_type>());
+    test_2(core::wrap<narrow_unsigned_type>());
 }
 
 
@@ -1543,14 +1543,14 @@ ARCHON_TEST(Core_Integer_SaturatingSub)
     using narrow_unsigned_type = unsigned char;
 
     auto test_2 = [&](auto tag) {
-        test_1(tag, core::Wrap<wide_signed_type>());
-        test_1(tag, core::Wrap<wide_unsigned_type>());
-        test_1(tag, core::Wrap<narrow_signed_type>());
-        test_1(tag, core::Wrap<narrow_unsigned_type>());
+        test_1(tag, core::wrap<wide_signed_type>());
+        test_1(tag, core::wrap<wide_unsigned_type>());
+        test_1(tag, core::wrap<narrow_signed_type>());
+        test_1(tag, core::wrap<narrow_unsigned_type>());
     };
 
-    test_2(core::Wrap<wide_signed_type>());
-    test_2(core::Wrap<wide_unsigned_type>());
-    test_2(core::Wrap<narrow_signed_type>());
-    test_2(core::Wrap<narrow_unsigned_type>());
+    test_2(core::wrap<wide_signed_type>());
+    test_2(core::wrap<wide_unsigned_type>());
+    test_2(core::wrap<narrow_signed_type>());
+    test_2(core::wrap<narrow_unsigned_type>());
 }

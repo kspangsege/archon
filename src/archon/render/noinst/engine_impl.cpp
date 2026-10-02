@@ -94,11 +94,6 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
 {
     ARCHON_ASSERT(!m_initialized);
 
-#if !ARCHON_DISPLAY_HAVE_OPENGL
-    error = "OpenGL not available"; // Throws
-    return false;
-#endif
-
     update_window_size(window_size);
     update_resolution(m_default_resolution); // Throws
     update_frame_rate(m_default_frame_rate); // Throws
@@ -163,6 +158,7 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
     window_config.screen = m_screen;
     window_config.resizable = config.allow_window_resize;
     window_config.fullscreen = config.fullscreen_mode;
+    window_config.immersive = config.immersive_mode;
     window_config.enable_opengl_rendering = true;
     window_config.require_opengl_depth_buffer = config.require_depth_buffer;
     window_config.minimum_size = config.minimum_window_size;
@@ -309,6 +305,12 @@ void EngineImpl::set_fullscreen_mode(bool on)
 {
     m_fullscreen_mode = on;
     m_window->set_fullscreen_mode(on); // Throws
+}
+
+
+void EngineImpl::set_immersive_mode(bool on)
+{
+    m_window->set_immersive_mode(on); // Throws
 }
 
 
@@ -639,6 +641,7 @@ void EngineImpl::redraw()
 
     m_window->opengl_swap_buffers(); // Throws
 
+    static_cast<void>(m_max_opengl_errors);
 #if ARCHON_DISPLAY_HAVE_OPENGL
     if (m_max_opengl_errors > 0) {
         GLenum error = glGetError();

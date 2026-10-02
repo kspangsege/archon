@@ -289,6 +289,13 @@ bool is_freetype_available() noexcept
 } // unnamed namespace
 
 
+ARCHON_TEST(Font_Freetype_Implementation)
+{
+    const font::implementation& impl = font::get_freetype_implementation();
+    ARCHON_CHECK_EQUAL(impl.get_ident(), "freetype");
+}
+
+
 ARCHON_TEST_IF(Font_Freetype_ScalableUncolored, is_freetype_available())
 {
     namespace fs = std::filesystem;

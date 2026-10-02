@@ -427,8 +427,8 @@ using WideSpec = BasicSpec<wchar_t>;
 /// \endcode
 ///
 template<class C, class T, class A>
-void pat(core::Type<core::BasicVarStringRef<C, T>> pattern, int attr, cli::BasicSpec<C, T>&,
-         core::Type<core::BasicVarStringRef<C, T>> descr, A&& action);
+void pat(core::type<core::BasicVarStringRef<C, T>> pattern, int attr, cli::BasicSpec<C, T>&,
+         core::type<core::BasicVarStringRef<C, T>> descr, A&& action);
 
 
 
@@ -474,9 +474,9 @@ void pat(core::Type<core::BasicVarStringRef<C, T>> pattern, int attr, cli::Basic
 /// \endcode
 ///
 template<class C, class T, class A>
-void opt(core::Type<core::BasicVarStringRef<C, T>> forms,
-         core::Type<core::BasicVarStringRef<C, T>> arg, int attr, cli::BasicSpec<C, T>&,
-         core::Type<core::BasicVarStringRef<C, T>> descr, A&& action);
+void opt(core::type<core::BasicVarStringRef<C, T>> forms,
+         core::type<core::BasicVarStringRef<C, T>> arg, int attr, cli::BasicSpec<C, T>&,
+         core::type<core::BasicVarStringRef<C, T>> descr, A&& action);
 template<class C, class T> void opt(cli::HelpTag, cli::BasicSpec<C, T>&,
                                     cli::BasicHelpConfig<C, T> = {}, bool unlisted = false);
 template<class C, class T> void opt(cli::StopTag, cli::BasicSpec<C, T>&, bool unlisted = false);
@@ -570,16 +570,16 @@ inline void BasicSpec<C, T>::allow_pattern_internal_positional_ambiguity() noexc
 
 
 template<class C, class T, class A>
-inline void pat(core::Type<core::BasicVarStringRef<C, T>> pattern, int attr, cli::BasicSpec<C, T>& spec,
-                core::Type<core::BasicVarStringRef<C, T>> descr, A&& action)
+inline void pat(core::type<core::BasicVarStringRef<C, T>> pattern, int attr, cli::BasicSpec<C, T>& spec,
+                core::type<core::BasicVarStringRef<C, T>> descr, A&& action)
 {
     spec.add_pattern(std::move(pattern), attr, std::move(descr), std::move(action)); // Throws
 }
 
 
 template<class C, class T, class A>
-inline void opt(core::Type<core::BasicVarStringRef<C, T>> forms, core::Type<core::BasicVarStringRef<C, T>> arg,
-                int attr, cli::BasicSpec<C, T>& spec, core::Type<core::BasicVarStringRef<C, T>> descr, A&& action)
+inline void opt(core::type<core::BasicVarStringRef<C, T>> forms, core::type<core::BasicVarStringRef<C, T>> arg,
+                int attr, cli::BasicSpec<C, T>& spec, core::type<core::BasicVarStringRef<C, T>> descr, A&& action)
 {
     spec.add_option(std::move(forms), std::move(arg), attr, std::move(descr),
                     std::move(action)); // Throws
