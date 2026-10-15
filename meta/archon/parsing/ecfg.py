@@ -1,3 +1,23 @@
+# This file is part of the Archon project, a suite of C++ libraries.
+#
+# Copyright (C) 2026 Kristian Spangsege <kristian.spangsege@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this
+# software and associated documentation files (the "Software"), to deal in the Software
+# without restriction, including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons
+# to whom the Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all copies or
+# substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+# PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+# FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+
 from __future__ import annotations
 
 import typing
@@ -117,11 +137,11 @@ class ParseError(Exception):
 
 
 def _parse(input_: typing.TextIO, error_handler: ErrorHandler) -> Grammar | None:
-    named_terminals      = list[str]()
-    named_terminal_map   = dict[str, int]()
-    defined_nonterminals = set[str]()
-    referenced_names     = list[tuple[str, _l.FullTextPos]]()
-    referenced_name_map  = dict[str, int]()
+    named_terminals:      list[str] = []
+    named_terminal_map:   dict[str, int] = {}
+    defined_nonterminals: set[str] = set()
+    referenced_names:     list[tuple[str, _l.FullTextPos]] = []
+    referenced_name_map:  dict[str, int] = {}
 
     start_nonterminal: str | None = None
     start_dir_pos:     _l.FullTextPos
@@ -166,7 +186,7 @@ def _parse(input_: typing.TextIO, error_handler: ErrorHandler) -> Grammar | None
 
     def parse_token_decl() -> None:
         assert is_symbol(_SymbolToken.Symbol.TOKEN)
-        pos = token.pos
+        decl_pos = token.pos
         advance()
         if not isinstance(token, _NameToken):
             error(token.pos, "Expected token name after `%token`")
@@ -179,7 +199,7 @@ def _parse(input_: typing.TextIO, error_handler: ErrorHandler) -> Grammar | None
             skip_directive()
             return
         if name.value in named_terminal_map:
-            error(name.pos, "Redeclaration of token `%s`", name)
+            error(decl_pos, "Redeclaration of token `%s`", name)
             return
         named_terminal_map[name.value] = len(named_terminals)
         named_terminals.append(name.value)
@@ -492,7 +512,7 @@ def _format_grammar(grammar: Grammar) -> str:
         lhs = definition.nonterminal
         indent_1 = " " * len(lhs)
         indent_2 = " " * (max_lhs_size - len(lhs))
-        lines = list[str]()
+        lines: list[str] = []
         def add(expression: Expression) -> None:
             rhs = _format_expression(expression)
             if not lines:
@@ -557,12 +577,12 @@ def _format_expression(expression: Expression) -> str:
 def _analyze_as_ell1(grammar: Grammar, output_stream: typing.TextIO = sys.stdout) -> bool:
     is_ell1 = True
 
-    definition_map = dict[str, Definition]()
+    definition_map: dict[str, Definition] = {}
     for definition in grammar.definitions:
         definition_map[definition.nonterminal] = definition
 
     def find_reachable_nonterminals() -> set[str]:
-        seen = set[str]()
+        seen: set[str] = set()
         def visit_definition(nonterminal: str) -> None:
             if nonterminal in seen:
                 return
@@ -747,7 +767,7 @@ def _analyze_as_ell1(grammar: Grammar, output_stream: typing.TextIO = sys.stdout
                     alternatives_2.append((i, a, predict_set))
                 for i, alternative, predict_set in alternatives_2:
                     warnings = []
-                    for i_2, alternative_2, predict_set_2 in alternatives_2[i+1:]:
+                    for i_2, _, predict_set_2 in alternatives_2[i+1:]:
                         overlap = predict_set & predict_set_2
                         if overlap:
                             is_ell1 = False
@@ -814,7 +834,7 @@ def _analyze_as_ell1(grammar: Grammar, output_stream: typing.TextIO = sys.stdout
         typing.assert_never(expression)
 
     def compute_lookahead_order() -> dict[_Lookahead, int]:
-        order = dict[_Lookahead, int]()
+        order: dict[_Lookahead, int] = {}
         def visit(expression: Expression) -> None:
             match expression:
                 case Alternation(alternatives):

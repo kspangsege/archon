@@ -1,3 +1,23 @@
+# This file is part of the Archon project, a suite of C++ libraries.
+#
+# Copyright (C) 2026 Kristian Spangsege <kristian.spangsege@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this
+# software and associated documentation files (the "Software"), to deal in the Software
+# without restriction, including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons
+# to whom the Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all copies or
+# substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+# PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+# FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+
 from __future__ import annotations
 
 import typing
@@ -21,7 +41,7 @@ def show_help(spec: Spec, logger: _l.Logger) -> None:
 
 class Spec:
     def __init__(self) -> None:
-        self._options = list[_Option]()
+        self._options: list[_Option] = []
 
     def opt(self, forms: list[str], action: OptionAction) -> None:
         self._options.append(_Option(list(forms), action))
@@ -155,13 +175,13 @@ class SpecError(Exception):
 
 
 def _parse(args: list[str], spec: Spec, logger: _l.Logger) -> tuple[bool, list[str]]:
-    option_map = dict[str, int]()
+    option_map: dict[str, int] = {}
     for i, option in enumerate(spec._options):
         for form in option.forms:
             if not re.fullmatch(r"--[0-9\-A-Za-z]*|-[0-9A-Za-z]", form):
-                raise SpecError("Invalid option form (%s)", _b.quote(form))
+                raise SpecError("Invalid option form (%s)" % _b.quote(form))
             if form in option_map:
-                raise SpecError("Reuse of option form (%s)", _b.quote(form))
+                raise SpecError("Reuse of option form (%s)" % _b.quote(form))
             option_map[form] = i
 
     short_circuit = False

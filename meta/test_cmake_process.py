@@ -1,3 +1,23 @@
+# This file is part of the Archon project, a suite of C++ libraries.
+#
+# Copyright (C) 2026 Kristian Spangsege <kristian.spangsege@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this
+# software and associated documentation files (the "Software"), to deal in the Software
+# without restriction, including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons
+# to whom the Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all copies or
+# substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+# PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+# FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+
 from __future__ import annotations
 
 import typing
@@ -36,13 +56,13 @@ def test_CMakeProcess_Message(context: _t.Context) -> None:
         ("Baz", _cp.MessageLevel.WARNING,     True,  _tp.TextPos(3, 0)),
         ("Qux", _cp.MessageLevel.FATAL_ERROR, False, _tp.TextPos(5, 2)),
     ]
-    context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.message, expected[0])
         subcontext.check_equal(message.level, expected[1])
         subcontext.check_equal(not message.occurrence_uncertainty, expected[2])
         subcontext.check_equal(message.file_pos.text_pos, expected[3])
+    context.check_equal(len(result.messages), len(expected_messages))
     _check_warnings(context, result, path, [])
 
     # Uncertainty
@@ -3524,21 +3544,21 @@ def test_CMakeProcess_Include(context: _t.Context) -> None:
         ("2: -X2-Y-",  _tp.FilePos(pathlib.Path("src/bar.cmake"), 1, 0)),  # 3
         ("4: -X3-Y2-", _tp.FilePos(root_path, 5, 0)),                      # 4
     ]
-    context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.message, expected[0])
         subcontext.check_equal(message.file_pos, expected[1])
         subcontext.check_is_none(message.occurrence_uncertainty)
+    context.check_equal(len(result.messages), len(expected_messages))
     context.check_equal(len(result.warnings), 0)
     expected_errors = [
         ('Failed to include "qux.cmake" ("src/qux.cmake"): No such file or directory', _tp.FilePos(root_path, 6, 8)),
     ]
-    context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(error.message, expected[0])
         subcontext.check_equal(error.file_pos, expected[1])
+    context.check_equal(len(result.errors), len(expected_errors))
 
 
 def test_CMakeProcess_AddSubdirectory(context: _t.Context) -> None:
@@ -3582,22 +3602,22 @@ def test_CMakeProcess_AddSubdirectory(context: _t.Context) -> None:
         ("2: -X-Y2-", _tp.FilePos(pathlib.Path("src/baz/bar/CMakeLists.txt"), 1, 0)), # 3
         ("4: -X-Y2-", _tp.FilePos(root_path, 6, 0)),                                  # 4
     ]
-    context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.message, expected[0])
         subcontext.check_equal(message.file_pos, expected[1])
         subcontext.check_is_none(message.occurrence_uncertainty)
+    context.check_equal(len(result.messages), len(expected_messages))
     context.check_equal(len(result.warnings), 0)
     expected_errors = [
         ('Failed to add subdirectory "qux" ("src/qux/CMakeLists.txt"): No such file or directory',
          _tp.FilePos(root_path, 7, 17)),
     ]
-    context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(error.message, expected[0])
         subcontext.check_equal(error.file_pos, expected[1])
+    context.check_equal(len(result.errors), len(expected_errors))
 
 
 def test_CMakeProcess_CMakeVersionVariables(context: _t.Context) -> None:
@@ -3652,11 +3672,11 @@ def test_CMakeProcess_DirectoryVariables(context: _t.Context) -> None:
         "3: -/root/src/foo-/root/bin/foo-",
         "4: -/root/src-/root/bin-",
     ]
-    context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.message, expected)
         subcontext.check_is_none(message.occurrence_uncertainty)
+    context.check_equal(len(result.messages), len(expected_messages))
     context.check_equal(len(result.warnings), 0)
 
 
@@ -4275,26 +4295,26 @@ def _trim_cmake_text(text: str) -> str:
 
 
 def _check_valid(no: int, context: _t.Context, cmake_text: str, expected_messages: list[str],
-                 expected_warnings: list[tuple[str, _tp.TextPos]] = [], lenient_mode: bool = False,
-                 initial_variables: dict[str, str | None] = {}) -> None:
+                 expected_warnings: list[tuple[str, _tp.TextPos]] | None = None, lenient_mode: bool = False,
+                 initial_variables: dict[str, str | None] | None = None) -> None:
     path = pathlib.Path("test-%s.cmake" % no)
     initial_variables_2 = {
         "cmake_version":                  str(_cp.CMAKE_VERSION),
         "lowest_supported_cmake_version": str(_cp.LOWEST_SUPPORTED_CMAKE_VERSION),
-    } | initial_variables
+    } | (initial_variables or {})
     success, result = _process(_trim_cmake_text(cmake_text), path, context, lenient_mode=lenient_mode,
                                initial_variables=initial_variables_2)
     context.check(success)
     _check_messages(context, result, expected_messages)
-    _check_warnings(context, result, path, expected_warnings)
+    _check_warnings(context, result, path, expected_warnings or [])
 
 def _check_invalid(no: int, context: _t.Context, cmake_text: str, expected_errors: list[tuple[str, _tp.TextPos]],
-                   lenient_mode: bool = False, initial_variables: dict[str, str | None] = {}) -> None:
+                   lenient_mode: bool = False, initial_variables: dict[str, str | None] | None = None) -> None:
     path = pathlib.Path("test-%s.cmake" % no)
     initial_variables_2 = {
         "cmake_version":                  str(_cp.CMAKE_VERSION),
         "lowest_supported_cmake_version": str(_cp.LOWEST_SUPPORTED_CMAKE_VERSION),
-    } | initial_variables
+    } | (initial_variables or {})
     success, result = _process(_trim_cmake_text(cmake_text), path, context, lenient_mode=lenient_mode,
                                initial_variables=initial_variables_2)
     context.check_not(success)
@@ -4306,7 +4326,7 @@ def _check_invalid(no: int, context: _t.Context, cmake_text: str, expected_error
 def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context,
              subfile_resolver: _SubfileResolver | None = None, set_binary_dir: bool = False,
              lenient_mode: bool = False, cmake_version: _cve.Version | None = None,
-             initial_variables: dict[str, str | None] = {}) -> tuple[bool, _Result]:
+             initial_variables: dict[str, str | None] | None = None) -> tuple[bool, _Result]:
     pos_resolver = _cp.PositionResolver()
     result = _Result()
     application = _Application(subfile_resolver, pos_resolver, result, context.logger)
@@ -4316,7 +4336,7 @@ def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context,
         config.binary_dir = pathlib.Path("bin")
     config.lenient_mode = lenient_mode
     config.cmake_version = cmake_version
-    config.initial_variables = initial_variables
+    config.initial_variables = initial_variables or {}
     config.define_breakpoint_command = True
     with io.StringIO(cmake_text) as file_:
         cmake_source = _cp.Source(file_, cmake_path)
@@ -4325,17 +4345,16 @@ def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context,
 
 
 def _check_messages(context: _t.Context, result: _Result, expected_messages: list[str]) -> None:
-    context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
         subcontext.check_equal(message.message, expected)
         subcontext.check_is_none(message.occurrence_uncertainty)
+    context.check_equal(len(result.messages), len(expected_messages))
 
 
 def _check_messages_p(context: _t.Context, result: _Result, path: pathlib.Path,
                       expected_messages: list[tuple[str, _tp.TextPos]]) -> None:
-    context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
@@ -4343,37 +4362,38 @@ def _check_messages_p(context: _t.Context, result: _Result, path: pathlib.Path,
         subcontext.check_equal(message.file_pos.path, path)
         subcontext.check_equal(message.file_pos.text_pos, expected[1])
         subcontext.check_is_none(message.occurrence_uncertainty)
+    context.check_equal(len(result.messages), len(expected_messages))
 
 
 def _check_messages_u(context: _t.Context, result: _Result, path: pathlib.Path,
                       expected_messages: list[tuple[str, bool]]) -> None:
-    context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
         subcontext.check_equal(message.message, expected[0])
         subcontext.check_equal(message.file_pos.path, path)
         subcontext.check_equal(bool(message.occurrence_uncertainty), expected[1])
+    context.check_equal(len(result.messages), len(expected_messages))
 
 
 def _check_warnings(context: _t.Context, result: _Result, path: pathlib.Path,
                     expected_warnings: list[tuple[str, _tp.TextPos]]) -> None:
-    context.check_equal(len(result.warnings), len(expected_warnings))
     for i, (warning, expected) in enumerate(zip(result.warnings, expected_warnings)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(warning.message, expected[0])
         subcontext.check_equal(warning.file_pos.path, path)
         subcontext.check_equal(warning.file_pos.text_pos, expected[1])
+    context.check_equal(len(result.warnings), len(expected_warnings))
 
 
 def _check_errors(context: _t.Context, result: _Result, path: pathlib.Path,
                   expected_errors: list[tuple[str, _tp.TextPos]]) -> None:
-    context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(error.message, expected[0])
         subcontext.check_equal(error.file_pos.path, path)
         subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    context.check_equal(len(result.errors), len(expected_errors))
 
 
 class _Application(_cp.Application):
@@ -4426,9 +4446,9 @@ class _SubfileResolver(typing.Protocol):
 
 class _Result:
     def __init__(self) -> None:
-        self.messages = list[_CMakeMessage]()
-        self.warnings = list[_LogMessage]()
-        self.errors   = list[_LogMessage]()
+        self.messages: list[_CMakeMessage] = []
+        self.warnings: list[_LogMessage] = []
+        self.errors:   list[_LogMessage] = []
 
 
 @dataclasses.dataclass(slots=True, frozen=True)

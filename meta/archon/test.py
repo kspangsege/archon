@@ -1,10 +1,30 @@
+# This file is part of the Archon project, a suite of C++ libraries.
+#
+# Copyright (C) 2026 Kristian Spangsege <kristian.spangsege@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this
+# software and associated documentation files (the "Software"), to deal in the Software
+# without restriction, including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons
+# to whom the Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all copies or
+# substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+# PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+# FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+
 from __future__ import annotations
 
 import typing
 import types
 import inspect
 import abc
-import collections
+import collections.abc as _cabc
 import dataclasses
 import re
 import traceback
@@ -34,16 +54,22 @@ class Context(abc.ABC):
     def check_is_not_none(self, value: object) -> None:
         self._impl.do_check_is_not_none(self._trail, value)
 
+    def check_is_empty(self, collection: _cabc.Sized) -> None:
+        self._impl.do_check_is_empty(self._trail, collection)
+
+    def check_is_not_empty(self, collection: _cabc.Sized) -> None:
+        self._impl.do_check_is_not_empty(self._trail, collection)
+
     def check_equal[T](self, a: T, b: T) -> None:
         self._impl.do_check_equal(self._trail, a, b)
 
     def check_not_equal[T](self, a: T, b: T) -> None:
         self._impl.do_check_not_equal(self._trail, a, b)
 
-    def check_in[T](self, value: T, container: collections.abc.Container[T]) -> None:
+    def check_in[T](self, value: T, container: _cabc.Container[T]) -> None:
         self._impl.do_check_in(self._trail, value, container)
 
-    def check_not_in[T](self, value: T, container: collections.abc.Container[T]) -> None:
+    def check_not_in[T](self, value: T, container: _cabc.Container[T]) -> None:
         self._impl.do_check_not_in(self._trail, value, container)
 
     def check_is_instance(self, value: object, type_info: TypeInfo) -> None:
@@ -148,7 +174,7 @@ def generate_native_tests(module_name: str) -> unittest.TestSuite:
 
 def run(tests: list[Test], filter_: _b.Predicate[str], num_repetitions: int, shuffle: bool, random_seed: int,
         debug_on_failure: bool, logger: _l.Logger, testcase_logger: _l.Logger) -> None:
-    filtered = list[tuple[int, Test]]()
+    filtered: list[tuple[int, Test]] = []
     for i, test in enumerate(tests):
         if filter_(test.name):
             filtered.append((i, test))
@@ -157,7 +183,7 @@ def run(tests: list[Test], filter_: _b.Predicate[str], num_repetitions: int, shu
         test:             Test
         test_index:       int
         repetition_index: int
-    invocations = list[Invoc]()
+    invocations: list[Invoc] = []
     for i in range(num_repetitions):
         for test_index, test in filtered:
             invocations.append(Invoc(test, test_index, i))
@@ -208,7 +234,7 @@ def run(tests: list[Test], filter_: _b.Predicate[str], num_repetitions: int, shu
 class Test:
     name:        str
     description: str | None
-    func:        collections.abc.Callable[[Context], None]
+    func:        _cabc.Callable[[Context], None]
 
 
 class BadTestFunctionSignature(Exception):
@@ -263,6 +289,14 @@ class _Implementation(abc.ABC):
         ...
 
     @abc.abstractmethod
+    def do_check_is_empty(self, trail: _Trail, collection: _cabc.Sized) -> None:
+        ...
+
+    @abc.abstractmethod
+    def do_check_is_not_empty(self, trail: _Trail, collection: _cabc.Sized) -> None:
+        ...
+
+    @abc.abstractmethod
     def do_check_equal[T](self, trail: _Trail, a: T, b: T) -> None:
         ...
 
@@ -271,11 +305,11 @@ class _Implementation(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def do_check_in[T](self, trail: _Trail, value: T, container: collections.abc.Container[T]) -> None:
+    def do_check_in[T](self, trail: _Trail, value: T, container: _cabc.Container[T]) -> None:
         ...
 
     @abc.abstractmethod
-    def do_check_not_in[T](self, trail: _Trail, value: T, container: collections.abc.Container[T]) -> None:
+    def do_check_not_in[T](self, trail: _Trail, value: T, container: _cabc.Container[T]) -> None:
         ...
 
     @abc.abstractmethod
@@ -330,6 +364,16 @@ class _RegularImplementation(_Implementation):
         self._check(trail, cond, "check_is_not_none", "(%r) failed", value)
 
     @typing.override
+    def do_check_is_empty(self, trail: _Trail, collection: _cabc.Sized) -> None:
+        cond = len(collection) == 0
+        self._check(trail, cond, "check_is_empty", "(%r) failed", collection)
+
+    @typing.override
+    def do_check_is_not_empty(self, trail: _Trail, collection: _cabc.Sized) -> None:
+        cond = len(collection) != 0
+        self._check(trail, cond, "check_is_not_empty", "(%r) failed", collection)
+
+    @typing.override
     def do_check_equal[T](self, trail: _Trail, a: T, b: T) -> None:
         cond = a == b
         self._check(trail, cond, "check_equal", "(%r, %r) failed", a, b)
@@ -340,12 +384,12 @@ class _RegularImplementation(_Implementation):
         self._check(trail, cond, "check_not_equal", "(%r, %r) failed", a, b)
 
     @typing.override
-    def do_check_in[T](self, trail: _Trail, value: T, container: collections.abc.Container[T]) -> None:
+    def do_check_in[T](self, trail: _Trail, value: T, container: _cabc.Container[T]) -> None:
         cond = value in container
         self._check(trail, cond, "check_in", "(%r, %r) failed", value, container)
 
     @typing.override
-    def do_check_not_in[T](self, trail: _Trail, value: T, container: collections.abc.Container[T]) -> None:
+    def do_check_not_in[T](self, trail: _Trail, value: T, container: _cabc.Container[T]) -> None:
         cond = value not in container
         self._check(trail, cond, "check_not_in", "(%r, %r) failed", value, container)
 
@@ -507,6 +551,14 @@ class _ImplementationBridge(_Implementation):
         self._test_case.assertIsNotNone(value)
 
     @typing.override
+    def do_check_is_empty(self, trail: _Trail, collection: _cabc.Sized) -> None:
+        self._test_case.assertTrue(len(collection) == 0)
+
+    @typing.override
+    def do_check_is_not_empty(self, trail: _Trail, collection: _cabc.Sized) -> None:
+        self._test_case.assertFalse(len(collection) == 0)
+
+    @typing.override
     def do_check_equal[T](self, trail: _Trail, a: T, b: T) -> None:
         self._test_case.assertEqual(a, b)
 
@@ -515,11 +567,11 @@ class _ImplementationBridge(_Implementation):
         self._test_case.assertNotEqual(a, b)
 
     @typing.override
-    def do_check_in[T](self, trail: _Trail, value: T, container: collections.abc.Container[T]) -> None:
+    def do_check_in[T](self, trail: _Trail, value: T, container: _cabc.Container[T]) -> None:
         self._test_case.assertIn(value, container)
 
     @typing.override
-    def do_check_not_in[T](self, trail: _Trail, value: T, container: collections.abc.Container[T]) -> None:
+    def do_check_not_in[T](self, trail: _Trail, value: T, container: _cabc.Container[T]) -> None:
         self._test_case.assertNotIn(value, container)
 
     @typing.override
@@ -570,7 +622,7 @@ class _CheckFailure(BaseException):
 
 
 def _parse_filter_glob(string: str) -> _r.Expression:
-    elements = list[_r.Expression]()
+    elements: list[_r.Expression] = []
     i = 0
     while True:
         j = string.find("*", i)

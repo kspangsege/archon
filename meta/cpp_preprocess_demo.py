@@ -1,3 +1,23 @@
+# This file is part of the Archon project, a suite of C++ libraries.
+#
+# Copyright (C) 2026 Kristian Spangsege <kristian.spangsege@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this
+# software and associated documentation files (the "Software"), to deal in the Software
+# without restriction, including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons
+# to whom the Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all copies or
+# substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+# PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+# FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+
 from __future__ import annotations
 
 import typing
@@ -40,7 +60,7 @@ logger = _l.LimitLogger(root_logger, log_level.value)
 try:
     with open(path) as file_:
         tracker = _tp.TextPosTracker()
-        macro_registry = dict[str, _cp.MacroDef]()
+        macro_registry: dict[str, _cp.MacroDef] = {}
         def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
             assert pos.file_index == 0
             text_pos = tracker.get_text_pos(pos.pos_in_file)
@@ -58,7 +78,7 @@ try:
                     string += " (synthetic)"
                 logger.info("%s:%s: %s: %s", text_pos.line_no, text_pos.pos_on_line, token.type_.name, string)
         else:
-            parts = list[str]()
+            parts: list[str] = []
             def flush() -> None:
                 string = "".join([p for p in parts])
                 print(string)

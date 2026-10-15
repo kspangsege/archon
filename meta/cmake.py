@@ -128,7 +128,7 @@ def _extract_structure(root_dir_path: pathlib.Path, logger: log.Logger, emit_mes
 
     target_map: dict[str, Target] = {}
 
-    conditional_stack = list[_ConditionalState]()
+    conditional_stack: list[_ConditionalState] = []
     conditional_state = _ConditionalState()
 
     def process_group(cmake_path: pathlib.Path, directory: _Directory, group: Group, subgroup_path: list[int]) -> None:
@@ -165,7 +165,7 @@ def _extract_structure(root_dir_path: pathlib.Path, logger: log.Logger, emit_mes
                 continue
 
             if isinstance(invoc, _cip.UnsetInvoc):
-                values = list[_cip.String]()
+                values: list[_cip.String] = []
                 set_variable(invoc.variable.value, values, invoc.parent_scope, directory, cmake_path, invoc.line_no)
                 continue
 

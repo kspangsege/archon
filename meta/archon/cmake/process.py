@@ -1,3 +1,23 @@
+# This file is part of the Archon project, a suite of C++ libraries.
+#
+# Copyright (C) 2026 Kristian Spangsege <kristian.spangsege@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this
+# software and associated documentation files (the "Software"), to deal in the Software
+# without restriction, including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons
+# to whom the Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all copies or
+# substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+# PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+# FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+
 from __future__ import annotations
 
 import typing
@@ -5,7 +25,6 @@ import abc
 import dataclasses
 import collections
 import enum
-import copy
 import string as _string
 import re
 import pathlib
@@ -198,7 +217,7 @@ type OccurrenceUncertainty = _cur.ExpansionUncertaintyReason | None
 
 class PositionResolver:
     def __init__(self) -> None:
-        self._files = list[_SourceFile]()
+        self._files: list[_SourceFile] = []
 
     def resolve_file_context(self, pos: _cur.Position) -> _l.FileContext:
         file_pos = self.resolve_file_pos(pos)
@@ -313,7 +332,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     # this map as (I, N), where I is the identifier of the custom command object
     # (`_CustomCommand`) and N is the number of times it is in the path. A custom command
     # that is not in the current invocation path should not be in this map.
-    commands_in_invoc_path = dict[int, int]()
+    commands_in_invoc_path: dict[int, int] = {}
 
     def process_file(process_context: _ProcessContext, cmake_source: Source, is_root_dir: bool, state: _State,
                      occurrence_uncertainty: OccurrenceUncertainty, source_dir: pathlib.Path,
@@ -757,7 +776,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         var_name = var_ref.variable_name
         match var_ref.resolution_type:
             case _cu.ResolutionType.GENERAL:
-                values = list[str]()
+                values: list[str] = []
                 parent_scope = False
                 try:
                     while True:
@@ -815,7 +834,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 # CMake accepts an empty list of values. If the list of values is empty, the
                 # variable will be set to the empty string. It will not be unset (contrast
                 # this with regular variables).
-                values = list[str]()
+                values = []
                 try:
                     while True:
                         arg = server.consume()
@@ -939,11 +958,11 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             try:
                 orig_string = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, var_name_pos, invoc,
                                                        context)
-            except _UncertainVariableResolutionException as e:
+            except _UncertainVariableResolutionException:
                 # If the target variable was tainted, it remains tainted. Nothing further to
                 # do.
                 return
-            elements = list[str]()
+            elements: list[str] = []
             try:
                 while True:
                     arg = server.consume()
@@ -974,7 +993,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 return
             var_name = arg.string.string
             var_name_pos = arg.pos
-            elements = list[str]()
+            elements = []
             try:
                 while True:
                     arg = server.consume()
@@ -1108,7 +1127,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                         raise
                     if not uncertainty:
                         uncertainty = e.reason
-            indexes = list[int]()
+            indexes: list[int] = []
             definitely_no_indexes = True
             while True:
                 try:
@@ -1141,7 +1160,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 taint_regular_variable(var_name, uncertainty, context)
                 return
             assert have_list_value
-            elements_2 = list[str]()
+            elements_2: list[str] = []
             for index in indexes:
                 elements_2.append(elements[index])
             assert elements_2
@@ -1167,7 +1186,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 # If the target variable was tainted, it remains tainted. Nothing further to
                 # do.
                 return
-            elements = list[str]()
+            elements = []
             try:
                 while True:
                     arg = server.consume()
@@ -1258,7 +1277,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         binary_dir_2: pathlib.Path | None = None
         if context.binary_dir is not None:
             binary_dir_2 = context.binary_dir / binary_dir
-        initial_variables = dict[str, str | None]()
+        initial_variables: dict[str, str | None] = {}
         initial_variables["CMAKE_CURRENT_SOURCE_DIR"] = str(context.resolve_path(source_dir_2))
         if binary_dir_2 is not None:
             initial_variables["CMAKE_CURRENT_BINARY_DIR"] = str(context.resolve_path(binary_dir_2))
@@ -1296,7 +1315,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             result = parse_cmake_version_range(version, invoc, context)
             if not result:
                 return
-            min_string, min_version, policy_max_version = result
+            _, _, policy_max_version = result
             apply_policy_max_version(policy_max_version, invoc, context)
             return
         if func in {"SET", "GET", "PUSH", "POP"}:
@@ -1418,7 +1437,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         version:      str | None = None
         description:  str | None = None
         homepage_url: str | None = None
-        languages = list[str]()
+        languages: list[str] = []
         no_default_languages = False
         if not server.has_keyword(keywords):
             while True:
@@ -1787,7 +1806,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         return True
 
     def evaluate_condition(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _cc.Result:
-        arguments, card_uncertainty = expand_arguments(invoc, context)
+        arguments, _ = expand_arguments(invoc, context)
         condition = _cc.parse(invoc.command_name, arguments, invoc.rparen_pos)
         class State(_cv.VariableState):
             @typing.override
@@ -1804,11 +1823,11 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         return _cc.evaluate(condition, invoc.command_name, context.file_index, state, context.process.lenient_mode)
 
     def create_argument_server(invoc: _clp.Invoc, context: _InvocContext) -> _ca.ArgumentServer:
-        arguments, card_uncertainty = expand_arguments(invoc, context)
+        arguments, _ = expand_arguments(invoc, context)
         return _ca.ArgumentServer(invoc, arguments, context.file_index)
 
     def expand_arguments(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> tuple[list[_ca.Argument], bool]:
-        arguments = list[_ca.Argument]()
+        arguments: list[_ca.Argument] = []
         card_uncertainty = False
         for protoarg in invoc.arguments:
             arg: _ca.Argument
@@ -1997,6 +2016,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     def taint_env_variable(variable_name: str, reason: _cur.ValueUncertaintyReason, context: _InvocContext) -> None:
         context.state.set_env_variable(variable_name, _cv.UncertainValue(reason))
 
+    # pylint: disable=unused-variable   
     def resolve_certain_policy(policy: _cpo.Policy, invoc: _clp.GeneralizedInvoc, context: _InvocContext,
                                suppress_warning: bool = False) -> bool:
         value = resolve_policy(policy, invoc, context, suppress_warning)
@@ -2263,11 +2283,11 @@ class _State(abc.ABC):
 
 class _RootState(_State):
     def __init__(self, initial_variables: dict[str, str | None], define_breakpoint_command: bool) -> None:
-        self._policies          = dict[_cpo.Policy, _PolicyValue]()
-        self._commands          = dict[str, _Command]()
-        self._env_variables     = dict[str, _cv.Value]()
-        self._cache_variables   = dict[str, _cv.Value]()
-        self._regular_variables = dict[str, _cv.Value]()
+        self._policies:          dict[_cpo.Policy, _PolicyValue] = {}
+        self._commands:          dict[str, _Command] = {}
+        self._env_variables:     dict[str, _cv.Value] = {}
+        self._cache_variables:   dict[str, _cv.Value] = {}
+        self._regular_variables: dict[str, _cv.Value] = {}
         for name, value in initial_variables.items():
             self._cache_variables[name] = _cv.CertainValue(None)
             self._regular_variables[name] = _cv.CertainValue(value)
@@ -2399,11 +2419,12 @@ class _RootState(_State):
 
 
 class _SubscopeState(_State):
-    def __init__(self, parent_state: _State, initial_variables: dict[str, str | None] = {}) -> None:
-        self._parent_state      = parent_state
-        self._regular_variables = dict[str, _cv.Value]()
-        for name, value in initial_variables.items():
-            self._regular_variables[name] = _cv.CertainValue(value)
+    def __init__(self, parent_state: _State, initial_variables: dict[str, str | None] | None = None) -> None:
+        self._parent_state = parent_state
+        self._regular_variables: dict[str, _cv.Value] = {}
+        if initial_variables is not None:
+            for name, value in initial_variables.items():
+                self._regular_variables[name] = _cv.CertainValue(value)
 
     @typing.override
     def is_root_scope(self) -> bool:
@@ -2475,20 +2496,20 @@ class _SubscopeState(_State):
 
 class _OccurrenceUncertaintyOverlayState(_State):
     def __init__(self, parent_state: _State, occurrence_uncertainty_reason: _cur.ExpansionUncertaintyReason) -> None:
-        self._parent_state                   = parent_state
-        self._occurrence_uncertainty_reason  = occurrence_uncertainty_reason
-        self._policies                       = dict[_cpo.Policy, _AssignedPolicyValue]()
-        self._tainted_policies               = dict[_cpo.Policy, _UncertainPolicyValue]()
-        self._commands                       = dict[str, _DefinedCommand]()
-        self._tainted_commands               = dict[str, _UncertainCommand]()
-        self._env_variables                  = dict[str, _AssignedValue]()
-        self._tainted_env_variables          = dict[str, _cv.UncertainValue]()
-        self._cache_variables                = dict[str, _AssignedValue]()
-        self._tainted_cache_variables        = dict[str, _cv.UncertainValue]()
-        self._regular_variables              = dict[str, _AssignedValue]()
-        self._tainted_regular_variables      = dict[str, _cv.UncertainValue]()
-        self._parent_scope_variables         = dict[str, _AssignedValue]()
-        self._tainted_parent_scope_variables = dict[str, _cv.UncertainValue]()
+        self._parent_state = parent_state
+        self._occurrence_uncertainty_reason = occurrence_uncertainty_reason
+        self._policies:                       dict[_cpo.Policy, _AssignedPolicyValue] = {}
+        self._tainted_policies:               dict[_cpo.Policy, _UncertainPolicyValue] = {}
+        self._commands:                       dict[str, _DefinedCommand] = {}
+        self._tainted_commands:               dict[str, _UncertainCommand] = {}
+        self._env_variables:                  dict[str, _AssignedValue] = {}
+        self._tainted_env_variables:          dict[str, _cv.UncertainValue] = {}
+        self._cache_variables:                dict[str, _AssignedValue] = {}
+        self._tainted_cache_variables:        dict[str, _cv.UncertainValue] = {}
+        self._regular_variables:              dict[str, _AssignedValue] = {}
+        self._tainted_regular_variables:      dict[str, _cv.UncertainValue] = {}
+        self._parent_scope_variables:         dict[str, _AssignedValue] = {}
+        self._tainted_parent_scope_variables: dict[str, _cv.UncertainValue] = {}
 
     def prune_taints(self) -> None:
         value:        _AssignedPolicyValue | _AssignedValue
@@ -3044,7 +3065,7 @@ _MESSAGE_LEVEL_MAP = {
 
 
 def _get_macro_substitutions(parameters: list[str], arguments: list[_ca.Argument]) -> dict[str, _SubstitutionValue]:
-    substitutions = dict[str, _SubstitutionValue]()
+    substitutions: dict[str, _SubstitutionValue] = {}
 
     for i, param in enumerate(parameters):
         assert i < len(arguments)
@@ -3060,8 +3081,8 @@ def _get_macro_substitutions(parameters: list[str], arguments: list[_ca.Argument
 
     # Special variables will shadow formal parameters of the same name. This is consistent
     # with CMake behavior.
-    all_args   = list[str]()
-    extra_args = list[str]()
+    all_args:   list[str] = []
+    extra_args: list[str] = []
     all_uncertainty:   _cur.ExpansionUncertaintyReason | None = None
     extra_uncertainty: _cur.ExpansionUncertaintyReason | None = None
     for i, arg in enumerate(arguments):
@@ -3106,7 +3127,7 @@ def _macro_substitute_invoc(invoc: _clp.Invoc, context: _InvocContext,
             case _clp.IfInvoc():
                 new_children, children_changed = subst_children(invoc)
                 new_closing_invoc, closing_invoc_cahnged = subst_invoc(invoc.closing_invoc)
-                new_elseif_branches = list[_clp.IfBranch]()
+                new_elseif_branches: list[_clp.IfBranch] = []
                 elseif_branches_changed = False
                 for branch in invoc.elseif_branches:
                     new_branch, branch_changed = subst_invoc(branch)
@@ -3143,7 +3164,7 @@ def _macro_substitute_invoc(invoc: _clp.Invoc, context: _InvocContext,
         typing.assert_never(invoc)
 
     def subst_arguments(invoc: _clp.InvocBase) -> tuple[list[_clp.Protoargument], bool]:
-        new_arguments = list[_clp.Protoargument]()
+        new_arguments: list[_clp.Protoargument] = []
         arguments_changed = False
         for arg in invoc.arguments:
             match arg.type_:
@@ -3206,7 +3227,7 @@ def _macro_substitute_invoc(invoc: _clp.Invoc, context: _InvocContext,
         typing.assert_never(arg)
 
     def subst_children(invoc: _clp.StructuredInvoc) -> tuple[list[_clp.Invoc], bool]:
-        new_children = list[_clp.Invoc]()
+        new_children: list[_clp.Invoc] = []
         children_changed = False
         for child in invoc.children:
             new_child, child_changed = subst_invoc(child)
@@ -3216,7 +3237,7 @@ def _macro_substitute_invoc(invoc: _clp.Invoc, context: _InvocContext,
             return new_children, True
         return invoc.children, False
 
-    new_invoc, invoc_changed = subst_invoc(invoc)
+    new_invoc, _ = subst_invoc(invoc)
     return new_invoc
 
 
@@ -3264,8 +3285,8 @@ def _assign_function_arguments(command: _CustomCommand, arguments: list[_ca.Argu
 
     # Special variables will shadow formal parameters of the same name. This is consistent
     # with CMake behavior.
-    all_args   = list[str]()
-    extra_args = list[str]()
+    all_args:   list[str] = []
+    extra_args: list[str] = []
     all_uncertainty:   _cur.ExpansionUncertaintyReason | None = None
     extra_uncertainty: _cur.ExpansionUncertaintyReason | None = None
     for i, arg in enumerate(arguments):

@@ -1,9 +1,28 @@
+# This file is part of the Archon project, a suite of C++ libraries.
+#
+# Copyright (C) 2026 Kristian Spangsege <kristian.spangsege@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this
+# software and associated documentation files (the "Software"), to deal in the Software
+# without restriction, including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons
+# to whom the Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all copies or
+# substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+# PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+# FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+
 from __future__ import annotations
 
 import typing
-import abc
 import dataclasses
-import collections.abc
+import collections.abc as _cabc
 import enum
 import re
 import unicodedata
@@ -14,13 +33,13 @@ import archon.text_pos as _tp
 
 
 def preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker,
-               macro_registry: dict[str, MacroDef], error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+               macro_registry: dict[str, MacroDef], error_handler: ErrorHandler) -> _cabc.Iterator[Token]:
     elements = parse(input_, file_index, tracker, error_handler)
     return _preprocess(elements, macro_registry, error_handler)
 
 
 def parse(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker,
-          error_handler: ErrorHandler) -> collections.abc.Iterator[Token | Directive]:
+          error_handler: ErrorHandler) -> _cabc.Iterator[Token | Directive]:
     tokens = _tokenize(input_, file_index, tracker)
     return _parse(tokens, error_handler)
 
@@ -35,7 +54,7 @@ def parse(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker,
 # The output is a stream of preprocessing tokens not including token type `HIDDEN_IDENT`. At
 # the end of input, an `END_OF_INPUT` token is generated.
 #
-def tokenize(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[Token]:
+def tokenize(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker) -> _cabc.Iterator[Token]:
     return _tokenize(input_, file_index, tracker)
 
 
@@ -45,7 +64,7 @@ def tokenize(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker
 # output. No other tokens will appear in the output. End of input and output is marked by an
 # `END_OF_INPUT` token.
 #
-def parse_tokens(tokens: typing.Iterable[Token], error_handler: ErrorHandler) -> collections.abc.Iterator[Element]:
+def parse_tokens(tokens: typing.Iterable[Token], error_handler: ErrorHandler) -> _cabc.Iterator[Element]:
     return _parse(tokens, error_handler)
 
 
@@ -56,7 +75,7 @@ def parse_tokens(tokens: typing.Iterable[Token], error_handler: ErrorHandler) ->
 # input and output is marked by an `END_OF_INPUT` token.
 #
 def preprocess_elements(elements: typing.Iterable[Element], macro_registry: dict[str, MacroDef],
-                        error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+                        error_handler: ErrorHandler) -> _cabc.Iterator[Token]:
     return _preprocess(elements, macro_registry, error_handler)
 
 
@@ -207,7 +226,7 @@ class Position:
 
 # FIXME: Fix tokenization of raw string literals. Line splicing must be disabled between the
 # opening and closing quotation marks.           
-def _tokenize(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[Token]:
+def _tokenize(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker) -> _cabc.Iterator[Token]:
     line_iter = _logical_lines(input_, tracker)
 
     line:     str
@@ -367,9 +386,9 @@ _IDENTIFIER_REGEX = re.compile(_IDENTIFIER_REGEX_STRING, re.ASCII)
 _HEADER_REGEX = re.compile(r'<[^>\n]*>?|"[^"\n]*"?')
 
 
-def _logical_lines(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[_Line]:
+def _logical_lines(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> _cabc.Iterator[_Line]:
     pos = 0
-    lines = list[str]()
+    lines: list[str] = []
     for line in input_:
         continuation = "\\\n"
         if line.endswith(continuation):
@@ -399,13 +418,13 @@ class _Line:
 # fully parse directives. This allows the full directive parsing to be delayed until the
 # point where the directive needs to be executed and it allows the directive to be ignored
 # entirely inside disabled code (`#if 0`)          
-def _parse(tokens: typing.Iterable[Token], error_handler: ErrorHandler) -> collections.abc.Iterator[Element]:
+def _parse(tokens: typing.Iterable[Token], error_handler: ErrorHandler) -> _cabc.Iterator[Element]:
     # FIXME: Deal with error tokens inside directives (NO_RAW_STRING_LPAREN, BAD_RAW_STRING_DELIM, UNTERM_RAW_STRING_LIT, UNTERM_STRING_LIT, UNTERM_CHAR_LIT, UNTERM_BLOCK_COMMENT)    
     # FIXME: Detect illegal occurrences of `__VA_ARGS__` and `__VA_OPT__` in directives   
     # FIXME: Find way to deal with `__VA_ARGS__` and `__VA_OPT__` outside directives   
     # FIXME: Detect constructions of `__VA_ARGS__` and `__VA_OPT__` through fusing during macro expansion (all such cases are illegal)     
     state = _ParseState.INITIAL
-    buffer_ = list[Token]()
+    buffer_: list[Token] = []
     tokens_iter = iter(tokens)
     while True:
         token = next(tokens_iter)
@@ -559,10 +578,10 @@ def _parse_define_directive(pos: Position, end_pos: Position, tokens: list[Token
 
 
 def _parse_macro_replacement_tokens(macro_name: str, params: list[str] | None, is_variadic: bool,
-                                    replacement_tokens: collections.abc.Sequence[Token],
+                                    replacement_tokens: _cabc.Sequence[Token],
                                     error_handler: ErrorHandler) -> list[ReplaceElem] | None:
     # FIXME: Also deal with __VA_OPT__            
-    elements_1: collections.abc.Sequence[ReplaceAtom] = replacement_tokens
+    elements_1: _cabc.Sequence[ReplaceAtom] = replacement_tokens
     if params is not None:
         param_indexes = {name: index for index, name in enumerate(params)}
         def lookup_param(name: str) -> tuple[bool, int | None]:
@@ -573,7 +592,7 @@ def _parse_macro_replacement_tokens(macro_name: str, params: list[str] | None, i
                 return True, None
             return False, None
 
-        elements = list[ReplaceAtom]()
+        elements: list[ReplaceAtom] = []
         n = len(replacement_tokens)
         i = 0
         while i < n:
@@ -610,7 +629,7 @@ def _parse_macro_replacement_tokens(macro_name: str, params: list[str] | None, i
             elements.append(token)
         elements_1 = elements
 
-    elements_2 = list[ReplaceElem]()
+    elements_2: list[ReplaceElem] = []
     n = len(elements_1)
     i = 0
     while i < n:
@@ -654,7 +673,7 @@ _VA_ARGS_NANE = "__VA_ARGS__"
 
 
 def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, MacroDef],
-                error_handler: ErrorHandler) -> collections.abc.Iterator[Token]:
+                error_handler: ErrorHandler) -> _cabc.Iterator[Token]:
 
     @dataclasses.dataclass(slots=True)
     class StackEntry:
@@ -662,7 +681,7 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
         replacement: list[Token]
         pos:         int = 0
 
-    active_set = set[str]()
+    active_set: set[str] = set()
 
     @dataclasses.dataclass(slots=True, frozen=True)
     class ArgDelim:
@@ -670,8 +689,8 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
         end:   int
         pos:   Position
 
-    def process(elements: typing.Iterable[Element]) -> collections.abc.Iterator[Token]:
-        stack = list[StackEntry]()
+    def process(elements: typing.Iterable[Element]) -> _cabc.Iterator[Token]:
+        stack: list[StackEntry] = []
         elements_iter = iter(elements)
         def next_elem() -> Element:
             while stack:
@@ -728,6 +747,7 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
                     elem = next_elem()
                     continue
                 case GenericDirective() as generic:
+                    del generic
                     raise NotImplementedError        
                 case _:
                     typing.assert_never(elem)
@@ -865,7 +885,7 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
             assert arg_slots
             return arg_slots[index]
 
-        def expand_atom(atom: ReplaceAtom, fuse_context: bool) -> collections.abc.Sequence[Token]:
+        def expand_atom(atom: ReplaceAtom, fuse_context: bool) -> _cabc.Sequence[Token]:
             match atom:
                 case Token() as token:
                     return [token]
@@ -884,7 +904,7 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
             typing.assert_never(atom)
 
         try:
-            replacement = list[Token]()
+            replacement: list[Token] = []
             for elem in macro.replacement:
                 if not isinstance(elem, FuseOper):
                     atom = elem
@@ -939,7 +959,7 @@ def _preprocess(elements: typing.Iterable[Element], macro_registry: dict[str, Ma
         return list(process(tokens))
 
     def stringify(tokens: list[Token], pos: Position) -> Token:
-        parts = list[str]()
+        parts: list[str] = []
         pending_space = False
         def flush_space() -> None:
             nonlocal pending_space
