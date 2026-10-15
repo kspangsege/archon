@@ -101,6 +101,17 @@ def test_CppPreprocess_Tokenizer_Basics(context: _t.Context) -> None:
         (_cp.TokenType.NEWLINE, "\n", 2, 7, ()),
     ], 3, 0)
 
+    # Line continuation
+    _check_tokenize(context, "fo\\\no", [
+        (_cp.TokenType.IDENTIFIER, "foo", 1, 0, ()),
+    ], 2, 1)
+    _check_tokenize(context, "fo\\ \no", [
+        (_cp.TokenType.IDENTIFIER, "foo", 1, 0, ()),
+    ], 2, 1)
+    _check_tokenize(context, '"\\\\\nn"', [
+        (_cp.TokenType.STRING_LIT, '"\\n"', 1, 0, ()),
+    ], 2, 2)
+
 
 def test_CppPreprocess_Tokenizer_Identifier(context: _t.Context) -> None:
     _check_tokenize(context, "e\u0301 n\\u0303", [
