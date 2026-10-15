@@ -116,6 +116,13 @@ def test_CppPreprocess_Tokenizer_BlockComment(context: _t.Context) -> None:
     ], 1, 5)
 
 
+def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
+    
+    _check_tokenize(context, '"\\\\\nn"', [
+        (_cp.TokenType.STRING_LIT, '"\\n"', 1, 0, ()),
+    ], 2, 2)
+
+
 def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
     _check_tokenize(context, '"\\\\\nn"', [
         (_cp.TokenType.STRING_LIT, '"\\n"', 1, 0, ()),
