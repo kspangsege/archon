@@ -108,9 +108,22 @@ def test_CppPreprocess_Tokenizer_Basics(context: _t.Context) -> None:
     _check_tokenize(context, "fo\\ \no", [
         (_cp.TokenType.IDENTIFIER, "foo", 1, 0, ()),
     ], 2, 1)
+
+
+def test_CppPreprocess_Tokenizer_BlockComment(context: _t.Context) -> None:
+    _check_tokenize(context, "/***/", [
+        (_cp.TokenType.BLOCK_COMMENT, "/***/", 1, 0, ()),
+    ], 1, 5)
+
+
+def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
     _check_tokenize(context, '"\\\\\nn"', [
         (_cp.TokenType.STRING_LIT, '"\\n"', 1, 0, ()),
     ], 2, 2)
+    _check_tokenize(context, '"foo"123', [
+        (_cp.TokenType.STRING_LIT, '"foo"', 1, 0, ()),
+        (_cp.TokenType.NUMBER, "123", 1, 5, ()),
+    ], 1, 8)
 
 
 def test_CppPreprocess_Tokenizer_Identifier(context: _t.Context) -> None:
