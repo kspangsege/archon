@@ -224,8 +224,19 @@ def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
         ('Missing left parenthesis in raw string literal', _tp.TextPos(1, 3)),
         ('Unterminated string literal', _tp.TextPos(2, 3)),
     ])
-    # FIXME: Prefixes    
-    # FIXME: Suffixes    
+    # Prefix and suffix
+    _check_tokenize(context, 'LR"(foo)"bar', [
+        (_cp.TokenType.RAW_STRING_LIT, 'LR"(foo)"bar', 1, 0, ()),
+    ], 1, 12)
+    # Invalid prefix
+    _check_tokenize(context, 'XR"(foo)"', [
+        (_cp.TokenType.IDENTIFIER, 'XR', 1, 0, ()),
+        (_cp.TokenType.STRING_LIT, '"(foo)"', 1, 2, ()),
+    ], 1, 9)
+    # UCN in suffix
+    _check_tokenize(context, 'R"(foo)"\\u00e9', [
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"\u00e9', 1, 0, (_cp.ReplacementMap.Entry(8, 1, "\\u00e9"),)),
+    ], 1, 14)
 
 
 def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
@@ -236,19 +247,71 @@ def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
         (_cp.TokenType.STRING_LIT, '"foo"', 1, 0, ()),
         (_cp.TokenType.NUMBER, "123", 1, 5, ()),
     ], 1, 8)
-    # FIXME: Unterminated string literal    
-    # FIXME: Prefixes    
-    # FIXME: Suffixes    
+    _check_tokenize(context, '"foo', [
+        (_cp.TokenType.BAD_STRING_LIT, '"foo', 1, 0, ()),
+    ], 1, 4, [
+        ('Unterminated string literal', _tp.TextPos(1, 4)),
+    ])
+    _check_tokenize(context, '"foo\nbar"', [
+        (_cp.TokenType.BAD_STRING_LIT, '"foo', 1, 0, ()),
+        (_cp.TokenType.NEWLINE, "\n", 1, 4, ()),
+        (_cp.TokenType.IDENTIFIER, 'bar', 2, 0, ()),
+        (_cp.TokenType.BAD_STRING_LIT, '"', 2, 3, ()),
+    ], 2, 4, [
+        ('Unterminated string literal', _tp.TextPos(1, 4)),
+        ('Unterminated string literal', _tp.TextPos(2, 4)),
+    ])
+    # Prefix and suffix
+    _check_tokenize(context, 'L"foo"bar', [
+        (_cp.TokenType.STRING_LIT, 'L"foo"bar', 1, 0, ()),
+    ], 1, 9)
+    # Invalid prefix
+    _check_tokenize(context, 'X"foo"', [
+        (_cp.TokenType.IDENTIFIER, 'X', 1, 0, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"', 1, 1, ()),
+    ], 1, 6)
+    # UCN in suffix
+    _check_tokenize(context, '"foo"\\u00e9', [
+        (_cp.TokenType.STRING_LIT, '"foo"\u00e9', 1, 0, (_cp.ReplacementMap.Entry(5, 1, "\\u00e9"),)),
+    ], 1, 11)
 
 
 def test_CppPreprocess_Tokenizer_CharLit(context: _t.Context) -> None:
-    # FIXME: Unterminated char literal    
-    # FIXME: Prefixes    
-    # FIXME: Suffixes    
+    _check_tokenize(context, "'c'123", [
+        (_cp.TokenType.CHAR_LIT, "'c'", 1, 0, ()),
+        (_cp.TokenType.NUMBER, "123", 1, 3, ()),
+    ], 1, 6)
+    _check_tokenize(context, "'c", [
+        (_cp.TokenType.BAD_CHAR_LIT, "'c", 1, 0, ()),
+    ], 1, 2, [
+        ('Unterminated character literal', _tp.TextPos(1, 2)),
+    ])
+    _check_tokenize(context, "'c\n'", [
+        (_cp.TokenType.BAD_CHAR_LIT, "'c", 1, 0, ()),
+        (_cp.TokenType.NEWLINE, "\n", 1, 2, ()),
+        (_cp.TokenType.BAD_CHAR_LIT, "'", 2, 0, ()),
+    ], 2, 1, [
+        ('Unterminated character literal', _tp.TextPos(1, 2)),
+        ('Unterminated character literal', _tp.TextPos(2, 1)),
+    ])
+    # Prefix and suffix
+    _check_tokenize(context, "L'c'foo", [
+        (_cp.TokenType.CHAR_LIT, "L'c'foo", 1, 0, ()),
+    ], 1, 7)
+    # Invalid prefix
+    _check_tokenize(context, "X'c'", [
+        (_cp.TokenType.IDENTIFIER, "X", 1, 0, ()),
+        (_cp.TokenType.CHAR_LIT, "'c'", 1, 1, ()),
+    ], 1, 4)
+    # UCN in suffix
+    _check_tokenize(context, "'c'\\u00e9", [
+        (_cp.TokenType.CHAR_LIT, "'c'\u00e9", 1, 0, (_cp.ReplacementMap.Entry(3, 1, "\\u00e9"),)),
+    ], 1, 9)
+
+
+def test_CppPreprocess_Tokenizer_Number(context: _t.Context) -> None:
+    # FIXME: Test the various number token specialties, i.e., when exactly the NUMBER matcher stops    
     pass
-
-
-# FIXME: Number token specialties    
 
 
 def test_CppPreprocess_Tokenizer_Identifier(context: _t.Context) -> None:
