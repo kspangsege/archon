@@ -115,67 +115,33 @@ def test_CppPreprocess_Tokenizer_Basics(context: _t.Context) -> None:
         (_cp.TokenType.IDENTIFIER, "foo", 1, 0, ()),
     ], 2, 1)
 
-    # UCNs
-    _check_tokenize(context, "\\u00e9", [
-        (_cp.TokenType.IDENTIFIER, "\u00e9", 1, 0, (_cp.ReplacementMap.Entry(0, 1, "\\u00e9"),)),
-    ], 1, 6)
-    _check_tokenize(context, "\\U000000e9", [
-        (_cp.TokenType.IDENTIFIER, "\u00e9", 1, 0, (_cp.ReplacementMap.Entry(0, 1, "\\U000000e9"),)),
-    ], 1, 10)
-    _check_tokenize(context, "\\u{e9}", [
-        (_cp.TokenType.IDENTIFIER, "\u00e9", 1, 0, (_cp.ReplacementMap.Entry(0, 1, "\\u{e9}"),)),
-    ], 1, 6)
-    _check_tokenize(context, "\\N{LATIN SMALL LETTER E WITH ACUTE}", [
-        (_cp.TokenType.IDENTIFIER, "\u00e9", 1, 0, (
-            _cp.ReplacementMap.Entry(0, 1, "\\N{LATIN SMALL LETTER E WITH ACUTE}"),
-        )),
-    ], 1, 35)
-    _check_tokenize(context, "\\u0041", [
-        (_cp.TokenType.BAD_IDENTIFIER, "\\u0041", 1, 0, ()),
-    ], 1, 6, [
-        ('Invalid UCN code point (U+0041): Refers to character in basic character set', _tp.TextPos(1, 2)),
-    ])
-    _check_tokenize(context, "\\u20AC", [
-        (_cp.TokenType.BAD_IDENTIFIER, "\\u20AC", 1, 0, ()),
-    ], 1, 6, [
-        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 2)),
-    ])
-    _check_tokenize(context, "\\uD800", [
-        (_cp.TokenType.BAD_IDENTIFIER, "\\uD800", 1, 0, ()),
-    ], 1, 6, [
-        ('Invalid UCN code point (U+D800): Refers to character in surrogate range', _tp.TextPos(1, 2)),
-    ])
-    _check_tokenize(context, "\\u{FFFFFFFF}", [
-        (_cp.TokenType.BAD_IDENTIFIER, "\\u{FFFFFFFF}", 1, 0, ()),
-    ], 1, 12, [
-        ('Invalid UCN code point (U+FFFFFFFF): Outside Unicode range', _tp.TextPos(1, 3)),
-    ])
-    _check_tokenize(context, "\\N{foo}", [
-        (_cp.TokenType.BAD_IDENTIFIER, "\\N{foo}", 1, 0, ()),
-    ], 1, 7, [
-        ('Invalid Unicode character name ("foo") in UCN', _tp.TextPos(1, 3)),
-    ])
-    # Line splicing must occur despite the `R"`
-    _check_tokenize(context, '\\N{R"(\\\n)"}', [
-        (_cp.TokenType.BAD_IDENTIFIER, '\\N{R"()"}', 1, 0, ()),
-    ], 2, 3, [
-        ('Invalid Unicode character name ("R\\"()\\"") in UCN', _tp.TextPos(1, 3)),
-    ])
-    # But line splicing must not occur if there is no UCN because the closing brace is
-    # missing, so `R"` does start a raw string literal (requires backtracking across
-    # splicing decision)
-    _check_tokenize(context, '\\N{R"(\\\n)"', [
-        (_cp.TokenType.STRAY_CHAR, '\\', 1, 0, ()),
-        (_cp.TokenType.IDENTIFIER, 'N', 1, 1, ()),
-        (_cp.TokenType.PUNCT, '{', 1, 2, ()),
-        (_cp.TokenType.RAW_STRING_LIT, 'R"(\\\n)"', 1, 3, ()),
-    ], 2, 2)
+
+def test_CppPreprocess_Tokenizer_LineComment(context: _t.Context) -> None:
+    _check_tokenize(context, "// first line \\\nsecond line\nthird line", [
+        (_cp.TokenType.LINE_COMMENT, "// first line second line", 1, 0, ()),
+        (_cp.TokenType.NEWLINE, "\n", 2, 11, ()),
+        (_cp.TokenType.IDENTIFIER, "third", 3, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 3, 5, ()),
+        (_cp.TokenType.IDENTIFIER, "line", 3, 6, ()),
+    ], 3, 10)
+    _check_tokenize(context, "// foo\\\n\n", [
+        (_cp.TokenType.LINE_COMMENT, "// foo", 1, 0, ()),
+        (_cp.TokenType.NEWLINE, "\n", 2, 0, ()),
+    ], 3, 0)
+    _check_tokenize(context, "// foo\\\n", [
+        (_cp.TokenType.LINE_COMMENT, "// foo", 1, 0, ()),
+    ], 2, 0)
 
 
 def test_CppPreprocess_Tokenizer_BlockComment(context: _t.Context) -> None:
     _check_tokenize(context, "/***/", [
         (_cp.TokenType.BLOCK_COMMENT, "/***/", 1, 0, ()),
     ], 1, 5)
+    _check_tokenize(context, "/* foo\n", [
+        (_cp.TokenType.BAD_BLOCK_COMMENT, "/* foo\n", 1, 0, ()),
+    ], 2, 0, [
+        ("Unterminated block comment", _tp.TextPos(1, 0)),
+    ])
 
 
 def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
@@ -200,7 +166,7 @@ def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
     _check_tokenize(context, 'R"foo(\nbar', [
         (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"foo(\nbar', 1, 0, ()),
     ], 2, 3, [
-        ('Unterminated raw string literal', _tp.TextPos(2, 3)),
+        ('Unterminated raw string literal', _tp.TextPos(1, 0)),
     ])
     _check_tokenize(context, 'R"\\()\\"', [
         (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"\\()\\"', 1, 0, ()),
@@ -211,7 +177,7 @@ def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
         (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"\\()"', 1, 0, ()),
     ], 1, 6, [
         ('Invalid character ("\\\\") in raw string literal delimiter', _tp.TextPos(1, 2)),
-        ('Unterminated raw string literal', _tp.TextPos(1, 6)),
+        ('Unterminated raw string literal', _tp.TextPos(1, 0)),
     ])
     # Line splicing turned off immediately after `R"`
     _check_tokenize(context, 'R"\\\n()"', [
@@ -222,7 +188,7 @@ def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
         (_cp.TokenType.BAD_STRING_LIT, '"', 2, 2, ()),
     ], 2, 3, [
         ('Missing left parenthesis in raw string literal', _tp.TextPos(1, 3)),
-        ('Unterminated string literal', _tp.TextPos(2, 3)),
+        ('Unterminated string literal', _tp.TextPos(2, 2)),
     ])
     # Prefix and suffix
     _check_tokenize(context, 'LR"(foo)"bar', [
@@ -250,7 +216,7 @@ def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
     _check_tokenize(context, '"foo', [
         (_cp.TokenType.BAD_STRING_LIT, '"foo', 1, 0, ()),
     ], 1, 4, [
-        ('Unterminated string literal', _tp.TextPos(1, 4)),
+        ('Unterminated string literal', _tp.TextPos(1, 0)),
     ])
     _check_tokenize(context, '"foo\nbar"', [
         (_cp.TokenType.BAD_STRING_LIT, '"foo', 1, 0, ()),
@@ -258,8 +224,8 @@ def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
         (_cp.TokenType.IDENTIFIER, 'bar', 2, 0, ()),
         (_cp.TokenType.BAD_STRING_LIT, '"', 2, 3, ()),
     ], 2, 4, [
-        ('Unterminated string literal', _tp.TextPos(1, 4)),
-        ('Unterminated string literal', _tp.TextPos(2, 4)),
+        ('Unterminated string literal', _tp.TextPos(1, 0)),
+        ('Unterminated string literal', _tp.TextPos(2, 3)),
     ])
     # Prefix and suffix
     _check_tokenize(context, 'L"foo"bar', [
@@ -284,15 +250,15 @@ def test_CppPreprocess_Tokenizer_CharLit(context: _t.Context) -> None:
     _check_tokenize(context, "'c", [
         (_cp.TokenType.BAD_CHAR_LIT, "'c", 1, 0, ()),
     ], 1, 2, [
-        ('Unterminated character literal', _tp.TextPos(1, 2)),
+        ('Unterminated character literal', _tp.TextPos(1, 0)),
     ])
     _check_tokenize(context, "'c\n'", [
         (_cp.TokenType.BAD_CHAR_LIT, "'c", 1, 0, ()),
         (_cp.TokenType.NEWLINE, "\n", 1, 2, ()),
         (_cp.TokenType.BAD_CHAR_LIT, "'", 2, 0, ()),
     ], 2, 1, [
-        ('Unterminated character literal', _tp.TextPos(1, 2)),
-        ('Unterminated character literal', _tp.TextPos(2, 1)),
+        ('Unterminated character literal', _tp.TextPos(1, 0)),
+        ('Unterminated character literal', _tp.TextPos(2, 0)),
     ])
     # Prefix and suffix
     _check_tokenize(context, "L'c'foo", [
@@ -397,7 +363,7 @@ def test_CppPreprocess_Tokenizer_Number(context: _t.Context) -> None:
         (_cp.TokenType.BAD_CHAR_LIT, "'", 1, 1, ()),
         (_cp.TokenType.NEWLINE, "\n", 1, 2, ()),
     ], 2, 0, [
-        ('Unterminated character literal', _tp.TextPos(1, 2)),
+        ('Unterminated character literal', _tp.TextPos(1, 1)),
     ])
 
 
@@ -413,6 +379,176 @@ def test_CppPreprocess_Tokenizer_Identifier(context: _t.Context) -> None:
         ("Identifier does not conform to Unicode Normalization Form C (NFC)", _tp.TextPos(1, 0)),
         ("Identifier does not conform to Unicode Normalization Form C (NFC)", _tp.TextPos(1, 3)),
     ])
+    _check_tokenize(context, "\u0967ab \\u0967ab", [
+        (_cp.TokenType.BAD_CHAR, "\u0967", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "ab", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 3, ()),
+        (_cp.TokenType.BAD_IDENTIFIER, "\\u0967ab", 1, 4, ()),
+    ], 1, 12, [
+        ('Invalid character: DEVANAGARI DIGIT ONE', _tp.TextPos(1, 0)),
+        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 6)),
+    ])
+
+
+def test_CppPreprocess_Tokenizer_Punctuation(context: _t.Context) -> None:
+    # Maximal munch
+    _check_tokenize(context, "x+++++y", [
+        (_cp.TokenType.IDENTIFIER, "x", 1, 0, ()),
+        (_cp.TokenType.PUNCT, "++", 1, 1, ()),
+        (_cp.TokenType.PUNCT, "++", 1, 3, ()),
+        (_cp.TokenType.PUNCT, "+", 1, 5, ()),
+        (_cp.TokenType.IDENTIFIER, "y", 1, 6, ()),
+    ], 1, 7)
+    _check_tokenize(context, "... .* ->*", [
+        (_cp.TokenType.PUNCT, "...", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 3, ()),
+        (_cp.TokenType.PUNCT, ".*", 1, 4, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
+        (_cp.TokenType.PUNCT, "->*", 1, 7, ()),
+    ], 1, 10)
+
+    # Digraphs vs standard punctuation
+    _check_tokenize(context, "<% %> <: :> %:%:", [
+        (_cp.TokenType.PUNCT, "<%", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 2, ()),
+        (_cp.TokenType.PUNCT, "%>", 1, 3, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 5, ()),
+        (_cp.TokenType.PUNCT, "<:", 1, 6, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 8, ()),
+        (_cp.TokenType.PUNCT, ":>", 1, 9, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 11, ()),
+        (_cp.TokenType.PUNCT, "%:%:", 1, 12, ()), # Digraph for ##
+    ], 1, 16)
+
+    # Special handling of `<:` (digraph for `[`)
+    _check_tokenize(context, "std::vector<::std::string>", [
+        (_cp.TokenType.IDENTIFIER, "std", 1, 0, ()),
+        (_cp.TokenType.PUNCT, "::", 1, 3, ()),
+        (_cp.TokenType.IDENTIFIER, "vector", 1, 5, ()),
+        (_cp.TokenType.PUNCT, "<", 1, 11, ()),   # Must be `<`
+        (_cp.TokenType.PUNCT, "::", 1, 12, ()),  # Must be `::`
+        (_cp.TokenType.IDENTIFIER, "std", 1, 14, ()),
+        (_cp.TokenType.PUNCT, "::", 1, 17, ()),
+        (_cp.TokenType.IDENTIFIER, "string", 1, 19, ()),
+        (_cp.TokenType.PUNCT, ">", 1, 25, ()),
+    ], 1, 26)
+    _check_tokenize(context, "a<:::ns::foo:>", [
+        (_cp.TokenType.IDENTIFIER, "a", 1, 0, ()),
+        (_cp.TokenType.PUNCT, "<:", 1, 1, ()),
+        (_cp.TokenType.PUNCT, "::", 1, 3, ()),
+        (_cp.TokenType.IDENTIFIER, "ns", 1, 5, ()),
+        (_cp.TokenType.PUNCT, "::", 1, 7, ()),
+        (_cp.TokenType.IDENTIFIER, "foo", 1, 9, ()),
+        (_cp.TokenType.PUNCT, ":>", 1, 12, ()),
+    ], 1, 14)
+    _check_tokenize(context, "a<::>", [
+        (_cp.TokenType.IDENTIFIER, "a", 1, 0, ()),
+        (_cp.TokenType.PUNCT, "<:", 1, 1, ()),
+        (_cp.TokenType.PUNCT, ":>", 1, 3, ()),
+    ], 1, 5)
+
+    # Special handling of `[:` (C++26 reflection splice)
+    _check_tokenize(context, "a[::ns::foo]", [
+        (_cp.TokenType.IDENTIFIER, "a", 1, 0, ()),
+        (_cp.TokenType.PUNCT, "[", 1, 1, ()),
+        (_cp.TokenType.PUNCT, "::", 1, 2, ()),
+        (_cp.TokenType.IDENTIFIER, "ns", 1, 4, ()),
+        (_cp.TokenType.PUNCT, "::", 1, 6, ()),
+        (_cp.TokenType.IDENTIFIER, "foo", 1, 8, ()),
+        (_cp.TokenType.PUNCT, "]", 1, 11, ()),
+    ], 1, 12)
+    _check_tokenize(context, "a[:>", [
+        (_cp.TokenType.IDENTIFIER, "a", 1, 0, ()),
+        (_cp.TokenType.PUNCT, "[", 1, 1, ()),
+        (_cp.TokenType.PUNCT, ":>", 1, 2, ()),
+    ], 1, 4)
+    _check_tokenize(context, "[:::ns::foo:]", [
+        (_cp.TokenType.PUNCT, "[:", 1, 0, ()),
+        (_cp.TokenType.PUNCT, "::", 1, 2, ()),
+        (_cp.TokenType.IDENTIFIER, "ns", 1, 4, ()),
+        (_cp.TokenType.PUNCT, "::", 1, 6, ()),
+        (_cp.TokenType.IDENTIFIER, "foo", 1, 8, ()),
+        (_cp.TokenType.PUNCT, ":]", 1, 11, ()),
+    ], 1, 13)
+
+
+def test_CppPreprocess_Tokenizer_UniversalCharacterNames(context: _t.Context) -> None:
+    _check_tokenize(context, "\\u00e9", [
+        (_cp.TokenType.IDENTIFIER, "\u00e9", 1, 0, (_cp.ReplacementMap.Entry(0, 1, "\\u00e9"),)),
+    ], 1, 6)
+    _check_tokenize(context, "\\U000000e9", [
+        (_cp.TokenType.IDENTIFIER, "\u00e9", 1, 0, (_cp.ReplacementMap.Entry(0, 1, "\\U000000e9"),)),
+    ], 1, 10)
+    _check_tokenize(context, "\\u{e9}", [
+        (_cp.TokenType.IDENTIFIER, "\u00e9", 1, 0, (_cp.ReplacementMap.Entry(0, 1, "\\u{e9}"),)),
+    ], 1, 6)
+    _check_tokenize(context, "\\N{LATIN SMALL LETTER E WITH ACUTE}", [
+        (_cp.TokenType.IDENTIFIER, "\u00e9", 1, 0, (
+            _cp.ReplacementMap.Entry(0, 1, "\\N{LATIN SMALL LETTER E WITH ACUTE}"),
+        )),
+    ], 1, 35)
+    _check_tokenize(context, "\\u0041", [
+        (_cp.TokenType.BAD_IDENTIFIER, "\\u0041", 1, 0, ()),
+    ], 1, 6, [
+        ('Invalid UCN code point (U+0041): Refers to character in basic character set', _tp.TextPos(1, 2)),
+    ])
+    _check_tokenize(context, "\\u20AC", [
+        (_cp.TokenType.BAD_IDENTIFIER, "\\u20AC", 1, 0, ()),
+    ], 1, 6, [
+        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 2)),
+    ])
+    _check_tokenize(context, "\\uD800", [
+        (_cp.TokenType.BAD_IDENTIFIER, "\\uD800", 1, 0, ()),
+    ], 1, 6, [
+        ('Invalid UCN code point (U+D800): Refers to character in surrogate range', _tp.TextPos(1, 2)),
+    ])
+    _check_tokenize(context, "\\u{FFFFFFFF}", [
+        (_cp.TokenType.BAD_IDENTIFIER, "\\u{FFFFFFFF}", 1, 0, ()),
+    ], 1, 12, [
+        ('Invalid UCN code point (U+FFFFFFFF): Outside Unicode range', _tp.TextPos(1, 3)),
+    ])
+    _check_tokenize(context, "\\N{foo}", [
+        (_cp.TokenType.BAD_IDENTIFIER, "\\N{foo}", 1, 0, ()),
+    ], 1, 7, [
+        ('Invalid Unicode character name ("foo") in UCN', _tp.TextPos(1, 3)),
+    ])
+
+    # Line splicing must occur despite the `R"`
+    _check_tokenize(context, '\\N{R"(\\\n)"}', [
+        (_cp.TokenType.BAD_IDENTIFIER, '\\N{R"()"}', 1, 0, ()),
+    ], 2, 3, [
+        ('Invalid Unicode character name ("R\\"()\\"") in UCN', _tp.TextPos(1, 3)),
+    ])
+    # But line splicing must not occur if there is no UCN because the closing brace is
+    # missing, so `R"` does start a raw string literal (requires backtracking across
+    # splicing decision)
+    _check_tokenize(context, '\\N{R"(\\\n)"', [
+        (_cp.TokenType.STRAY_CHAR, '\\', 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, 'N', 1, 1, ()),
+        (_cp.TokenType.PUNCT, '{', 1, 2, ()),
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(\\\n)"', 1, 3, ()),
+    ], 2, 2)
+
+    _check_tokenize(context, "u\\\n8\"foo\" \\u00\\\ne9", [
+        (_cp.TokenType.STRING_LIT, 'u8"foo"', 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 2, 6, ()),
+        (_cp.TokenType.IDENTIFIER, "\u00e9", 2, 7, (_cp.ReplacementMap.Entry(0, 1, "\\u00e9"),)),
+    ], 3, 2)
+
+    _check_tokenize(context, "\\u00E \\u{123 \\N{foo", [
+        (_cp.TokenType.STRAY_CHAR, "\\", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "u00E", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 5, ()),
+        (_cp.TokenType.STRAY_CHAR, "\\", 1, 6, ()),
+        (_cp.TokenType.IDENTIFIER, "u", 1, 7, ()),
+        (_cp.TokenType.PUNCT, "{", 1, 8, ()),
+        (_cp.TokenType.NUMBER, "123", 1, 9, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 12, ()),
+        (_cp.TokenType.STRAY_CHAR, "\\", 1, 13, ()),
+        (_cp.TokenType.IDENTIFIER, "N", 1, 14, ()),
+        (_cp.TokenType.PUNCT, "{", 1, 15, ()),
+        (_cp.TokenType.IDENTIFIER, "foo", 1, 16, ()),
+    ], 1, 19)
 
 
 def test_CppPreprocess_Tokenizer_HeaderName(context: _t.Context) -> None:
@@ -541,14 +677,18 @@ def test_CppPreprocess_Tokenizer_HeaderName(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 8, ()),
         (_cp.TokenType.BAD_HEADER_NAME, "<unterminated", 1, 9, ()),
         (_cp.TokenType.NEWLINE, "\n", 1, 22, ()),
-    ], 2, 0)
+    ], 2, 0, [
+        ('Unterminated header name (missing closing `>`)', _tp.TextPos(1, 9)),
+    ])
     _check_tokenize(context, '#embed "unterminated\n', [
         (_cp.TokenType.HASH, "#", 1, 0, ()),
         (_cp.TokenType.IDENTIFIER, "embed", 1, 1, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
         (_cp.TokenType.BAD_HEADER_NAME, '"unterminated', 1, 7, ()),
         (_cp.TokenType.NEWLINE, "\n", 1, 20, ()),
-    ], 2, 0)
+    ], 2, 0, [
+        ('Unterminated header name (missing closing `"`)', _tp.TextPos(1, 7)),
+    ])
 
 
 def test_CppPreprocess_ParseDefineDirective(context: _t.Context) -> None:

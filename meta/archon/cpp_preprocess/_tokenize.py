@@ -269,7 +269,8 @@ class Tokenizer:
         pos = self._get_pos()
         ch = self._consume_char()
         if ch is None:
-            text = ""
+            text = self._commit(last=True)
+            assert not text
             return Token(TokenType.END_OF_INPUT, text, pos)
         if ch in "\t\v\f ":
             ch = self._consume_until(_NOT_WHITESPACE_BUT_NEWLINE_REGEX)
@@ -284,6 +285,7 @@ class Tokenizer:
                     text = self._commit()
                     return Token(TokenType.HEADER_NAME, text, pos)
                 self._unconsume_char()
+                self._error_handler(pos, "Unterminated header name (missing closing `>`)")
                 text = self._commit()
                 return Token(TokenType.BAD_HEADER_NAME, text, pos)
             if ch == '"':
@@ -292,6 +294,7 @@ class Tokenizer:
                     text = self._commit()
                     return Token(TokenType.HEADER_NAME, text, pos)
                 self._unconsume_char()
+                self._error_handler(pos, 'Unterminated header name (missing closing `"`)')
                 text = self._commit()
                 return Token(TokenType.BAD_HEADER_NAME, text, pos)
             # Intended fall-through
@@ -316,6 +319,7 @@ class Tokenizer:
                         if ch is None:
                             break
                         self._unconsume_char()
+                    self._error_handler(pos, "Unterminated block comment")
                     text = self._commit()
                     return Token(TokenType.BAD_BLOCK_COMMENT, text, pos)
                 if ch_2 is not None:
@@ -403,11 +407,10 @@ class Tokenizer:
             if ch is None or ch == "\n":
                 if ch is not None:
                     self._unconsume_char()
-                text = prefix + self._commit()
-                error_pos = self._get_pos()
                 qual = "string" if is_string else "character"
-                self._error_handler(error_pos, "Unterminated %s literal" % qual)
+                self._error_handler(pos, "Unterminated %s literal" % qual)
                 token_type = TokenType.BAD_STRING_LIT if is_string else TokenType.BAD_CHAR_LIT
+                text = prefix + self._commit()
                 return Token(token_type, text, pos)
         stem = self._commit()
         state = _IdentFragConsumeState(prefix, stem)
@@ -473,8 +476,7 @@ class Tokenizer:
                     continue
             parts.append(self._commit())
             self._reenable_splicing()
-            error_pos = self._get_pos()
-            self._error_handler(error_pos, "Unterminated raw string literal")
+            self._error_handler(pos, "Unterminated raw string literal")
             text = "".join(parts)
             return Token(TokenType.BAD_RAW_STRING_LIT, text, pos)
         stem = self._commit()
@@ -802,7 +804,7 @@ class Tokenizer:
     # characters that were moved across. This commits character consumption up to the
     # current read position.
     #
-    def _commit(self) -> str:
+    def _commit(self, last: bool = False) -> str:
         k = self._buffer_pos
         assert k <= self._buffer_size
         self._buffer_size -= k
@@ -812,7 +814,7 @@ class Tokenizer:
         new_splices: list[_Splice] = []
         for splice in self._splices:
             j = splice.pos
-            if j < k:
+            if j < k or (last and j == k):
                 self._position_tracker.scan_chunk(buf[i:j])
                 self._position_tracker.new_line()
                 i = j
