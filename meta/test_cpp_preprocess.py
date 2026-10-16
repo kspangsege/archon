@@ -415,6 +415,142 @@ def test_CppPreprocess_Tokenizer_Identifier(context: _t.Context) -> None:
     ])
 
 
+def test_CppPreprocess_Tokenizer_HeaderName(context: _t.Context) -> None:
+    # Standard `#include` directives (angle brackets and quotes)
+    _check_tokenize(context, "#include <foo/bar.h>", [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "include", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 8, ()),
+        (_cp.TokenType.HEADER_NAME, "<foo/bar.h>", 1, 9, ()),
+    ], 1, 20)
+    _check_tokenize(context, '# include "my_header.h"', [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 1, ()),
+        (_cp.TokenType.IDENTIFIER, "include", 1, 2, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 9, ()),
+        (_cp.TokenType.HEADER_NAME, '"my_header.h"', 1, 10, ()),
+    ], 1, 23)
+
+    # C++26 `#embed` directive
+    _check_tokenize(context, "#embed <data.bin>", [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "embed", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
+        (_cp.TokenType.HEADER_NAME, "<data.bin>", 1, 7, ()),
+    ], 1, 17)
+
+    # C++20 `import` declaration (starts at the beginning of the line)
+    _check_tokenize(context, "import <iostream>;", [
+        (_cp.TokenType.IDENTIFIER, "import", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
+        (_cp.TokenType.HEADER_NAME, "<iostream>", 1, 7, ()),
+        (_cp.TokenType.PUNCT, ";", 1, 17, ()),
+    ], 1, 18)
+    _check_tokenize(context, "int import <iostream>;", [
+        (_cp.TokenType.IDENTIFIER, "int", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 3, ()),
+        (_cp.TokenType.IDENTIFIER, "import", 1, 4, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 10, ()),
+        (_cp.TokenType.PUNCT, "<", 1, 11, ()),
+        (_cp.TokenType.IDENTIFIER, "iostream", 1, 12, ()),
+        (_cp.TokenType.PUNCT, ">", 1, 20, ()),
+        (_cp.TokenType.PUNCT, ";", 1, 21, ()),
+    ], 1, 22)
+
+    # `__has_include` and `__has_embed` within valid conditional directives
+    _check_tokenize(context, "#if __has_include(<vector>)", [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "if", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 3, ()),
+        (_cp.TokenType.IDENTIFIER, "__has_include", 1, 4, ()),
+        (_cp.TokenType.PUNCT, "(", 1, 17, ()),
+        (_cp.TokenType.HEADER_NAME, "<vector>", 1, 18, ()),
+        (_cp.TokenType.PUNCT, ")", 1, 26, ()),
+    ], 1, 27)
+    _check_tokenize(context, '#elif __has_embed("data.txt")', [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "elif", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 5, ()),
+        (_cp.TokenType.IDENTIFIER, "__has_embed", 1, 6, ()),
+        (_cp.TokenType.PUNCT, "(", 1, 17, ()),
+        (_cp.TokenType.HEADER_NAME, '"data.txt"', 1, 18, ()),
+        (_cp.TokenType.PUNCT, ")", 1, 28, ()),
+    ], 1, 29)
+
+    # `__has_include` and `__has_embed` within #embed parameters
+    _check_tokenize(context, '#embed "data.bin" limit(__has_include(<foo.h>))', [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "embed", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
+        (_cp.TokenType.HEADER_NAME, '"data.bin"', 1, 7, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 17, ()),
+        (_cp.TokenType.IDENTIFIER, "limit", 1, 18, ()),
+        (_cp.TokenType.PUNCT, "(", 1, 23, ()),
+        (_cp.TokenType.IDENTIFIER, "__has_include", 1, 24, ()),
+        (_cp.TokenType.PUNCT, "(", 1, 37, ()),
+        (_cp.TokenType.HEADER_NAME, "<foo.h>", 1, 38, ()),
+        (_cp.TokenType.PUNCT, ")", 1, 45, ()),
+        (_cp.TokenType.PUNCT, ")", 1, 46, ()),
+    ], 1, 47)
+    _check_tokenize(context, '#embed "main.bin" if_empty(__has_embed(<fallback.bin>))', [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "embed", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
+        (_cp.TokenType.HEADER_NAME, '"main.bin"', 1, 7, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 17, ()),
+        (_cp.TokenType.IDENTIFIER, "if_empty", 1, 18, ()),
+        (_cp.TokenType.PUNCT, "(", 1, 26, ()),
+        (_cp.TokenType.IDENTIFIER, "__has_embed", 1, 27, ()),
+        (_cp.TokenType.PUNCT, "(", 1, 38, ()),
+        (_cp.TokenType.HEADER_NAME, "<fallback.bin>", 1, 39, ()),
+        (_cp.TokenType.PUNCT, ")", 1, 53, ()),
+        (_cp.TokenType.PUNCT, ")", 1, 54, ()),
+    ], 1, 55)
+
+    # Contexts where `<` and `"` should NOT form a header name
+    _check_tokenize(context, "#define FOO <bar.h>", [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "define", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 7, ()),
+        (_cp.TokenType.IDENTIFIER, "FOO", 1, 8, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 11, ()),
+        (_cp.TokenType.PUNCT, "<", 1, 12, ()),
+        (_cp.TokenType.IDENTIFIER, "bar", 1, 13, ()),
+        (_cp.TokenType.PUNCT, ".", 1, 16, ()),
+        (_cp.TokenType.IDENTIFIER, "h", 1, 17, ()),
+        (_cp.TokenType.PUNCT, ">", 1, 18, ()),
+    ], 1, 19)
+    _check_tokenize(context, "#define CHECK __has_include(<foo>)", [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "define", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 7, ()),
+        (_cp.TokenType.IDENTIFIER, "CHECK", 1, 8, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 13, ()),
+        (_cp.TokenType.IDENTIFIER, "__has_include", 1, 14, ()),
+        (_cp.TokenType.PUNCT, "(", 1, 27, ()),
+        (_cp.TokenType.PUNCT, "<", 1, 28, ()),
+        (_cp.TokenType.IDENTIFIER, "foo", 1, 29, ()),
+        (_cp.TokenType.PUNCT, ">", 1, 32, ()),
+        (_cp.TokenType.PUNCT, ")", 1, 33, ()),
+    ], 1, 34)
+
+    # Unterminated header names
+    _check_tokenize(context, "#include <unterminated\n", [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "include", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 8, ()),
+        (_cp.TokenType.BAD_HEADER_NAME, "<unterminated", 1, 9, ()),
+        (_cp.TokenType.NEWLINE, "\n", 1, 22, ()),
+    ], 2, 0)
+    _check_tokenize(context, '#embed "unterminated\n', [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "embed", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
+        (_cp.TokenType.BAD_HEADER_NAME, '"unterminated', 1, 7, ()),
+        (_cp.TokenType.NEWLINE, "\n", 1, 20, ()),
+    ], 2, 0)
+
+
 def test_CppPreprocess_ParseDefineDirective(context: _t.Context) -> None:
     file_index = 0
     _check_valid_define_directive(context, "M", file_index, "M", None, False, ())
