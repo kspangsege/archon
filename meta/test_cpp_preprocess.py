@@ -310,8 +310,95 @@ def test_CppPreprocess_Tokenizer_CharLit(context: _t.Context) -> None:
 
 
 def test_CppPreprocess_Tokenizer_Number(context: _t.Context) -> None:
-    # FIXME: Test the various number token specialties, i.e., when exactly the NUMBER matcher stops    
-    pass
+    # Basic integer and floating point introducers
+    _check_tokenize(context, "0 42 0x1A .5 1. 1.23", [
+        (_cp.TokenType.NUMBER, "0", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 1, ()),
+        (_cp.TokenType.NUMBER, "42", 1, 2, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 4, ()),
+        (_cp.TokenType.NUMBER, "0x1A", 1, 5, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 9, ()),
+        (_cp.TokenType.NUMBER, ".5", 1, 10, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 12, ()),
+        (_cp.TokenType.NUMBER, "1.", 1, 13, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 15, ()),
+        (_cp.TokenType.NUMBER, "1.23", 1, 16, ()),
+    ], 1, 20)
+
+    # Exponent signs (`+` and `-`) are consumed ONLY if preceded by `e`, `E`, `p`, or `P`
+    _check_tokenize(context, "1e+1 2E-2 0x3p+3 0X4P-4", [
+        (_cp.TokenType.NUMBER, "1e+1", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 4, ()),
+        (_cp.TokenType.NUMBER, "2E-2", 1, 5, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 9, ()),
+        (_cp.TokenType.NUMBER, "0x3p+3", 1, 10, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 16, ()),
+        (_cp.TokenType.NUMBER, "0X4P-4", 1, 17, ()),
+    ], 1, 23)
+
+    # Suffixes and user-defined literals
+    _check_tokenize(context, "123ull 3.14f 42_foo 0xXYZ", [
+        (_cp.TokenType.NUMBER, "123ull", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
+        (_cp.TokenType.NUMBER, "3.14f", 1, 7, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 12, ()),
+        (_cp.TokenType.NUMBER, "42_foo", 1, 13, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 19, ()),
+        (_cp.TokenType.NUMBER, "0xXYZ", 1, 20, ()),
+    ], 1, 25)
+
+    # Digit separators
+    _check_tokenize(context, "1'000'000 3.14'159", [
+        (_cp.TokenType.NUMBER, "1'000'000", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 9, ()),
+        (_cp.TokenType.NUMBER, "3.14'159", 1, 10, ()),
+    ], 1, 18)
+
+    # UCNs inside a number
+    _check_tokenize(context, "123\\u00e9", [
+        (_cp.TokenType.NUMBER, "123\u00e9", 1, 0, (_cp.ReplacementMap.Entry(3, 1, "\\u00e9"),)),
+    ], 1, 9)
+
+    # Token separation boundary: `.` must be followed by a digit to introduce a NUMBER
+    _check_tokenize(context, ".e", [
+        (_cp.TokenType.PUNCT, ".", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "e", 1, 1, ()),
+    ], 1, 2)
+
+    # Token separation boundary: Unary signs are PUNCT, not part of the number
+    _check_tokenize(context, "+1", [
+        (_cp.TokenType.PUNCT, "+", 1, 0, ()),
+        (_cp.TokenType.NUMBER, "1", 1, 1, ()),
+    ], 1, 2)
+
+    # Token separation boundary: `+` stops the number if not preceded by an exponent letter
+    _check_tokenize(context, "1+2", [
+        (_cp.TokenType.NUMBER, "1", 1, 0, ()),
+        (_cp.TokenType.PUNCT, "+", 1, 1, ()),
+        (_cp.TokenType.NUMBER, "2", 1, 2, ()),
+    ], 1, 3)
+
+    # Token separation boundary: Combining exponents and regular operators
+    _check_tokenize(context, "1e+2+3", [
+        (_cp.TokenType.NUMBER, "1e+2", 1, 0, ()),
+        (_cp.TokenType.PUNCT, "+", 1, 4, ()),
+        (_cp.TokenType.NUMBER, "3", 1, 5, ()),
+    ], 1, 6)
+
+    # A pp-number consumes the sign even if not followed by a digit
+    _check_tokenize(context, "1e+", [
+        (_cp.TokenType.NUMBER, "1e+", 1, 0, ()),
+    ], 1, 3)
+
+    # Digit separator boundary rule: A single quote is only part of the pp-number if
+    # followed by a digit, letter, or underscore from the basic character set
+    _check_tokenize(context, "1'\n", [
+        (_cp.TokenType.NUMBER, "1", 1, 0, ()),
+        (_cp.TokenType.BAD_CHAR_LIT, "'", 1, 1, ()),
+        (_cp.TokenType.NEWLINE, "\n", 1, 2, ()),
+    ], 2, 0, [
+        ('Unterminated character literal', _tp.TextPos(1, 2)),
+    ])
 
 
 def test_CppPreprocess_Tokenizer_Identifier(context: _t.Context) -> None:
