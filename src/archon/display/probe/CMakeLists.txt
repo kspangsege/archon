@@ -6,14 +6,14 @@ set_target_properties(ProbeX11 PROPERTIES
   OUTPUT_NAME "archon-probe-x11"
 )
 
-target_link_libraries(ProbeX11 PRIVATE
-  Core
-  Log
-  Cli
-  Math
-  Util
-  Image
-  Display
+target_link_libraries(ProbeX11
+  PRIVATE Core
+  PRIVATE Log
+  PRIVATE Cli
+  PRIVATE Math
+  PRIVATE Util
+  PRIVATE Image
+  PRIVATE Display
 )
 
 if(ARCHON_GOOD_X11_FOUND)
@@ -41,12 +41,12 @@ set_target_properties(ProbeSDL PROPERTIES
   OUTPUT_NAME "archon-probe-sdl"
 )
 
-target_link_libraries(ProbeSDL PRIVATE
-  Core
-  Log
-  Cli
-  Math
-  Display
+target_link_libraries(ProbeSDL
+  PRIVATE Core
+  PRIVATE Log
+  PRIVATE Cli
+  PRIVATE Math
+  PRIVATE Display
 )
 
 if(SDL3_FOUND)
@@ -62,10 +62,10 @@ set_target_properties(ProbeOpenGL PROPERTIES
   OUTPUT_NAME "archon-probe-opengl"
 )
 
-target_link_libraries(ProbeOpenGL PRIVATE
-  Core
-  Log
-  Cli
-  Math
-  Display
+target_link_libraries(ProbeOpenGL
+  PRIVATE Core
+  PRIVATE Log
+  PRIVATE Cli
+  PRIVATE Math
+  PRIVATE Display
 )

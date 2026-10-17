@@ -6,7 +6,9 @@ set_target_properties(RegenFallbackFont PROPERTIES
   OUTPUT_NAME "archon-regen-fallback-font"
 )
 
-target_link_libraries(RegenFallbackFont PUBLIC
-  Cli
-  Font
+target_link_libraries(RegenFallbackFont
+  PRIVATE Core
+  PRIVATE Log
+  PRIVATE Cli
+  PRIVATE Font
 )

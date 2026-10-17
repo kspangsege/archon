@@ -1,0 +1,73 @@
+archon/image.hpp FORCE
+
+# Foundation
+archon/image/image_namespace.hpp
+archon/image/impl/config.h
+archon/image/geom.hpp
+archon/image/iter.hpp
+archon/image/tray.hpp
+archon/image/impl/comp_types.hpp
+archon/image/comp_types.hpp
+archon/image/gamma.hpp
+archon/image/comp_repr.hpp
+archon/image/blend.hpp
+archon/image/color_space.hpp
+
+# Support
+archon/image/pixel_convert.hpp
+archon/image/pixel_repr.hpp
+archon/image/pixel.hpp
+archon/image/block.hpp
+archon/image/channel_spec_concept.hpp
+archon/image/standard_channel_spec.hpp
+archon/image/custom_channel_spec.hpp
+archon/image/bit_field.hpp
+archon/image/channel_packing_concept.hpp
+archon/image/channel_packing.hpp
+archon/image/image_fwd.hpp
+archon/image/transfer_info.hpp
+archon/image/buffer_format.hpp
+
+# Images and palettes
+archon/image/image.hpp
+archon/image/computed_image.hpp
+archon/image/palette_image.hpp
+archon/image/writable_image.hpp
+archon/image/tray_image.hpp
+archon/image/indexed_tray_image.hpp
+archon/image/pixel_format_concept.hpp
+archon/image/integer_pixel_format.hpp
+archon/image/packed_pixel_format.hpp
+archon/image/subword_pixel_format.hpp
+archon/image/float_pixel_format.hpp
+archon/image/indexed_pixel_format.hpp
+archon/image/buffered_image.hpp
+archon/image/palettes.hpp
+
+# Image access
+archon/image/impl/subdivide.hpp
+archon/image/impl/workspace.hpp
+archon/image/reader.hpp
+archon/image/writer.hpp
+
+# Load / save
+archon/image/progress_tracker.hpp
+archon/image/image_provider.hpp
+archon/image/comment_handler.hpp
+archon/image/error.hpp
+archon/image/file_format.hpp
+archon/image/file_format_png.hpp
+archon/image/file_format_jpeg.hpp
+archon/image/file_format_registry.hpp
+archon/image/list_file_formats.hpp
+archon/image/load_config.hpp
+archon/image/save_config.hpp
+archon/image/input.hpp
+archon/image/output.hpp
+archon/image/load.hpp
+archon/image/save.hpp
+
+# Testing
+archon/image/test/box_utils.hpp
+archon/image/test/comp_repr_utils.hpp
+archon/image/test/pixel_utils.hpp

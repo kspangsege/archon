@@ -60,7 +60,7 @@ public:
     using char_type   = char;
     using traits_type = CharTraits;
 
-    using Config = core::Empty;
+    using Config = core::empty;
 
     static constexpr bool is_degen = false;
 
