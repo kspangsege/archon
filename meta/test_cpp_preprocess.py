@@ -259,9 +259,54 @@ def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
         (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"', 1, 0, ()),
         (_cp.TokenType.NUMBER, "123", 1, 8, ()),
     ], 1, 11)
-    _check_tokenize(context, 'R"(foo)"\\u00e9', [
-        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"\u00e9', 1, 0, (_cp.ReplacementMap.Entry(8, 1, "\\u00e9"),)),
-    ], 1, 14)
+    _check_tokenize(context, 'R"(foo)"_ R"(foo)"Z R"(foo)"\u00e9 R"(foo)"\\u00e9', [
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"_', 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 9, ()),
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"Z', 1, 10, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 19, ()),
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"\u00e9', 1, 20, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 29, ()),
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"\u00e9', 1, 30, (_cp.ReplacementMap.Entry(8, 1, "\\u00e9"),)),
+    ], 1, 44)
+    _check_tokenize(context, 'R"(foo)"\\u00e9_ R"(foo)"\\u00e9Z R"(foo)"\\u00e9\u00e9 R"(foo)"\\u00e9\\u00e9', [
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"\u00e9_', 1, 0, (_cp.ReplacementMap.Entry(8, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 15, ()),
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"\u00e9Z', 1, 16, (_cp.ReplacementMap.Entry(8, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 31, ()),
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"\u00e9\u00e9', 1, 32, (_cp.ReplacementMap.Entry(8, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 47, ()),
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"\u00e9\u00e9', 1, 48, (_cp.ReplacementMap.Entry(8, 1, "\\u00e9"),
+                                                                       _cp.ReplacementMap.Entry(9, 1, "\\u00e9"))),
+    ], 1, 68)
+    _check_tokenize(context, 'R"(foo)"_\\u00e9 R"(foo)"Z\\u00e9 R"(foo)"\u00e9\\u00e9', [
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"_\u00e9', 1, 0, (_cp.ReplacementMap.Entry(9, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 15, ()),
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"Z\u00e9', 1, 16, (_cp.ReplacementMap.Entry(9, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 31, ()),
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"\u00e9\u00e9', 1, 32, (_cp.ReplacementMap.Entry(9, 1, "\\u00e9"),)),
+    ], 1, 47)
+    _check_tokenize(context, 'R"(foo)"\\u0967Z R"(foo)"Z\\u0967 R"(foo)"Z\\u20AC', [
+        (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"(foo)"\\u0967Z', 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 15, ()),
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"Z\u0967', 1, 16, (_cp.ReplacementMap.Entry(9, 1, "\\u0967"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 31, ()),
+        (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"(foo)"Z\\u20AC', 1, 32, ()),
+    ], 1, 47, [
+        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 10)),
+        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 43)),
+    ])
+
+    # Transitions
+    _check_tokenize(context, 'R"(foo)"Z"bar" R"(foo)"L"bar" R"(foo)"LR"bar"', [
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"Z', 1, 0, ()),
+        (_cp.TokenType.STRING_LIT, '"bar"', 1, 9, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 14, ()),
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"L', 1, 15, ()),
+        (_cp.TokenType.STRING_LIT, '"bar"', 1, 24, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 29, ()),
+        (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"LR', 1, 30, ()),
+        (_cp.TokenType.STRING_LIT, '"bar"', 1, 40, ()),
+    ], 1, 45)
 
 
 def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
@@ -341,9 +386,54 @@ def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
         (_cp.TokenType.STRING_LIT, '"foo"', 1, 0, ()),
         (_cp.TokenType.NUMBER, "123", 1, 5, ()),
     ], 1, 8)
-    _check_tokenize(context, '"foo"\\u00e9', [
-        (_cp.TokenType.STRING_LIT, '"foo"\u00e9', 1, 0, (_cp.ReplacementMap.Entry(5, 1, "\\u00e9"),)),
-    ], 1, 11)
+    _check_tokenize(context, '"foo"_ "foo"Z "foo"\u00e9 "foo"\\u00e9', [
+        (_cp.TokenType.STRING_LIT, '"foo"_', 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"Z', 1, 7, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 13, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"\u00e9', 1, 14, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 20, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"\u00e9', 1, 21, (_cp.ReplacementMap.Entry(5, 1, "\\u00e9"),)),
+    ], 1, 32)
+    _check_tokenize(context, '"foo"\\u00e9_ "foo"\\u00e9Z "foo"\\u00e9\u00e9 "foo"\\u00e9\\u00e9', [
+        (_cp.TokenType.STRING_LIT, '"foo"\u00e9_', 1, 0, (_cp.ReplacementMap.Entry(5, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 12, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"\u00e9Z', 1, 13, (_cp.ReplacementMap.Entry(5, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 25, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"\u00e9\u00e9', 1, 26, (_cp.ReplacementMap.Entry(5, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 38, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"\u00e9\u00e9', 1, 39, (_cp.ReplacementMap.Entry(5, 1, "\\u00e9"),
+                                                                _cp.ReplacementMap.Entry(6, 1, "\\u00e9"))),
+    ], 1, 56)
+    _check_tokenize(context, '"foo"_\\u00e9 "foo"Z\\u00e9 "foo"\u00e9\\u00e9', [
+        (_cp.TokenType.STRING_LIT, '"foo"_\u00e9', 1, 0, (_cp.ReplacementMap.Entry(6, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 12, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"Z\u00e9', 1, 13, (_cp.ReplacementMap.Entry(6, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 25, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"\u00e9\u00e9', 1, 26, (_cp.ReplacementMap.Entry(6, 1, "\\u00e9"),)),
+    ], 1, 38)
+    _check_tokenize(context, '"foo"\\u0967Z "foo"Z\\u0967 "foo"Z\\u20AC', [
+        (_cp.TokenType.BAD_STRING_LIT, '"foo"\\u0967Z', 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 12, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"Z\u0967', 1, 13, (_cp.ReplacementMap.Entry(6, 1, "\\u0967"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 25, ()),
+        (_cp.TokenType.BAD_STRING_LIT, '"foo"Z\\u20AC', 1, 26, ()),
+    ], 1, 38, [
+        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 7)),
+        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 34)),
+    ])
+
+    # Transitions
+    _check_tokenize(context, '"foo"Z"bar" "foo"L"bar" "foo"LR"bar"', [
+        (_cp.TokenType.STRING_LIT, '"foo"Z', 1, 0, ()),
+        (_cp.TokenType.STRING_LIT, '"bar"', 1, 6, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 11, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"L', 1, 12, ()),
+        (_cp.TokenType.STRING_LIT, '"bar"', 1, 18, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 23, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"LR', 1, 24, ()),
+        (_cp.TokenType.STRING_LIT, '"bar"', 1, 31, ()),
+    ], 1, 36)
 
 
 def test_CppPreprocess_Tokenizer_CharLit(context: _t.Context) -> None:
@@ -425,9 +515,54 @@ def test_CppPreprocess_Tokenizer_CharLit(context: _t.Context) -> None:
         (_cp.TokenType.CHAR_LIT, "'c'", 1, 0, ()),
         (_cp.TokenType.NUMBER, "123", 1, 3, ()),
     ], 1, 6)
-    _check_tokenize(context, "'c'\\u00e9", [
-        (_cp.TokenType.CHAR_LIT, "'c'\u00e9", 1, 0, (_cp.ReplacementMap.Entry(3, 1, "\\u00e9"),)),
-    ], 1, 9)
+    _check_tokenize(context, "'c'_ 'c'Z 'c'\u00e9 'c'\\u00e9", [
+        (_cp.TokenType.CHAR_LIT, "'c'_", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 4, ()),
+        (_cp.TokenType.CHAR_LIT, "'c'Z", 1, 5, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 9, ()),
+        (_cp.TokenType.CHAR_LIT, "'c'\u00e9", 1, 10, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 14, ()),
+        (_cp.TokenType.CHAR_LIT, "'c'\u00e9", 1, 15, (_cp.ReplacementMap.Entry(3, 1, "\\u00e9"),)),
+    ], 1, 24)
+    _check_tokenize(context, "'c'\\u00e9_ 'c'\\u00e9Z 'c'\\u00e9\u00e9 'c'\\u00e9\\u00e9", [
+        (_cp.TokenType.CHAR_LIT, "'c'\u00e9_", 1, 0, (_cp.ReplacementMap.Entry(3, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 10, ()),
+        (_cp.TokenType.CHAR_LIT, "'c'\u00e9Z", 1, 11, (_cp.ReplacementMap.Entry(3, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 21, ()),
+        (_cp.TokenType.CHAR_LIT, "'c'\u00e9\u00e9", 1, 22, (_cp.ReplacementMap.Entry(3, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 32, ()),
+        (_cp.TokenType.CHAR_LIT, "'c'\u00e9\u00e9", 1, 33, (_cp.ReplacementMap.Entry(3, 1, "\\u00e9"),
+                                                            _cp.ReplacementMap.Entry(4, 1, "\\u00e9"))),
+    ], 1, 48)
+    _check_tokenize(context, "'c'_\\u00e9 'c'Z\\u00e9 'c'\u00e9\\u00e9", [
+        (_cp.TokenType.CHAR_LIT, "'c'_\u00e9", 1, 0, (_cp.ReplacementMap.Entry(4, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 10, ()),
+        (_cp.TokenType.CHAR_LIT, "'c'Z\u00e9", 1, 11, (_cp.ReplacementMap.Entry(4, 1, "\\u00e9"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 21, ()),
+        (_cp.TokenType.CHAR_LIT, "'c'\u00e9\u00e9", 1, 22, (_cp.ReplacementMap.Entry(4, 1, "\\u00e9"),)),
+    ], 1, 32)
+    _check_tokenize(context, "'c'\\u0967Z 'c'Z\\u0967 'c'Z\\u20AC", [
+        (_cp.TokenType.BAD_CHAR_LIT, "'c'\\u0967Z", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 10, ()),
+        (_cp.TokenType.CHAR_LIT, "'c'Z\u0967", 1, 11, (_cp.ReplacementMap.Entry(4, 1, "\\u0967"),)),
+        (_cp.TokenType.WHITESPACE, " ", 1, 21, ()),
+        (_cp.TokenType.BAD_CHAR_LIT, "'c'Z\\u20AC", 1, 22, ()),
+    ], 1, 32, [
+        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 5)),
+        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 28)),
+    ])
+
+    # Transitions
+    _check_tokenize(context, "'c'Z\"foo\" 'c'L\"foo\" 'c'LR\"foo\"", [
+        (_cp.TokenType.CHAR_LIT, "'c'Z", 1, 0, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"', 1, 4, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 9, ()),
+        (_cp.TokenType.CHAR_LIT, "'c'L", 1, 10, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"', 1, 14, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 19, ()),
+        (_cp.TokenType.CHAR_LIT, "'c'LR", 1, 20, ()),
+        (_cp.TokenType.STRING_LIT, '"foo"', 1, 25, ()),
+    ], 1, 30)
 
 
 def test_CppPreprocess_Tokenizer_Number(context: _t.Context) -> None:
@@ -647,6 +782,15 @@ def test_CppPreprocess_Tokenizer_Punctuation(context: _t.Context) -> None:
         (_cp.TokenType.PUNCT, ":]", 1, 11, ()),
     ], 1, 13)
 
+    # Line splicing
+    _check_tokenize(context, "+\\\n+", [
+        (_cp.TokenType.PUNCT, "++", 1, 0, ()),
+    ], 2, 1)
+    _check_tokenize(context, "<\\\n::", [
+        (_cp.TokenType.PUNCT, "<", 1, 0, ()),
+        (_cp.TokenType.PUNCT, "::", 2, 0, ()),
+    ], 2, 2)
+
 
 def test_CppPreprocess_Tokenizer_UniversalCharacterNames(context: _t.Context) -> None:
     _check_tokenize(context, "\\u00e9", [
@@ -846,7 +990,35 @@ def test_CppPreprocess_Tokenizer_HeaderName(context: _t.Context) -> None:
         (_cp.TokenType.PUNCT, ")", 1, 33, ()),
     ], 1, 34)
 
-    # Unterminated header names
+    # Allow space
+    _check_tokenize(context, "#include <foo / bar.h>", [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "include", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 8, ()),
+        (_cp.TokenType.HEADER_NAME, "<foo / bar.h>", 1, 9, ()),
+    ], 1, 22)
+    _check_tokenize(context, "#embed <foo bar.bin>", [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "embed", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
+        (_cp.TokenType.HEADER_NAME, "<foo bar.bin>", 1, 7, ()),
+    ], 1, 20)
+
+    # No escaping
+    _check_tokenize(context, '#include <"foo\\".h>', [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "include", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 8, ()),
+        (_cp.TokenType.HEADER_NAME, '<"foo\\".h>', 1, 9, ()),
+    ], 1, 19)
+    _check_tokenize(context, '#embed "foo\\.bin\\"', [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "embed", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
+        (_cp.TokenType.HEADER_NAME, '"foo\\.bin\\"', 1, 7, ()),
+    ], 1, 18)
+
+    # Lack of termination
     _check_tokenize(context, "#include <unterminated\n", [
         (_cp.TokenType.HASH, "#", 1, 0, ()),
         (_cp.TokenType.IDENTIFIER, "include", 1, 1, ()),
@@ -865,6 +1037,30 @@ def test_CppPreprocess_Tokenizer_HeaderName(context: _t.Context) -> None:
     ], 2, 0, [
         ('Unterminated header name (missing closing `"`)', _tp.TextPos(1, 7)),
     ])
+
+    # Comments allowed
+    _check_tokenize(context, "#include /* comment */ <foo.h>", [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "include", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 8, ()),
+        (_cp.TokenType.BLOCK_COMMENT, "/* comment */", 1, 9, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 22, ()),
+        (_cp.TokenType.HEADER_NAME, "<foo.h>", 1, 23, ()),
+    ], 1, 30)
+
+    # Allow `<` or `"` to not be found
+    _check_tokenize(context, "#include MACRO_NAME", [
+        (_cp.TokenType.HASH, "#", 1, 0, ()),
+        (_cp.TokenType.IDENTIFIER, "include", 1, 1, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 8, ()),
+        (_cp.TokenType.IDENTIFIER, "MACRO_NAME", 1, 9, ()),
+    ], 1, 19)
+    _check_tokenize(context, "import std;", [
+        (_cp.TokenType.IDENTIFIER, "import", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
+        (_cp.TokenType.IDENTIFIER, "std", 1, 7, ()),
+        (_cp.TokenType.PUNCT, ";", 1, 10, ()),
+    ], 1, 11)
 
 
 def test_CppPreprocess_ParseDefineDirective(context: _t.Context) -> None:
@@ -1066,9 +1262,22 @@ def _check_tokens(context: _t.Context, tokens: list[_cp.Token], expected_tokens:
         subcontext.check_equal(text_pos.line_no, expected[2])
         subcontext.check_equal(text_pos.pos_on_line, expected[3])
         expected_ucn_map = _cp.ReplacementMap(expected[4]) if expected[4] else None
-        subcontext.check_equal(token.ucn_map, expected_ucn_map)
+        _check_ucn_map(subcontext, token.ucn_map, expected_ucn_map)
         subcontext.check_not(token.synthetic)
     context.check_equal(len(tokens), len(expected_tokens))
+
+
+def _check_ucn_map(context: _t.Context, ucn_map: _cp.ReplacementMap | None,
+                   expected_ucn_map: _cp.ReplacementMap | None) -> None:
+    context.check_equal(ucn_map is None, expected_ucn_map is None)
+    if ucn_map:
+        assert expected_ucn_map
+        for i, (entry, expected) in enumerate(zip(ucn_map.entries, expected_ucn_map.entries)):
+            subcontext = context.subcontext(1 + i)
+            subcontext.check_equal(entry.pos, expected.pos)
+            subcontext.check_equal(entry.size, expected.size)
+            subcontext.check_equal(entry.orig, expected.orig)
+        context.check_equal(len(ucn_map.entries), len(expected_ucn_map.entries))
 
 
 def _check_valid_define_directive(context: _t.Context, text: str, file_index: int, expected_name: str,
