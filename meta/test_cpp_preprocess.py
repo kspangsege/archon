@@ -1048,7 +1048,7 @@ def test_CppPreprocess_Tokenizer_HeaderName(context: _t.Context) -> None:
         (_cp.TokenType.HEADER_NAME, "<foo.h>", 1, 23, ()),
     ], 1, 30)
 
-    # Allow `<` or `"` to not be found
+    # Allow for `<` or `"` to not be found
     _check_tokenize(context, "#include MACRO_NAME", [
         (_cp.TokenType.HASH, "#", 1, 0, ()),
         (_cp.TokenType.IDENTIFIER, "include", 1, 1, ()),
