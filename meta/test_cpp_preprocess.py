@@ -131,6 +131,11 @@ def test_CppPreprocess_Tokenizer_LineComment(context: _t.Context) -> None:
     _check_tokenize(context, "// foo\\\n", [
         (_cp.TokenType.LINE_COMMENT, "// foo", 1, 0, ()),
     ], 2, 0)
+    # Non-nesting
+    _check_tokenize(context, "// /*\n", [
+        (_cp.TokenType.LINE_COMMENT, "// /*", 1, 0, ()),
+        (_cp.TokenType.NEWLINE, "\n", 1, 5, ()),
+    ], 2, 0)
 
 
 def test_CppPreprocess_Tokenizer_BlockComment(context: _t.Context) -> None:
@@ -142,6 +147,13 @@ def test_CppPreprocess_Tokenizer_BlockComment(context: _t.Context) -> None:
     ], 2, 0, [
         ("Unterminated block comment", _tp.TextPos(1, 0)),
     ])
+    # Non-nesting
+    _check_tokenize(context, "/* // */", [
+        (_cp.TokenType.BLOCK_COMMENT, "/* // */", 1, 0, ()),
+    ], 1, 8)
+    _check_tokenize(context, "/* foo /* bar */", [
+        (_cp.TokenType.BLOCK_COMMENT, "/* foo /* bar */", 1, 0, ()),
+    ], 1, 16)
 
 
 def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
@@ -204,6 +216,14 @@ def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
         (_cp.TokenType.RAW_STRING_LIT, 'R"(foo)"\u00e9', 1, 0, (_cp.ReplacementMap.Entry(8, 1, "\\u00e9"),)),
     ], 1, 14)
 
+    _check_tokenize(context, 'u8R"()" uR"()" UR"()"', [
+        (_cp.TokenType.RAW_STRING_LIT, 'u8R"()"', 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 7, ()),
+        (_cp.TokenType.RAW_STRING_LIT, 'uR"()"', 1, 8, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 14, ()),
+        (_cp.TokenType.RAW_STRING_LIT, 'UR"()"', 1, 15, ()),
+    ], 1, 21)
+
 
 def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
     _check_tokenize(context, '"\\\\\nn"', [
@@ -241,6 +261,14 @@ def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
         (_cp.TokenType.STRING_LIT, '"foo"\u00e9', 1, 0, (_cp.ReplacementMap.Entry(5, 1, "\\u00e9"),)),
     ], 1, 11)
 
+    _check_tokenize(context, 'u8"" u"" U""', [
+        (_cp.TokenType.STRING_LIT, 'u8""', 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 4, ()),
+        (_cp.TokenType.STRING_LIT, 'u""', 1, 5, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 8, ()),
+        (_cp.TokenType.STRING_LIT, 'U""', 1, 9, ()),
+    ], 1, 12)
+
 
 def test_CppPreprocess_Tokenizer_CharLit(context: _t.Context) -> None:
     _check_tokenize(context, "'c'123", [
@@ -273,6 +301,14 @@ def test_CppPreprocess_Tokenizer_CharLit(context: _t.Context) -> None:
     _check_tokenize(context, "'c'\\u00e9", [
         (_cp.TokenType.CHAR_LIT, "'c'\u00e9", 1, 0, (_cp.ReplacementMap.Entry(3, 1, "\\u00e9"),)),
     ], 1, 9)
+
+    _check_tokenize(context, "u8'' u'' U''", [
+        (_cp.TokenType.CHAR_LIT, "u8''", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 4, ()),
+        (_cp.TokenType.CHAR_LIT, "u''", 1, 5, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 8, ()),
+        (_cp.TokenType.CHAR_LIT, "U''", 1, 9, ()),
+    ], 1, 12)
 
 
 def test_CppPreprocess_Tokenizer_Number(context: _t.Context) -> None:
@@ -388,6 +424,27 @@ def test_CppPreprocess_Tokenizer_Identifier(context: _t.Context) -> None:
         ('Invalid character: DEVANAGARI DIGIT ONE', _tp.TextPos(1, 0)),
         ('Invalid UCN code point (U+0967): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 6)),
     ])
+
+    # If not followed by a quote, these are just normal identifiers
+    _check_tokenize(context, "u8 u U L R u8R uR UR LR", [
+        (_cp.TokenType.IDENTIFIER, "u8", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 2, ()),
+        (_cp.TokenType.IDENTIFIER, "u", 1, 3, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 4, ()),
+        (_cp.TokenType.IDENTIFIER, "U", 1, 5, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
+        (_cp.TokenType.IDENTIFIER, "L", 1, 7, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 8, ()),
+        (_cp.TokenType.IDENTIFIER, "R", 1, 9, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 10, ()),
+        (_cp.TokenType.IDENTIFIER, "u8R", 1, 11, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 14, ()),
+        (_cp.TokenType.IDENTIFIER, "uR", 1, 15, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 17, ()),
+        (_cp.TokenType.IDENTIFIER, "UR", 1, 18, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 20, ()),
+        (_cp.TokenType.IDENTIFIER, "LR", 1, 21, ()),
+    ], 1, 23)
 
 
 def test_CppPreprocess_Tokenizer_Punctuation(context: _t.Context) -> None:
