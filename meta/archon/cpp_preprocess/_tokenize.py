@@ -682,8 +682,8 @@ class Tokenizer:
             return True
         ch = chr(code_point)
         if not (_is_xid_start(ch) if first else _is_xid_continue(ch)):
-            error(offset, "Invalid UCN code point (U+%04X): Must refer to character in XID_Start / XID_Continue",
-                  code_point)
+            what = "XID_Start" if first else "XID_Continue"
+            error(offset, "Invalid UCN code point (U+%04X): Must refer to character in %s", code_point, what)
             return True
         if code_point < 0x80:
             error(offset, "Invalid UCN code point (U+%04X): Refers to character in basic character set", code_point)

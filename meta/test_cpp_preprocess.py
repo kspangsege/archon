@@ -292,8 +292,8 @@ def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 31, ()),
         (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"(foo)"Z\\u20AC', 1, 32, ()),
     ], 1, 47, [
-        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 10)),
-        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 43)),
+        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start', _tp.TextPos(1, 10)),
+        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Continue', _tp.TextPos(1, 43)),
     ])
 
     # Transitions
@@ -419,8 +419,8 @@ def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 25, ()),
         (_cp.TokenType.BAD_STRING_LIT, '"foo"Z\\u20AC', 1, 26, ()),
     ], 1, 38, [
-        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 7)),
-        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 34)),
+        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start', _tp.TextPos(1, 7)),
+        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Continue', _tp.TextPos(1, 34)),
     ])
 
     # Transitions
@@ -548,8 +548,8 @@ def test_CppPreprocess_Tokenizer_CharLit(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 21, ()),
         (_cp.TokenType.BAD_CHAR_LIT, "'c'Z\\u20AC", 1, 22, ()),
     ], 1, 32, [
-        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 5)),
-        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 28)),
+        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start', _tp.TextPos(1, 5)),
+        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Continue', _tp.TextPos(1, 28)),
     ])
 
     # Transitions
@@ -614,6 +614,24 @@ def test_CppPreprocess_Tokenizer_Number(context: _t.Context) -> None:
     _check_tokenize(context, "123\\u00e9", [
         (_cp.TokenType.NUMBER, "123\u00e9", 1, 0, (_cp.ReplacementMap.Entry(3, 1, "\\u00e9"),)),
     ], 1, 9)
+    _check_tokenize(context, "123\\u00e9456", [
+        (_cp.TokenType.NUMBER, "123\u00e9456", 1, 0, (_cp.ReplacementMap.Entry(3, 1, "\\u00e9"),)),
+    ], 1, 12)
+    _check_tokenize(context, "123\\u00e9\\u0967456", [
+        (_cp.TokenType.NUMBER, "123\u00e9\u0967456", 1, 0, (_cp.ReplacementMap.Entry(3, 1, "\\u00e9"),
+                                                            _cp.ReplacementMap.Entry(4, 1, "\\u0967"))),
+    ], 1, 18)
+
+    # Underscores
+    _check_tokenize(context, "123_", [
+        (_cp.TokenType.NUMBER, "123_", 1, 0, ()),
+    ], 1, 4)
+    _check_tokenize(context, "123_456", [
+        (_cp.TokenType.NUMBER, "123_456", 1, 0, ()),
+    ], 1, 7)
+    _check_tokenize(context, "123__456", [
+        (_cp.TokenType.NUMBER, "123__456", 1, 0, ()),
+    ], 1, 8)
 
     # Token separation boundary: `.` must be followed by a digit to introduce a NUMBER
     _check_tokenize(context, ".e", [
@@ -656,6 +674,16 @@ def test_CppPreprocess_Tokenizer_Number(context: _t.Context) -> None:
         ('Unterminated character literal', _tp.TextPos(1, 1)),
     ])
 
+    # Invalid UCNs
+    _check_tokenize(context, "123\\u20AC 456\\u20AC789", [
+        (_cp.TokenType.BAD_NUMBER, "123\\u20AC", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 9, ()),
+        (_cp.TokenType.BAD_NUMBER, "456\\u20AC789", 1, 10, ()),
+    ], 1, 22, [
+        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Continue', _tp.TextPos(1, 5)),
+        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Continue', _tp.TextPos(1, 15)),
+    ])
+
 
 def test_CppPreprocess_Tokenizer_Identifier(context: _t.Context) -> None:
     _check_tokenize(context, "\u00e9", [
@@ -676,7 +704,7 @@ def test_CppPreprocess_Tokenizer_Identifier(context: _t.Context) -> None:
         (_cp.TokenType.BAD_IDENTIFIER, "\\u0967ab", 1, 4, ()),
     ], 1, 12, [
         ('Invalid character: DEVANAGARI DIGIT ONE', _tp.TextPos(1, 0)),
-        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 6)),
+        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start', _tp.TextPos(1, 6)),
     ])
 
     # If not followed by a quote, these are just normal identifiers
@@ -815,7 +843,7 @@ def test_CppPreprocess_Tokenizer_UniversalCharacterNames(context: _t.Context) ->
     _check_tokenize(context, "\\u20AC", [
         (_cp.TokenType.BAD_IDENTIFIER, "\\u20AC", 1, 0, ()),
     ], 1, 6, [
-        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Start / XID_Continue', _tp.TextPos(1, 2)),
+        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Start', _tp.TextPos(1, 2)),
     ])
     _check_tokenize(context, "\\uD800", [
         (_cp.TokenType.BAD_IDENTIFIER, "\\uD800", 1, 0, ()),
