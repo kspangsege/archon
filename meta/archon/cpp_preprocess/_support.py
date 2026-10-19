@@ -82,12 +82,12 @@ class WideCharacterEncoding(enum.Enum):
 # literals. It must be a valid byte-based encoding from the point of view of
 # `bytes.decode()`.
 #
-# `wide` is the name of the execution character set encoding used for wide string literals.
+# `wide` is the execution character set encoding used for wide string literals.
 #
 @dataclasses.dataclass(slots=True, frozen=True)
 class EncodingInfo:
     plain: str = "utf-16"
-    wide:  WideCharacterEncoding = WideCharacterEncoding.UTF_32
+    wide: WideCharacterEncoding = WideCharacterEncoding.UTF_32
 
 
 class NumericEscapeError(Exception):
