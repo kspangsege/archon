@@ -23,3 +23,4 @@ from __future__ import annotations
 from ._tokenize import *
 from ._directive import *
 from ._preprocess import *
+from ._support import *

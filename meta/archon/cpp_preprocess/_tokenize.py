@@ -904,14 +904,6 @@ def verify_identifier_nfc(text: str, pos: Position, error_handler: ErrorHandler)
     return False
 
 
-# The specified text must contain no resolved UCNs before the closing quotation mark. This
-# ensures that source code positions can be accurately extrapolated up to and including the
-# position that follows the closing quotation mark.
-#
-def unpack_plain_string_lit(text: str, pos: Position, synthetic: bool, error_handler: ErrorHandler) -> str | None:
-    raise NotImplementedError                
-
-
 
 
 
