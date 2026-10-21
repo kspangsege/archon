@@ -307,7 +307,7 @@ class State(enum.Enum):
 def unpack_string_literal(text: str, pos: _cp.Position, synthetic: bool) -> str:
     unpacked = _cp.unpack_string_literal(text, pos, synthetic, error_handler)
     assert unpacked
-    if unpacked.target_encoding is not _cp.StringLiteralTargetEncoding.PLAIN:
+    if unpacked.encoding is not _cp.StringLiteralEncoding.PLAIN:
         error_handler(pos, "Unexpected non-plain string literal")
         assert False
     if unpacked.suffix:
