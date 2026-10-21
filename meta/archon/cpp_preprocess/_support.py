@@ -185,9 +185,13 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
             i = k
             continue
         if ch == "o":
-            if j == end:
+            if j == end or text[j] != "{":
                 error_handler(pos.shift(j), "Missing opening brace (`{`) in delimited octal escape sequence")
                 return None
+            j += 1
+            k = j
+            while k < end and k - j < 3 and text[k] in _OCT_DIGIT_CHARS:
+                                    
             ch = text[j]
             j += 1
             if ch != "{"
