@@ -185,8 +185,8 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                     code_unit = entry.code_unit
                     if code_unit > 0xFF:
                         subpos = get_subpos(entry.offset)
-                        error_handler(subpos, "Invalid numeric escape sequence: Byte-sized code unit (0x%X) out of "
-                                      "range", code_unit)
+                        error_handler(subpos, "Invalid numeric escape sequence in string literal: Byte-sized code "
+                                      "unit (0x%X) out of range", code_unit)
                         return False
                 b = bytes([e.code_unit for e in numeric_entries])
                 try:
@@ -201,7 +201,8 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                     else:
                         offset = numeric_entries[0].offset
                     subpos = get_subpos(offset)
-                    error_handler(subpos, "Failed to decode byte sequence formed from numeric escape sequences")
+                    error_handler(subpos, "Invalid string literal: Failed to decode byte sequence formed from numeric "
+                                  "escape sequences")
                     return False
                 parts.append(string)
             case WideCharacterEncoding.UTF_16:
@@ -215,29 +216,29 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                         if code_unit < 0xDC00:  # High surrogate
                             if i == n:
                                 subpos = get_subpos(entry.offset)
-                                error_handler(subpos, "Missing low surrogate after high surrogate (U+%04X) in UTF-16 "
-                                              "surrogate pair", code_unit)
+                                error_handler(subpos, "Invalid string literal: Missing low surrogate after high "
+                                              "surrogate (U+%04X) in UTF-16 surrogate pair", code_unit)
                                 return False
                             entry_2 = numeric_entries[i]
                             i += 1
                             code_unit_2 = entry_2.code_unit
                             if not 0xDC00 <= code_unit_2 < 0xE000:
                                 subpos = get_subpos(entry_2.offset)
-                                error_handler(subpos, "Invalid low surrogate after high surrogate (U+%04X) in UTF-16 "
-                                              "surrogate pair", code_unit)
+                                error_handler(subpos, "Invalid string literal: Invalid low surrogate after high "
+                                              "surrogate (U+%04X) in UTF-16 surrogate pair", code_unit)
                                 return False
                             code_point = 0x10000 + ((code_unit - 0xD800) << 10) + (code_unit_2 - 0xDC00)
                         else:
                             subpos = get_subpos(entry.offset)
-                            error_handler(subpos, "Invalid UTF-16 low surrogate (U+%04X) without preceding high "
-                                          "surrogate", code_unit)
+                            error_handler(subpos, "Invalid string literal: Invalid UTF-16 low surrogate (U+%04X) "
+                                          "without preceding high surrogate", code_unit)
                             return False
                     elif code_unit <= 0xFFFF:
                         code_point = code_unit
                     else:
                         subpos = get_subpos(entry.offset)
-                        error_handler(subpos, "Invalid numeric escape sequence: UTF-16 code unit (%s) out of range",
-                                      code_unit)
+                        error_handler(subpos, "Invalid numeric escape sequence in string literal: UTF-16 code unit "
+                                      "(U+%04X) out of range", code_unit)
                         return False
                     ch = chr(code_point)
                     parts.append(ch)
@@ -246,13 +247,13 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                     code_unit = entry.code_unit
                     if 0xD800 <= code_unit < 0xE000:
                         subpos = get_subpos(entry.offset)
-                        error_handler(subpos, "Invalid numeric escape sequence: UTF-32 code unit (U+%04X) in "
-                                      "surrogate range", code_unit)
+                        error_handler(subpos, "Invalid numeric escape sequence in string literal: UTF-32 code unit "
+                                      "(U+%04X) in UTF-16 surrogate range", code_unit)
                         return False
                     if code_unit >= 0x110000:
                         subpos = get_subpos(entry.offset)
-                        error_handler(subpos, "Invalid numeric escape sequence: UTF-32 code unit (U+%04X) outside "
-                                      "Unicode range", code_unit)
+                        error_handler(subpos, "Invalid numeric escape sequence in string literal: UTF-32 code unit "
+                                      "(U+%04X) outside Unicode range", code_unit)
                         return False
                     code_point = code_unit
                     ch = chr(code_point)
@@ -388,7 +389,7 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                     j -= 1
                     while k - j < 4:
                         if k == end:
-                            error_handler(get_subpos(i), "Invalid 4-digit UCN in string literal: Missing digits")
+                            error_handler(get_subpos(i), "Invalid 4-digit UCN in string literal: Too few digits")
                             return None
                         ch = text[k]
                         if ch not in _HEXADEC_CHARS:
@@ -432,7 +433,7 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
             k = j
             while k - j < 8:
                 if k == end:
-                    error_handler(get_subpos(i), "Invalid 8-digit UCN in string literal: Missing digits")
+                    error_handler(get_subpos(i), "Invalid 8-digit UCN in string literal: Too few digits")
                     return None
                 ch = text[k]
                 if ch not in _HEXADEC_CHARS:

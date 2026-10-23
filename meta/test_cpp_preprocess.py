@@ -292,8 +292,8 @@ def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 31, ()),
         (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"(foo)"Z\\u20AC', 1, 32, ()),
     ], 1, 47, [
-        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start', _tp.TextPos(1, 10)),
-        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Continue', _tp.TextPos(1, 43)),
+        ('Invalid UCN code point (U+0967): Not in XID_Start', _tp.TextPos(1, 10)),
+        ('Invalid UCN code point (U+20AC): Not in XID_Continue', _tp.TextPos(1, 43)),
     ])
 
     # Transitions
@@ -419,8 +419,8 @@ def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 25, ()),
         (_cp.TokenType.BAD_STRING_LIT, '"foo"Z\\u20AC', 1, 26, ()),
     ], 1, 38, [
-        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start', _tp.TextPos(1, 7)),
-        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Continue', _tp.TextPos(1, 34)),
+        ('Invalid UCN code point (U+0967): Not in XID_Start', _tp.TextPos(1, 7)),
+        ('Invalid UCN code point (U+20AC): Not in XID_Continue', _tp.TextPos(1, 34)),
     ])
 
     # Transitions
@@ -548,8 +548,8 @@ def test_CppPreprocess_Tokenizer_CharLit(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 21, ()),
         (_cp.TokenType.BAD_CHAR_LIT, "'c'Z\\u20AC", 1, 22, ()),
     ], 1, 32, [
-        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start', _tp.TextPos(1, 5)),
-        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Continue', _tp.TextPos(1, 28)),
+        ('Invalid UCN code point (U+0967): Not in XID_Start', _tp.TextPos(1, 5)),
+        ('Invalid UCN code point (U+20AC): Not in XID_Continue', _tp.TextPos(1, 28)),
     ])
 
     # Transitions
@@ -680,8 +680,8 @@ def test_CppPreprocess_Tokenizer_Number(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 9, ()),
         (_cp.TokenType.BAD_NUMBER, "456\\u20AC789", 1, 10, ()),
     ], 1, 22, [
-        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Continue', _tp.TextPos(1, 5)),
-        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Continue', _tp.TextPos(1, 15)),
+        ('Invalid UCN code point (U+20AC): Not in XID_Continue', _tp.TextPos(1, 5)),
+        ('Invalid UCN code point (U+20AC): Not in XID_Continue', _tp.TextPos(1, 15)),
     ])
 
 
@@ -704,7 +704,7 @@ def test_CppPreprocess_Tokenizer_Identifier(context: _t.Context) -> None:
         (_cp.TokenType.BAD_IDENTIFIER, "\\u0967ab", 1, 4, ()),
     ], 1, 12, [
         ('Invalid character: DEVANAGARI DIGIT ONE', _tp.TextPos(1, 0)),
-        ('Invalid UCN code point (U+0967): Must refer to character in XID_Start', _tp.TextPos(1, 6)),
+        ('Invalid UCN code point (U+0967): Not in XID_Start', _tp.TextPos(1, 6)),
     ])
 
     # If not followed by a quote, these are just normal identifiers
@@ -838,17 +838,17 @@ def test_CppPreprocess_Tokenizer_UniversalCharacterNames(context: _t.Context) ->
     _check_tokenize(context, "\\u0041", [
         (_cp.TokenType.BAD_IDENTIFIER, "\\u0041", 1, 0, ()),
     ], 1, 6, [
-        ('Invalid UCN code point (U+0041): Refers to character in basic character set', _tp.TextPos(1, 2)),
+        ('Invalid UCN code point (U+0041): In basic character set', _tp.TextPos(1, 2)),
     ])
     _check_tokenize(context, "\\u20AC", [
         (_cp.TokenType.BAD_IDENTIFIER, "\\u20AC", 1, 0, ()),
     ], 1, 6, [
-        ('Invalid UCN code point (U+20AC): Must refer to character in XID_Start', _tp.TextPos(1, 2)),
+        ('Invalid UCN code point (U+20AC): Not in XID_Start', _tp.TextPos(1, 2)),
     ])
     _check_tokenize(context, "\\uD800", [
         (_cp.TokenType.BAD_IDENTIFIER, "\\uD800", 1, 0, ()),
     ], 1, 6, [
-        ('Invalid UCN code point (U+D800): Refers to character in surrogate range', _tp.TextPos(1, 2)),
+        ('Invalid UCN code point (U+D800): In surrogate range', _tp.TextPos(1, 2)),
     ])
     _check_tokenize(context, "\\u{FFFFFFFF}", [
         (_cp.TokenType.BAD_IDENTIFIER, "\\u{FFFFFFFF}", 1, 0, ()),
@@ -1243,6 +1243,128 @@ def test_CppPreprocess_ParseDefineDirective(context: _t.Context) -> None:
     ])
 
 
+def test_CppPreprocess_UnpackStringLiteral(context: _t.Context) -> None:
+    # Prefix
+    _check_valid_string_literal(context, '""', "", _cp.StringLiteralType.PLAIN, "")
+    _check_valid_string_literal(context, '"foo"', "foo", _cp.StringLiteralType.PLAIN, "")
+    _check_valid_string_literal(context, 'L"foo"', "foo", _cp.StringLiteralType.WIDE, "")
+    _check_valid_string_literal(context, 'u8"foo"', "foo", _cp.StringLiteralType.UTF_8, "")
+    _check_valid_string_literal(context, 'u"foo"', "foo", _cp.StringLiteralType.UTF_16, "")
+    _check_valid_string_literal(context, 'U"foo"', "foo", _cp.StringLiteralType.UTF_32, "")
+
+    # Suffix
+    _check_valid_string_literal(context, '"foo"_suffix', "foo", _cp.StringLiteralType.PLAIN, "_suffix")
+    _check_valid_string_literal(context, 'u8"foo"bar', "foo", _cp.StringLiteralType.UTF_8, "bar")
+
+    # Raw
+    _check_valid_string_literal(context, 'R"(foo)"', "foo", _cp.StringLiteralType.PLAIN, "")
+    _check_valid_string_literal(context, 'LR"*(foo)*"', "foo", _cp.StringLiteralType.WIDE, "")
+    _check_valid_string_literal(context, 'u8R"(foo)"', "foo", _cp.StringLiteralType.UTF_8, "")
+    _check_valid_string_literal(context, 'uR"(foo)"', "foo", _cp.StringLiteralType.UTF_16, "")
+    _check_valid_string_literal(context, 'UR"*(foo)*"', "foo", _cp.StringLiteralType.UTF_32, "")
+    _check_valid_string_literal(context, 'u8R"(a\nb)"', "a\nb", _cp.StringLiteralType.UTF_8, "")
+    _check_valid_string_literal(context, 'R"(\\u00e9)"', "\\u00e9", _cp.StringLiteralType.PLAIN, "")
+
+    # Simple escapes
+    _check_valid_string_literal(context, '"\\n\\t\\\\\\"\\\'"', "\n\t\\\"'", _cp.StringLiteralType.PLAIN, "")
+
+    encoding_info       = _cp.EncodingInfo(plain="utf-8", wide=_cp.WideCharacterEncoding.UTF_32)
+    encoding_info_utf16 = _cp.EncodingInfo(plain="utf-8", wide=_cp.WideCharacterEncoding.UTF_16)
+
+    # Numeric escapes
+    _check_valid_string_literal(context, '"\\x41"', "A", _cp.StringLiteralType.PLAIN, "", encoding_info)
+    _check_valid_string_literal(context, '"\\x{41}"', "A", _cp.StringLiteralType.PLAIN, "", encoding_info)
+    _check_valid_string_literal(context, '"\\101"', "A", _cp.StringLiteralType.PLAIN, "", encoding_info)
+    _check_valid_string_literal(context, '"\\o{101}"', "A", _cp.StringLiteralType.PLAIN, "", encoding_info)
+    _check_valid_string_literal(context, '"\\xE2\\x82\\xAC"', "\u20AC", _cp.StringLiteralType.PLAIN, "", encoding_info)
+    _check_valid_string_literal(context, 'u8"\\xE2\\x82\\xAC"', "\u20AC", _cp.StringLiteralType.UTF_8, "",
+                                encoding_info)
+    _check_valid_string_literal(context, 'L"\\xD83D\\xDE00"', "\U0001F600", _cp.StringLiteralType.WIDE, "",
+                                encoding_info_utf16)
+    _check_valid_string_literal(context, 'u"\\xD83D\\xDE00"', "\U0001F600", _cp.StringLiteralType.UTF_16, "")
+    _check_valid_string_literal(context, 'L"\\x1F600"', "\U0001F600", _cp.StringLiteralType.WIDE, "", encoding_info)
+    _check_valid_string_literal(context, 'U"\\x1F600"', "\U0001F600", _cp.StringLiteralType.UTF_32, "")
+    _check_numeric_escape_error(context, '"\\x41"')
+    _check_numeric_escape_error(context, 'L"\\101"')
+
+    # UCNs
+    _check_valid_string_literal(context, '"\\u00E9"', "\u00E9", _cp.StringLiteralType.PLAIN, "")
+    _check_valid_string_literal(context, '"\\U000000E9"', "\u00E9", _cp.StringLiteralType.PLAIN, "")
+    _check_valid_string_literal(context, '"\\u{E9}"', "\u00E9", _cp.StringLiteralType.PLAIN, "")
+    _check_valid_string_literal(context, '"\\N{LATIN SMALL LETTER E WITH ACUTE}"', "\u00E9",
+                                _cp.StringLiteralType.PLAIN, "")
+
+    # Invalid numeric escapes
+    _check_invalid_string_literal(context, '"\\o"', [
+        ('Invalid escape sequence in string literal: Need opening brace (`{`) after `\\o`', 3)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"\\o{3"', [
+        ('Invalid delimited octal escape sequence in string literal: Missing closing brace (`}`)', 1)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"\\o{3z}"', [
+        ('Invalid delimited octal escape sequence in string literal: Invalid digit ("z")', 5)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"\\o{}"', [
+        ('Invalid delimited octal escape sequence in string literal: No digits', 1)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"\\x"', [
+        ('Invalid escape sequence in string literal: Need hexadecimal digit or opening brace (`{`) after `\\x`', 3)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"\\x{C"', [
+        ('Invalid delimited hexadecimal escape sequence in string literal: Missing closing brace (`}`)', 1)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"\\x{C2z7}"', [
+        ('Invalid delimited hexadecimal escape sequence in string literal: Invalid digit ("z")', 6)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"\\x{}"', [
+        ('Invalid delimited hexadecimal escape sequence in string literal: No digits', 1)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"\\407"', [
+        ('Invalid numeric escape sequence in string literal: Byte-sized code unit (0x107) out of range', 1)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"foo\\x41\\xC1\\x42zar"', [
+        ('Invalid string literal: Failed to decode byte sequence formed from numeric escape sequences', 8)
+    ], encoding_info)
+    _check_invalid_string_literal(context, 'u"foo\\x10000"', [
+        ("Invalid numeric escape sequence in string literal: UTF-16 code unit (U+10000) out of range", 5)
+    ])
+    _check_invalid_string_literal(context, 'u"foo\\xDC00"', [
+        ("Invalid string literal: Invalid UTF-16 low surrogate (U+DC00) without preceding high surrogate", 5)
+    ])
+    _check_invalid_string_literal(context, 'u"\\xD800\\x41"', [
+        ("Invalid string literal: Invalid low surrogate after high surrogate (U+D800) in UTF-16 surrogate pair", 8)
+    ])
+    _check_invalid_string_literal(context, 'u"foo\\xD800"', [
+        ("Invalid string literal: Missing low surrogate after high surrogate (U+D800) in UTF-16 surrogate pair", 5)
+    ])
+    _check_invalid_string_literal(context, 'U"foo\\xD800"', [
+        ("Invalid numeric escape sequence in string literal: UTF-32 code unit (U+D800) in UTF-16 surrogate range", 5)
+    ])
+    _check_invalid_string_literal(context, 'U"foo\\x110000"', [
+        ("Invalid numeric escape sequence in string literal: UTF-32 code unit (U+110000) outside Unicode range", 5)
+    ])
+
+    # Invalid UCNs
+    _check_invalid_string_literal(context, '"\\uD800"', [
+        ('Invalid UCN in string literal: Code point (U+D800) in UTF-16 surrogate range', 1)
+    ])
+    _check_invalid_string_literal(context, '"\\u{110000}"', [
+        ('Invalid UCN in string literal: Code point (U+110000) outside Unicode range', 1)
+    ])
+    _check_invalid_string_literal(context, '"\\u00A"', [
+        ('Invalid 4-digit UCN in string literal: Too few digits', 1)
+    ])
+    _check_invalid_string_literal(context, '"\\u{12G}"', [
+        ('Invalid delimited numeric UCN in string literal: Invalid hexadecimal digit ("G")', 6)
+    ])
+    _check_invalid_string_literal(context, '"\\N{INVALID NAME}"', [
+        ('Invalid named UCN in string literal: Invalid character name ("INVALID NAME")', 4)
+    ])
+    _check_invalid_string_literal(context, '"\\N{foo"', [
+        ('Invalid named UCN in string literal: Missing closing brace (`}`)', 1)
+    ])
+
+
 
 
 
@@ -1413,6 +1535,66 @@ def _check_errors(context: _t.Context, errors: _cabc.Sequence[_Error],
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(error.message, expected[0])
         subcontext.check_equal(error.pos, expected[1])
+    context.check_equal(len(errors), len(expected_errors))
+
+
+def _check_valid_string_literal(context: _t.Context, text: str, expected_payload: str,
+                                expected_type: _cp.StringLiteralType, expected_suffix: str,
+                                encoding_info: _cp.EncodingInfo | None = None) -> None:
+    error = False
+    path = pathlib.Path("test.cpp")
+    file_index = 0
+    def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
+        nonlocal error
+        context.check_equal(pos.file_index, file_index)
+        text_pos = _tp.TextPos(line_no=1, pos_on_line=pos.pos_in_file)
+        file_context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
+        _l.FileContextLogger(context.logger, file_context).error(message, *args)
+        error = True
+
+    pos = _cp.Position(file_index, 0)
+    synthetic = False
+    result = _cp.unpack_string_literal(text, pos, synthetic, error_handler, encoding_info)
+
+    context.check_not(error)
+    context.check_is_not_none(result)
+    assert result is not None
+    context.check_equal(result.payload, expected_payload)
+    context.check_equal(result.literal_type, expected_type)
+    context.check_equal(result.suffix, expected_suffix)
+
+
+def _check_numeric_escape_error(context: _t.Context, text: str, encoding_info: _cp.EncodingInfo | None = None) -> None:
+    def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
+        pass
+
+    pos = _cp.Position(0, 0)
+    synthetic = False
+    with context.check_raises(_cp.NumericEscapeError):
+        _cp.unpack_string_literal(text, pos, synthetic, error_handler)
+
+
+def _check_invalid_string_literal(context: _t.Context, text: str, expected_errors: list[tuple[str, int]],
+                                  encoding_info: _cp.EncodingInfo | None = None) -> None:
+    errors: list[_Error] = []
+    path = pathlib.Path("test.cpp")
+    file_index = 0
+    def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
+        context.check_equal(pos.file_index, file_index)
+        text_pos = _tp.TextPos(line_no=1, pos_on_line=pos.pos_in_file)
+        file_context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
+        _l.FileContextLogger(context.logger, file_context).error(message, *args)
+        errors.append(_Error(message % args, text_pos))
+
+    pos = _cp.Position(file_index, 0)
+    synthetic = False
+    result = _cp.unpack_string_literal(text, pos, synthetic, error_handler, encoding_info)
+
+    context.check_is_none(result)
+    for i, (error, (expected_message, expected_offset)) in enumerate(zip(errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected_message)
+        subcontext.check_equal(error.pos.pos_on_line, expected_offset)
     context.check_equal(len(errors), len(expected_errors))
 
 
