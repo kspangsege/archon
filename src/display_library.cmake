@@ -1,5 +1,6 @@
 include(FindPackageMessage)
 
+
 # Need X11 for the following reasons:
 # * X11-based display implementation (see archon/display/x11_implementation.cpp)
 #
@@ -45,7 +46,20 @@ find_package_message(ARCHON_XLIB_MSG "${_msg}" "[${_version}][${_min_version}][$
 # Need GLX for the following reasons:
 # * X11-based display implementation (see archon/display/x11_implementation.cpp)
 #
-find_package(OpenGL)
+find_package(OpenGL QUIET)
+if(OPENGL_FOUND)
+  set(_library "${OPENGL_LIBRARIES}")
+  string(CONCAT _msg
+    "Found OpenGL: ${_library}"
+  )
+else()
+  set(_library "")
+  string(CONCAT _msg
+    "Could NOT find OpenGL"
+  )
+endif()
+find_package_message(ARCHON_OPENGL_MSG "${_msg}" "[${OPENGL_FOUND}][${_library}]")
+
 
 # Need SDL for the following reasons:
 # * SDL-based display implementation (see archon/display/sdl_implementation.cpp)
@@ -54,21 +68,119 @@ set(_archon_sdl_min_version "3.2.20")
 find_package(SDL3 ${_archon_sdl_min_version} CONFIG QUIET)
 if(SDL3_FOUND)
   set(_version "${SDL3_VERSION}")
+  get_target_property(_library SDL3::SDL3 IMPORTED_LOCATION)
+  if(NOT _library OR _library MATCHES "-NOTFOUND")
+    get_target_property(_configs SDL3::SDL3 IMPORTED_CONFIGURATIONS)
+    if(_configs)
+      list(GET _configs 0 _first_config)
+      get_target_property(_library SDL3::SDL3 IMPORTED_LOCATION_${_first_config})
+    endif()
+  endif()
+  if(NOT _library OR _library MATCHES "-NOTFOUND")
+    set(_library "unknown")
+  endif()
   string(CONCAT _msg
-    "Found SDL (found version \"${_version}\")"
+    "Found SDL: ${_library} (found version \"${_version}\")"
   )
 else()
   set(_version "")
+  set(_library "")
   string(CONCAT _msg
     "Could NOT find SDL (minimum required version is \"${_archon_sdl_min_version}\")"
   )
 endif()
-find_package_message(ARCHON_SDL_MSG "${_msg}" "[${SDL3_FOUND}][${_version}][${_archon_sdl_min_version}]")
+find_package_message(ARCHON_SDL_MSG "${_msg}" "[${SDL3_FOUND}][${_version}][${_archon_sdl_min_version}][${_library}]")
+
 
 # Need GLEW for the following reasons:
 # * Exposure of OpenGL to applciations through archon/display/opengl.hpp
 #
-find_package(GLEW)
+find_package(GLEW QUIET)
+if(GLEW_FOUND)
+  set(_version "${GLEW_VERSION}")
+  if("${_version}" STREQUAL "" AND DEFINED glew_VERSION)
+    set(_version "${glew_VERSION}")
+  endif()
+  if("${_version}" STREQUAL "")
+    set(_version "unknown")
+  endif()
+  get_target_property(_library GLEW::GLEW IMPORTED_LOCATION)
+  if(NOT _library OR _library MATCHES "-NOTFOUND")
+    get_target_property(_configs GLEW::GLEW IMPORTED_CONFIGURATIONS)
+    if(_configs)
+      list(GET _configs 0 _first_config)
+      get_target_property(_library GLEW::GLEW IMPORTED_LOCATION_${_first_config})
+    endif()
+  endif()
+  if(NOT _library OR _library MATCHES "-NOTFOUND")
+    set(_library "unknown")
+  endif()
+  string(CONCAT _msg
+    "Found GLEW: ${_library} (found version \"${_version}\")"
+  )
+else()
+  set(_version "")
+  set(_library "")
+  string(CONCAT _msg
+    "Could NOT find GLEW"
+  )
+endif()
+find_package_message(ARCHON_GLEW_MSG "${_msg}" "[${GLEW_FOUND}][${_version}][${_library}]")
+
+
+add_library(Display
+  archon/display/event_handler.cpp
+  archon/display/viewport.cpp
+  archon/display/noinst/edid.cpp
+  archon/display/connection.cpp
+  archon/display/implementation.cpp
+  archon/display/x11_implementation.cpp
+  archon/display/sdl_implementation.cpp
+  archon/display/list_implementations.cpp
+  archon/display/noinst/palette_map.cpp
+  archon/display/noinst/x11/support.cpp
+  archon/display/opengl.cpp
+)
+
+set_target_properties(Display PROPERTIES OUTPUT_NAME "archon-display")
+
+
+target_sources(Display PRIVATE
+  archon/display/display_namespace.hpp
+  archon/display/noinst/timestamp_unwrapper.hpp
+  archon/display/noinst/mult_pixel_format.hpp
+  archon/display/noinst/palette_map.hpp
+  archon/display/noinst/impl_util.hpp
+  archon/display/noinst/x11/support.hpp
+)
+
+
+target_sources(Display PUBLIC FILE_SET HEADERS FILES
+  archon/display/implementation_fwd.hpp
+  archon/display/geometry.hpp
+  archon/display/key.hpp
+  archon/display/key_code.hpp
+  archon/display/mouse_button.hpp
+  archon/display/event.hpp
+  archon/display/event_handler.hpp
+  archon/display/resolution.hpp
+  archon/display/viewport.hpp
+  archon/display/guarantees.hpp
+  archon/display/x11_fullscreen_monitors.hpp
+  archon/display/x11_connection_config.hpp
+  archon/display/sdl_connection_config.hpp
+  archon/display/texture.hpp
+  archon/display/window.hpp
+  archon/display/connection.hpp
+  archon/display/implementation.hpp
+  archon/display/x11_implementation.hpp
+  archon/display/sdl_implementation.hpp
+  archon/display/as_key_name.hpp
+  archon/display/list_implementations.hpp
+  archon/display/opengl.hpp
+  archon/display.hpp
+)
+
 
 set(ARCHON_DISPLAY_HAVE_X11 0)
 set(ARCHON_DISPLAY_HAVE_X11_XKB 0)
@@ -123,30 +235,19 @@ if(OPENGL_FOUND AND GLEW_FOUND)
   set(ARCHON_DISPLAY_HAVE_OPENGL 1)
 endif()
 
-add_subdirectory(archon/display/probe)
+configure_file(archon/display/impl/config.h.in archon/display/impl/config.h)
 
-add_library(Display
-  archon/display/event_handler.cpp
-  archon/display/viewport.cpp
-  archon/display/noinst/edid.cpp
-  archon/display/connection.cpp
-  archon/display/implementation.cpp
-  archon/display/x11_implementation.cpp
-  archon/display/sdl_implementation.cpp
-  archon/display/list_implementations.cpp
-  archon/display/noinst/palette_map.cpp
-  archon/display/noinst/x11/support.cpp
-  archon/display/opengl.cpp
+target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/archon/display/impl/config.h"
 )
 
-set_target_properties(Display PROPERTIES OUTPUT_NAME "archon-display")
 
-target_link_libraries(Display PUBLIC
-  Core
-  Log
-  Math
-  Util
-  Image
+target_link_libraries(Display
+  PUBLIC Core
+  PUBLIC Log
+  PUBLIC Math
+  PUBLIC Util
+  PUBLIC Image
 )
 
 if(ARCHON_GOOD_X11_FOUND)
@@ -179,37 +280,17 @@ if(OPENGL_FOUND AND GLEW_FOUND)
   target_link_libraries(Display PUBLIC OpenGL::GL GLEW::GLEW)
 endif()
 
-configure_file(archon/display/impl/config.h.in archon/display/impl/config.h)
-
-target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${ARCHON_SOURCE_ROOT}" FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/archon/display/impl/config.h"
-  archon/display/implementation_fwd.hpp
-  archon/display/geometry.hpp
-  archon/display/key.hpp
-  archon/display/key_code.hpp
-  archon/display/mouse_button.hpp
-  archon/display/event.hpp
-  archon/display/event_handler.hpp
-  archon/display/resolution.hpp
-  archon/display/viewport.hpp
-  archon/display/guarantees.hpp
-  archon/display/x11_fullscreen_monitors.hpp
-  archon/display/x11_connection_config.hpp
-  archon/display/sdl_connection_config.hpp
-  archon/display/texture.hpp
-  archon/display/window.hpp
-  archon/display/connection.hpp
-  archon/display/implementation.hpp
-  archon/display/x11_implementation.hpp
-  archon/display/sdl_implementation.hpp
-  archon/display/as_key_name.hpp
-  archon/display/list_implementations.hpp
-  archon/display/opengl.hpp
-  archon/display.hpp
-)
 
 install(TARGETS Display FILE_SET HEADERS)
 
-add_subdirectory(archon/display/test)
+
 add_subdirectory(archon/display/tool)
-add_subdirectory(archon/display/demo)
+
+if(ARCHON_INCLUDE_DEMO_PROGS)
+  add_subdirectory(archon/display/probe)
+  add_subdirectory(archon/display/demo)
+endif()
+
+if(ARCHON_INCLUDE_TEST_SUITE)
+  add_subdirectory(archon/display/test)
+endif()

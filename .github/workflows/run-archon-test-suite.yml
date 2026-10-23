@@ -36,14 +36,14 @@ jobs:
         SDL_SOURCE_DIR="${{ runner.temp }}/sdl-source"
         mkdir "$SDL_SOURCE_DIR"
         git clone https://github.com/libsdl-org/SDL.git "$SDL_SOURCE_DIR"
-        (cd "$SDL_SOURCE_DIR" && mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DSDL_X11_XTEST=OFF && make -j && sudo make install)
+        (cd "$SDL_SOURCE_DIR" && mkdir build && cd build && cmake .. -D CMAKE_BUILD_TYPE=Release -D SDL_X11_XTEST=OFF && make -j && sudo make install)
 
     - name: Checkout
       uses: actions/checkout@v6
 
     - name: Configure
       run: |
-        cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build -D CMAKE_C_COMPILER=${{ matrix.c_compiler }} -D CMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} -D CMAKE_BUILD_TYPE=${{ matrix.build_type }} -D ARCHON_BUILD_DEMO_PROGS=YES -D ARCHON_BUILD_TEST_SUITE=YES
 
     - name: Build
       run: |
@@ -79,7 +79,7 @@ jobs:
 
     - name: Configure
       run: |
-        cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_FIND_FRAMEWORK=LAST
+        cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build -D CMAKE_C_COMPILER=${{ matrix.c_compiler }} -D CMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} -D CMAKE_BUILD_TYPE=${{ matrix.build_type }} -D CMAKE_FIND_FRAMEWORK=LAST -D ARCHON_BUILD_DEMO_PROGS=YES -D ARCHON_BUILD_TEST_SUITE=YES
 
     - name: Build
       run: |
@@ -117,7 +117,7 @@ jobs:
 
     - name: Configure
       run: |
-        cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+        cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build -D CMAKE_C_COMPILER=${{ matrix.c_compiler }} -D CMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} -D CMAKE_BUILD_TYPE=${{ matrix.build_type }} -D CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -D ARCHON_BUILD_DEMO_PROGS=YES -D ARCHON_BUILD_TEST_SUITE=YES
 
     - name: Build
       run: |

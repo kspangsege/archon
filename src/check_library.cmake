@@ -20,11 +20,6 @@ add_library(Check
 
 set_target_properties(Check PROPERTIES OUTPUT_NAME "archon-check")
 
-target_link_libraries(Check PUBLIC
-  Core
-  Log
-  Cli
-)
 
 target_sources(Check PUBLIC FILE_SET HEADERS FILES
   archon/check/seed_seq.hpp
@@ -56,6 +51,17 @@ target_sources(Check PUBLIC FILE_SET HEADERS FILES
   archon/check.hpp
 )
 
+
+target_link_libraries(Check
+  PUBLIC Core
+  PUBLIC Log
+  PRIVATE Cli
+)
+
+
 install(TARGETS Check FILE_SET HEADERS)
 
-add_subdirectory(archon/check/test)
+
+if(ARCHON_INCLUDE_TEST_SUITE)
+  add_subdirectory(archon/check/test)
+endif()

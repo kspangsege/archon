@@ -1,0 +1,35 @@
+[MESSAGES CONTROL]
+disable=all
+enable=
+    # Basic
+    attribute-defined-outside-init,
+    dangerous-default-value,
+    cell-var-from-loop,
+    assert-on-tuple,
+    lost-exception,
+    pointless-statement,
+    super-init-not-called,
+    bare-except,
+    # Unused & dead code
+    unused-variable,
+    unused-import,
+    unused-private-member,
+    unreachable,
+    pointless-string-statement,
+    expression-not-assigned,
+    # Literal & comparison bugs
+    duplicate-key,
+    duplicate-value,
+    nan-comparison,
+    assert-on-string-literal,
+    self-assigning-variable,
+    # Loop & iteration bugs
+    modified-iterating-list,
+    modified-iterating-dict,
+    modified-iterating-set,
+    undefined-loop-variable,
+    # Exception & OOP bugs
+    bad-except-order,
+    duplicate-except,
+    raising-format-tuple,
+    non-parent-init-called
