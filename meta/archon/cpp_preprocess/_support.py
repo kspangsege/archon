@@ -426,8 +426,8 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                     i = k + 1
                     continue
                 j -= 1
-            error_handler(get_subpos(j), "Invalid escape sequence in string literal: Need hexadecimal digit or "
-                          "opening brace (`{`) after `\\u`")
+            error_handler(get_subpos(j), "Invalid UCN in string literal: Need hexadecimal digit or opening brace "
+                          "(`{`) after `\\u`")
             return None
         if ch == "U":
             k = j
@@ -464,8 +464,8 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                     name = text[j:k]
                     ch_2 = _ct._resolve_character_name(name)
                     if ch_2 is None:
-                        error_handler(get_subpos(j), "Invalid named UCN in string literal: Invalid character name "
-                                      "(%s)", _b.clamped_quote(name, 64))
+                        error_handler(get_subpos(j), "Invalid named UCN in string literal: Invalid character name: %s",
+                                      name)
                         return None
                     code_point = ord(ch_2)
                     if not add_ucn(code_point, i):
@@ -473,10 +473,9 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                     i = k + 1
                     continue
                 j -= 1
-            error_handler(get_subpos(j), "Invalid escape sequence in string literal: Need opening brace (`{`) after "
-                          "`\\N`")
+            error_handler(get_subpos(j), "Invalid named UCN in string literal: Need opening brace (`{`) after `\\N`")
             return None
-        error_handler(get_subpos(i), "Invalid escape sequence in string literal: Invalid character (%s) after "
+        error_handler(get_subpos(j - 1), "Invalid escape sequence in string literal: Invalid character (%s) after "
                       "backslash (`\\`)", _b.quote(ch))
         return None
     payload = "".join(parts)

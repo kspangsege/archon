@@ -1295,8 +1295,11 @@ def test_CppPreprocess_UnpackStringLiteral(context: _t.Context) -> None:
                                 _cp.StringLiteralType.PLAIN, "")
 
     # Invalid numeric escapes
-    _check_invalid_string_literal(context, '"\\o"', [
-        ('Invalid escape sequence in string literal: Need opening brace (`{`) after `\\o`', 3)
+    _check_invalid_string_literal(context, '"foo\\o"', [
+        ('Invalid escape sequence in string literal: Need opening brace (`{`) after `\\o`', 6)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"z\\o$"', [
+        ('Invalid escape sequence in string literal: Need opening brace (`{`) after `\\o`', 4)
     ], encoding_info)
     _check_invalid_string_literal(context, '"\\o{3"', [
         ('Invalid delimited octal escape sequence in string literal: Missing closing brace (`}`)', 1)
@@ -1307,8 +1310,11 @@ def test_CppPreprocess_UnpackStringLiteral(context: _t.Context) -> None:
     _check_invalid_string_literal(context, '"\\o{}"', [
         ('Invalid delimited octal escape sequence in string literal: No digits', 1)
     ], encoding_info)
-    _check_invalid_string_literal(context, '"\\x"', [
-        ('Invalid escape sequence in string literal: Need hexadecimal digit or opening brace (`{`) after `\\x`', 3)
+    _check_invalid_string_literal(context, '"foo\\x"', [
+        ('Invalid escape sequence in string literal: Need hexadecimal digit or opening brace (`{`) after `\\x`', 6)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"z\\x%"', [
+        ('Invalid escape sequence in string literal: Need hexadecimal digit or opening brace (`{`) after `\\x`', 4)
     ], encoding_info)
     _check_invalid_string_literal(context, '"\\x{C"', [
         ('Invalid delimited hexadecimal escape sequence in string literal: Missing closing brace (`}`)', 1)
@@ -1345,24 +1351,56 @@ def test_CppPreprocess_UnpackStringLiteral(context: _t.Context) -> None:
     ])
 
     # Invalid UCNs
+    _check_invalid_string_literal(context, '"foo\\u"', [
+        ('Invalid UCN in string literal: Need hexadecimal digit or opening brace (`{`) after `\\u`', 6)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"z\\u$"', [
+        ('Invalid UCN in string literal: Need hexadecimal digit or opening brace (`{`) after `\\u`', 4)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"\\u00A"', [
+        ('Invalid 4-digit UCN in string literal: Too few digits', 1)
+    ])
+    _check_invalid_string_literal(context, '"foo\\u00zA"', [
+        ('Invalid 4-digit UCN in string literal: Invalid hexadecimal digit ("z")', 8)
+    ])
+    _check_invalid_string_literal(context, '"foo\\u{3"', [
+        ('Invalid delimited numeric UCN in string literal: Missing closing brace (`}`)', 4)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"\\u{12G}"', [
+        ('Invalid delimited numeric UCN in string literal: Invalid hexadecimal digit ("G")', 6)
+    ])
+    _check_invalid_string_literal(context, '"z\\u{}"', [
+        ('Invalid delimited numeric UCN in string literal: No digits', 2)
+    ])
+    _check_invalid_string_literal(context, '"z\\U000000A"', [
+        ('Invalid 8-digit UCN in string literal: Too few digits', 2)
+    ])
+    _check_invalid_string_literal(context, '"\\U000000zA"', [
+        ('Invalid 8-digit UCN in string literal: Invalid hexadecimal digit ("z")', 9)
+    ])
+    _check_invalid_string_literal(context, '"foo\\N"', [
+        ('Invalid named UCN in string literal: Need opening brace (`{`) after `\\N`', 6)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"zz\\N%"', [
+        ('Invalid named UCN in string literal: Need opening brace (`{`) after `\\N`', 5)
+    ], encoding_info)
+    _check_invalid_string_literal(context, '"\\N{foo"', [
+        ('Invalid named UCN in string literal: Missing closing brace (`}`)', 1)
+    ])
+    _check_invalid_string_literal(context, '"z\\N{INVALID NAME}foo"', [
+        ('Invalid named UCN in string literal: Invalid character name: INVALID NAME', 5)
+    ])
     _check_invalid_string_literal(context, '"\\uD800"', [
         ('Invalid UCN in string literal: Code point (U+D800) in UTF-16 surrogate range', 1)
     ])
     _check_invalid_string_literal(context, '"\\u{110000}"', [
         ('Invalid UCN in string literal: Code point (U+110000) outside Unicode range', 1)
     ])
-    _check_invalid_string_literal(context, '"\\u00A"', [
-        ('Invalid 4-digit UCN in string literal: Too few digits', 1)
-    ])
-    _check_invalid_string_literal(context, '"\\u{12G}"', [
-        ('Invalid delimited numeric UCN in string literal: Invalid hexadecimal digit ("G")', 6)
-    ])
-    _check_invalid_string_literal(context, '"\\N{INVALID NAME}"', [
-        ('Invalid named UCN in string literal: Invalid character name ("INVALID NAME")', 4)
-    ])
-    _check_invalid_string_literal(context, '"\\N{foo"', [
-        ('Invalid named UCN in string literal: Missing closing brace (`}`)', 1)
-    ])
+
+    # Other invalidity
+    _check_invalid_string_literal(context, '"foo\\Z{bar}"', [
+        ('Invalid escape sequence in string literal: Invalid character ("Z") after backslash (`\\`)', 5)
+    ], encoding_info)
 
 
 
