@@ -675,7 +675,7 @@ class Tokenizer:
             self._roll_back()
             return False
         if 0xD800 <= code_point < 0xE000:
-            error(offset, "Invalid UCN code point (U+%04X): Refers to character in surrogate range", code_point)
+            error(offset, "Invalid UCN code point (U+%04X): In surrogate range", code_point)
             return True
         if code_point >= 0x110000:
             error(offset, "Invalid UCN code point (U+%04X): Outside Unicode range", code_point)
@@ -683,10 +683,10 @@ class Tokenizer:
         ch = chr(code_point)
         if not (_is_xid_start(ch) if first else _is_xid_continue(ch)):
             what = "XID_Start" if first else "XID_Continue"
-            error(offset, "Invalid UCN code point (U+%04X): Must refer to character in %s", code_point, what)
+            error(offset, "Invalid UCN code point (U+%04X): Not in %s", code_point, what)
             return True
         if code_point < 0x80:
-            error(offset, "Invalid UCN code point (U+%04X): Refers to character in basic character set", code_point)
+            error(offset, "Invalid UCN code point (U+%04X): In basic character set", code_point)
             return True
         orig = self._commit()
         state.add_ucn_replacement(ch, orig)
