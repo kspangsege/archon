@@ -167,14 +167,14 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
     parts: list[str] = []
     def add_part(text: str, prior_offset: int) -> bool:
         if flush_numerics(prior_offset):
-            parts.append(text[i:j])
+            parts.append(text)
             return True
         return False
 
     @dataclasses.dataclass(slots=True, frozen=True)
     class NumericEntry:
-        value: int
-        offset: int
+        code_unit: int
+        offset:    int
     numeric_entries: list[NumericEntry] = []
     def flush_numerics(end_offset: int) -> bool:
         if not numeric_entries:
@@ -182,13 +182,13 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
         match encoding:
             case str():
                 for entry in numeric_entries:
-                    code_unit = entry.value
+                    code_unit = entry.code_unit
                     if code_unit > 0xFF:
                         subpos = get_subpos(entry.offset)
                         error_handler(subpos, "Invalid numeric escape sequence: Byte-sized code unit (%s) out of "
                                       "range", code_unit)
                         return False
-                b = bytes([e.value for e in numeric_entries])
+                b = bytes([e.code_unit for e in numeric_entries])
                 try:
                     string = b.decode(encoding, errors="strict")
                 except UnicodeDecodeError as e:
@@ -210,7 +210,7 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                 while i < n:
                     entry = numeric_entries[i]
                     i += 1
-                    code_unit = entry.value
+                    code_unit = entry.code_unit
                     if 0xD800 <= code_unit < 0xE000:
                         if code_unit < 0xDC00:  # High surrogate
                             if i == n:
@@ -220,7 +220,7 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                                 return False
                             entry_2 = numeric_entries[i]
                             i += 1
-                            code_unit_2 = entry_2.value
+                            code_unit_2 = entry_2.code_unit
                             if not 0xDC00 <= code_unit_2 < 0xE000:
                                 subpos = get_subpos(entry_2.offset)
                                 error_handler(subpos, "Invalid low surrogate after high surrogate (U+%04X) in UTF-16 "
@@ -243,7 +243,7 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                     parts.append(ch)
             case WideCharacterEncoding.UTF_32:
                 for entry in numeric_entries:
-                    code_unit = entry.value
+                    code_unit = entry.code_unit
                     if 0xD800 <= code_unit < 0xE000:
                         subpos = get_subpos(entry.offset)
                         error_handler(subpos, "Invalid numeric escape sequence: UTF-32 code unit (U+%04X) in "
@@ -258,19 +258,31 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                     ch = chr(code_point)
                     parts.append(ch)
             case None:
-                subpos = get_subpos(numeric_entries[0].offset)
-                error_handler(subpos, "Numeric escape sequence not allowed because target encoding is unknown")
-                return False
+                raise NumericEscapeError
             case _:
                 typing.assert_never(encoding)
         numeric_entries.clear()
         return True
 
+    def add_ucn(code_point: int, base_offset: int) -> bool:
+        if 0xD800 <= code_point < 0xE000:
+            subpos = get_subpos(base_offset)
+            error_handler(subpos, "Invalid UCN in string literal: Code point (U+%04X) in UTF-16 surrogate range",
+                          code_point)
+            return False
+        if code_point >= 0x110000:
+            subpos = get_subpos(base_offset)
+            error_handler(subpos, "Invalid UCN in string literal: Code point (U+%04X) outside Unicode range",
+                          code_point)
+            return False
+        ch = chr(code_point)
+        return add_part(ch, base_offset)
+
     i = begin
     while True:
         j = text.find("\\", i, end)
         if j < 0:
-            if not add_part(text[i:], i):
+            if not add_part(text[i:end], i):
                 return None
             break
         if j > i:
@@ -281,9 +293,10 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
         assert j < end  # Caller promises no final stray backslash
         ch = text[j]
         j += 1
-        result = _SIMPLE_ESCAPES.get(ch)
-        if result is not None:
-            parts.append(result)
+        string = _SIMPLE_ESCAPES.get(ch)
+        if string is not None:
+            if not add_part(string, i):
+                return None
             i = j
             continue
         if ch in _OCT_CHARS:
@@ -291,8 +304,8 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
             j -= 1
             while k < end and k - j < 3 and text[k] in _OCT_CHARS:
                 k += 1
-            value = int(text[j:k], 8)
-            numeric_entries.append(NumericEntry(value, i))
+            code_unit = int(text[j:k], 8)
+            numeric_entries.append(NumericEntry(code_unit, i))
             i = k
             continue
         if ch == "o":
@@ -303,24 +316,28 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                     k = j
                     while True:
                         if k == end:
-                            error_handler(get_subpos(i), "Missing closing brace (`}`) in delimited octal escape "
-                                          "sequence")
+                            error_handler(get_subpos(i), "Invalid delimited octal escape sequence in string literal: "
+                                          "Missing closing brace (`}`)")
                             return None
                         ch = text[k]
                         if ch == "}":
                             break
                         if ch not in _OCT_CHARS:
-                            error_handler(get_subpos(k), "Invalid digit (%s) in delimited octal escape sequence",
-                                          _b.quote(ch))
+                            error_handler(get_subpos(k), "Invalid delimited octal escape sequence in string literal: "
+                                          "Invalid digit (%s)", _b.quote(ch))
                             return None
+                        k += 1
                     if j == k:
-                        error_handler(get_subpos(i), "Empty delimited octal escape sequence")
+                        error_handler(get_subpos(i), "Invalid delimited octal escape sequence in string literal: No "
+                                      "digits")
                         return None
-                    value = int(text[j:k], 8)
-                    numeric_entries.append(NumericEntry(value, i))
+                    code_unit = int(text[j:k], 8)
+                    numeric_entries.append(NumericEntry(code_unit, i))
                     i = k + 1
                     continue
-            error_handler(get_subpos(j), "Missing opening brace (`{`) in delimited octal escape sequence")
+                j -= 1
+            error_handler(get_subpos(j), "Invalid escape sequence in string literal: Need opening brace (`{`) after "
+                          "`\\o`")
             return None
         if ch == "x":
             if j < end:
@@ -331,34 +348,136 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                     j -= 1
                     while k < end and text[k] in _HEXADEC_CHARS:
                         k += 1
-                    value = int(text[j:k], 16)
-                    numeric_entries.append(NumericEntry(value, i))
+                    code_unit = int(text[j:k], 16)
+                    numeric_entries.append(NumericEntry(code_unit, i))
                     i = k
                     continue
                 if ch == "{":
                     k = j
                     while True:
                         if k == end:
-                            error_handler(get_subpos(i), "Missing closing brace (`}`) in delimited hexadecimal escape "
-                                          "sequence")
+                            error_handler(get_subpos(i), "Invalid delimited hexadecimal escape sequence in string "
+                                          "literal: Missing closing brace (`}`)")
                             return None
                         ch = text[k]
                         if ch == "}":
                             break
                         if ch not in _HEXADEC_CHARS:
-                            error_handler(get_subpos(k), "Invalid digit (%s) in delimited hexadecimal escape sequence",
-                                          _b.quote(ch))
+                            error_handler(get_subpos(k), "Invalid delimited hexadecimal escape sequence in string "
+                                          "literal: Invalid digit (%s)", _b.quote(ch))
                             return None
+                        k += 1
                     if j == k:
-                        error_handler(get_subpos(i), "Empty delimited hexadecimal escape sequence")
+                        error_handler(get_subpos(i), "Invalid delimited hexadecimal escape sequence in string "
+                                      "literal: No digits")
                         return None
-                    value = int(text[j:k], 16)
-                    numeric_entries.append(NumericEntry(value, i))
+                    code_unit = int(text[j:k], 16)
+                    numeric_entries.append(NumericEntry(code_unit, i))
                     i = k + 1
                     continue
-            error_handler(get_subpos(j), "Need hexadecimal digit or opening brace (`{`) after `\\x` in string literal")
+                j -= 1
+            error_handler(get_subpos(j), "Invalid escape sequence in string literal: Need hexadecimal digit or "
+                          "opening brace (`{`) after `\\x`")
             return None
-        raise NotImplementedError                
+        if ch == "u":
+            if j < end:
+                ch = text[j]
+                j += 1
+                if ch in _HEXADEC_CHARS:
+                    k = j
+                    j -= 1
+                    while k - j < 4:
+                        if k == end:
+                            error_handler(get_subpos(i), "Invalid 4-digit UCN in string literal: Missing digits")
+                            return None
+                        ch = text[k]
+                        if ch not in _HEXADEC_CHARS:
+                            error_handler(get_subpos(k), "Invalid 4-digit UCN in string literal: Invalid hexadecimal "
+                                          "digit (%s)", _b.quote(ch))
+                            return None
+                        k += 1
+                    code_point = int(text[j:k], 16)
+                    if not add_ucn(code_point, i):
+                        return None
+                    i = k
+                    continue
+                if ch == "{":
+                    k = j
+                    while True:
+                        if k == end:
+                            error_handler(get_subpos(i), "Invalid delimited numeric UCN in string literal: Missing "
+                                          "closing brace (`}`)")
+                            return None
+                        ch = text[k]
+                        if ch == "}":
+                            break
+                        if ch not in _HEXADEC_CHARS:
+                            error_handler(get_subpos(k), "Invalid delimited numeric UCN in string literal: Invalid "
+                                          "hexadecimal digit (%s)", _b.quote(ch))
+                            return None
+                        k += 1
+                    if j == k:
+                        error_handler(get_subpos(i), "Invalid delimited numeric UCN in string literal: No digits")
+                        return None
+                    code_point = int(text[j:k], 16)
+                    if not add_ucn(code_point, i):
+                        return None
+                    i = k + 1
+                    continue
+                j -= 1
+            error_handler(get_subpos(j), "Invalid escape sequence in string literal: Need hexadecimal digit or "
+                          "opening brace (`{`) after `\\u`")
+            return None
+        if ch == "U":
+            k = j
+            while k - j < 8:
+                if k == end:
+                    error_handler(get_subpos(i), "Invalid 8-digit UCN in string literal: Missing digits")
+                    return None
+                ch = text[k]
+                if ch not in _HEXADEC_CHARS:
+                    error_handler(get_subpos(k), "Invalid 8-digit UCN in string literal: Invalid hexadecimal "
+                                  "digit (%s)", _b.quote(ch))
+                    return None
+                k += 1
+            code_point = int(text[j:k], 16)
+            if not add_ucn(code_point, i):
+                return None
+            i = k
+            continue
+        if ch == "N":
+            if j < end:
+                ch = text[j]
+                j += 1
+                if ch == "{":
+                    k = j
+                    while True:
+                        if k == end:
+                            error_handler(get_subpos(i), "Invalid named UCN in string literal: Missing closing brace "
+                                          "(`}`)")
+                            return None
+                        ch = text[k]
+                        if ch == "}":
+                            break
+                        k += 1
+                    name = text[j:k]
+                    ch_2 = _ct._resolve_character_name(name)
+                    if ch_2 is None:
+                        error_handler(get_subpos(j), "Invalid named UCN in string literal: Invalid character name "
+                                      "(%s)", _b.clamped_quote(name, 64))
+                        return None
+                    code_point = ord(ch_2)
+                    if not add_ucn(code_point, i):
+                        return None
+                    i = k + 1
+                    continue
+                j -= 1
+            error_handler(get_subpos(j), "Invalid escape sequence in string literal: Need opening brace (`{`) after "
+                          "`\\N`")
+            return None
+        error_handler(get_subpos(i), "Invalid escape sequence in string literal: Invalid character (%s) after "
+                      "backslash (`\\`)", _b.quote(ch))
+        return None
     payload = "".join(parts)
     return UnpackedStringLiteral(payload, literal_type, suffix)
 
@@ -387,6 +506,6 @@ _SIMPLE_ESCAPES = {
 }
 
 
-_HEXADEC_CHARS = frozenset("0123456789ABCDEFabcdef")
-
 _OCT_CHARS = frozenset("01234567")
+
+_HEXADEC_CHARS = frozenset("0123456789ABCDEFabcdef")
