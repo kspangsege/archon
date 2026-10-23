@@ -185,7 +185,7 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                     code_unit = entry.code_unit
                     if code_unit > 0xFF:
                         subpos = get_subpos(entry.offset)
-                        error_handler(subpos, "Invalid numeric escape sequence: Byte-sized code unit (%s) out of "
+                        error_handler(subpos, "Invalid numeric escape sequence: Byte-sized code unit (0x%X) out of "
                                       "range", code_unit)
                         return False
                 b = bytes([e.code_unit for e in numeric_entries])
@@ -214,7 +214,7 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                     if 0xD800 <= code_unit < 0xE000:
                         if code_unit < 0xDC00:  # High surrogate
                             if i == n:
-                                subpos = get_subpos(end_offset)
+                                subpos = get_subpos(entry.offset)
                                 error_handler(subpos, "Missing low surrogate after high surrogate (U+%04X) in UTF-16 "
                                               "surrogate pair", code_unit)
                                 return False
