@@ -1244,6 +1244,9 @@ def test_CppPreprocess_ParseDefineDirective(context: _t.Context) -> None:
 
 
 def test_CppPreprocess_UnpackStringLiteral(context: _t.Context) -> None:
+    encoding_info       = _cp.EncodingInfo(plain="utf-8", wide=_cp.WideCharacterEncoding.UTF_32)
+    encoding_info_utf16 = _cp.EncodingInfo(plain="utf-8", wide=_cp.WideCharacterEncoding.UTF_16)
+
     # Prefix
     _check_valid_string_literal(context, '""', "", _cp.StringLiteralType.PLAIN, "")
     _check_valid_string_literal(context, '"foo"', "foo", _cp.StringLiteralType.PLAIN, "")
@@ -1267,9 +1270,6 @@ def test_CppPreprocess_UnpackStringLiteral(context: _t.Context) -> None:
 
     # Simple escapes
     _check_valid_string_literal(context, '"\\n\\t\\\\\\"\\\'"', "\n\t\\\"'", _cp.StringLiteralType.PLAIN, "")
-
-    encoding_info       = _cp.EncodingInfo(plain="utf-8", wide=_cp.WideCharacterEncoding.UTF_32)
-    encoding_info_utf16 = _cp.EncodingInfo(plain="utf-8", wide=_cp.WideCharacterEncoding.UTF_16)
 
     # Numeric escapes
     _check_valid_string_literal(context, '"\\x41"', "A", _cp.StringLiteralType.PLAIN, "", encoding_info)
