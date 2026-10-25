@@ -50,6 +50,13 @@ def chomp(string: str) -> str:
     return string.removesuffix("\n")
 
 
+# Produce double-quoted Python string literal.
+#
+# Because each character is escaped independently using fixed-width or self-delimiting
+# escape sequences, quoting is guaranteed to be homomorphic over string concatenation: for
+# any strings `a` and `b`, `quote(a + b)` is guaranteed to equal `quote(a)[:-1] +
+# quote(b)[1:]`.
+#
 def quote(string: str) -> str:
     return "\"%s\"" % "".join(_quote_replace(ch) for ch in string)
 

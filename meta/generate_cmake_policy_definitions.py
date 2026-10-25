@@ -34,19 +34,22 @@ import archon.log as _l
 import archon.command_line_interface as _cli
 import archon.cpp_preprocess as _cp
 import archon.cmake.policy as _cp2
+import archon.py_format as _pf
 
 
 MACRO_NAME = "CM_FOR_EACH_POLICY_TABLE"
 MACRO_PARAMS = ("POLICY", "SELECT")
 
 
-help_     = _b.Wrap(False)
+width     = _b.Wrap(119)
 log_level = _b.Wrap(_l.LogLevel.INFO)
+help_     = _b.Wrap(False)
 
 spec = _cli.Spec()
-spec.opt(["--"], _cli.Stop())
-spec.opt(["-h", "--help"], _cli.ShortCircuit(help_))
+spec.opt(["-w", "--width"], _cli.AssignWithArg(_cli.map_(int, lambda v: v > 0), width))
 spec.opt(["-l", "--log-level"], _cli.AssignWithArg(_l.parse_log_level, log_level))
+spec.opt(["-h", "--help"], _cli.ShortCircuit(help_))
+spec.opt(["--"], _cli.Stop())
 
 
 root_logger = _l.RootLogger()
@@ -322,7 +325,7 @@ policies = extract_policies()
 if policies is None:
     sys.exit(1)
 
-toggleable = set(_cp2.Policy.__members__)
+toggleable_policies = set(_cp2.Policy.__members__)
 
 for policy in policies:
     policy_id = "CMP%04d" % policy.num
@@ -330,8 +333,7 @@ for policy in policies:
     if descr.endswith("."):
         descr = descr[:-1]
     version = "_cve.Version(%s, %s, %s)" % (policy.version_major, policy.version_minor, policy.version_patch)
-    if policy_id in toggleable:
-        invoc = "_define_policy(%r, %r, %s, toggleable=Policy.%s)" % (policy_id, descr, version, policy_id)
-    else:
-        invoc = "_define_policy(%r, %r, %s)" % (policy_id, descr, version)
-    print(invoc)
+    arguments: list[_pf.Argument] = [policy_id, descr, _pf.Atom(version)]
+    if policy_id in toggleable_policies:
+        arguments.append(_pf.KeyValue("toggleable", _pf.Atom("Policy.%s" % policy_id)))
+    print(_pf.format_call("_define_policy", arguments, width.value))
