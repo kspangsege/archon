@@ -1604,7 +1604,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         # to the same value.
         cmp0180_is_certainly_new = False
         cmp0180_uncertainty: _cur.ValueUncertaintyReason | None = None
-        policy_value = resolve_policy(_cpo.Policy.CMP0180, invoc, context)
+        policy_value = resolve_policy(_cpo.Policy.CMP0180, invoc, context, suppress_warning=True)
         match policy_value:
             case _CertainResolvedPolicyValue():
                 if policy_value.new:
