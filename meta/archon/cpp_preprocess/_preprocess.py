@@ -31,10 +31,15 @@ import archon.cpp_preprocess._tokenize as _ct
 import archon.cpp_preprocess._directive as _cd
 
 
+# Streaming C++26 preprocessor.
+#
 # Preprocess source code in accordance with C++26 standard. Output is a stream of
 # preprocessing tokens not including token types `HEADER_NAME` and `BLOCKED_IDENTIFIER`, and
 # also not including any of the error tokens. End of output is marked by an `END_OF_INPUT`
 # token.
+#
+# The preprocessor operates in a streaming fashion, meaning that it starts generating tokens
+# before having seen the end of input.
 #
 def preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker,
                macro_registry: dict[str, _cd.MacroDef], error_handler: _ct.ErrorHandler) -> _cabc.Iterator[_ct.Token]:
@@ -417,8 +422,8 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
         raise NotImplementedError         
 
     tokenizer = _ct.Tokenizer(input_, file_index, tracker, error_handler)
-    detector = _cd.DirectiveDetector(tokenizer, directive_handler)
-    iterator = _TokenIterator(detector)
+    directive_filter = _cd.DirectiveFilter(tokenizer, directive_handler)
+    iterator = _TokenIterator(directive_filter, error_handler)
     for token in process(iterator):
         if token.type_ is not _ct.TokenType.BLOCKED_IDENTIFIER:
             yield token
@@ -458,15 +463,20 @@ class _ExpandError(Exception):
 
 
 class _TokenIterator(_cabc.Iterator[_ct.Token]):
-    def __init__(self, detector: _cd.DirectiveDetector) -> None:
-        self._detector = detector
+    def __init__(self, directive_filter: _cd.DirectiveFilter, error_handler: _ct.ErrorHandler) -> None:
+        self._directive_filter = directive_filter
+        self._error_handler = error_handler
         self._at_end = False
 
     @typing.override
     def __next__(self) -> _ct.Token:
         if self._at_end:
             raise StopIteration
-        token = self._detector.next_token()
-        if token.type_ is _ct.TokenType.END_OF_INPUT:
+        token = self._directive_filter.next_token()
+        token_type = token.type_
+        if token_type is _ct.TokenType.IDENTIFIER:
+            if not _cd.verify_no_va_names(token.text, token.pos, self._error_handler, synthetic=False):
+                token = dataclasses.replace(token, type_=_ct.TokenType.BAD_IDENTIFIER)
+        elif token_type is _ct.TokenType.END_OF_INPUT:
             self._at_end = True
         return token

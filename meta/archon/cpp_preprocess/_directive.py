@@ -43,17 +43,17 @@ class DirectiveHandler(typing.Protocol):
         ...
 
 
-# The directive detector operates as a wrapper around a tokenizer and scans the token stream
-# for preprocessing directives. Whenever it finds a directive, it removes the tokens from the
-# token stream and passes them to the directive handler. The tokens that make up a directive
-# is understood as starting with the `#` token and ending with the last non-whitespace token
-# on the logical line (produced by line splicing). Thus, the tokens of a directive do not
-# include leading and trailing whitespace. In particular, it does not include the newline
-# that terminates the logical line. The tokens that are passed to the directive handler are
-# the tokens that make up the directive minus the leading `#` and any whitespace that
-# immediately follows it.
+# The directive filter operates as a wrapper around a tokenizer and scans the token stream
+# for preprocessing directives. Whenever it finds a directive, it removes the tokens from
+# the token stream and passes them to the directive handler. The tokens that make up a
+# directive is understood as starting with the `#` token and ending with the last
+# non-whitespace token on the logical line (produced by line splicing). Thus, the tokens of
+# a directive do not include leading and trailing whitespace. In particular, it does not
+# include the newline that terminates the logical line. The tokens that are passed to the
+# directive handler are the tokens that make up the directive minus the leading `#` and any
+# whitespace that immediately follows it.
 #
-class DirectiveDetector:
+class DirectiveFilter:
     def __init__(self, tokenizer: _ct.Tokenizer, directive_handler: DirectiveHandler) -> None:
         self._tokenizer = tokenizer
         self._directive_handler = directive_handler
@@ -198,19 +198,7 @@ class FuseOperation:
 # occurrences. MSVC warns in both cases.
 #
 def verify_no_va_names(text: str, pos: _ct.Position, error_handler: _ct.ErrorHandler, synthetic: bool) -> bool:
-    if text == _VA_ARGS_NAME:
-        if synthetic:
-            error_handler(pos, "`__VA_ARGS__` must not be formed through token fusion")
-        else:
-            error_handler(pos, "`__VA_ARGS__` must only appear in body of a variadic macro definition")
-        return False
-    if text == _VA_OPT_NAME:
-        if synthetic:
-            error_handler(pos, "`__VA_OPT__` must not be formed through token fusion")
-        else:
-            error_handler(pos, "`__VA_OPT__` must only appear in body of a variadic macro definition")
-        return False
-    return True
+    return _verify_no_va_names(text, pos, error_handler, synthetic)
 
 
 
@@ -362,7 +350,7 @@ def _parse_macro_replacement_tokens(macro_name: str, params: tuple[str, ...] | N
         if token.type_ is _ct.TokenType.IDENTIFIER:
             if token.text == _VA_ARGS_NAME:
                 if not is_variadic:
-                    error_handler(token.pos, "`__VA_ARGS__` can only appear in body of a variadic macro definition")
+                    _generate_no_va_args_error(token.pos, error_handler)
                     return None
                 elements_1.append(VaArgs(token.pos))
                 continue
@@ -383,7 +371,7 @@ def _parse_macro_replacement_tokens(macro_name: str, params: tuple[str, ...] | N
             continue
 
         if not is_variadic:
-            error_handler(elem.pos, "`__VA_OPT__` can only appear in body of a variadic macro definition")
+            _generate_no_va_opt_error(elem.pos, error_handler)
             return None
 
         va_opt_pos = elem.pos
@@ -559,6 +547,29 @@ def _parse_fusion(elements: _cabc.Sequence[ReplacePrim], is_nested: bool, macro_
         result.append(operation)
 
     return result
+
+
+def _verify_no_va_names(text: str, pos: _ct.Position, error_handler: _ct.ErrorHandler, synthetic: bool) -> bool:
+    if text == _VA_ARGS_NAME:
+        if synthetic:
+            error_handler(pos, "`__VA_ARGS__` must not be formed through token fusion")
+        else:
+            _generate_no_va_args_error(pos, error_handler)
+        return False
+    if text == _VA_OPT_NAME:
+        if synthetic:
+            error_handler(pos, "`__VA_OPT__` must not be formed through token fusion")
+        else:
+            _generate_no_va_opt_error(pos, error_handler)
+        return False
+    return True
+
+
+def _generate_no_va_args_error(pos: _ct.Position, error_handler: _ct.ErrorHandler) -> None:
+    error_handler(pos, "`__VA_ARGS__` must only appear in body of a variadic macro definition")
+
+def _generate_no_va_opt_error(pos: _ct.Position, error_handler: _ct.ErrorHandler) -> None:
+    error_handler(pos, "`__VA_OPT__` must only appear in body of a variadic macro definition")
 
 
 _DEFINED_NAME = "defined"

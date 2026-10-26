@@ -99,9 +99,9 @@ def extract_macro_definition() -> _cp.MacroDef:
                     assert False
                 macro_def = def_
                 raise Found
-            detector = _cp.DirectiveDetector(tokenizer, directive_handler)
+            directive_filter = _cp.DirectiveFilter(tokenizer, directive_handler)
             while True:
-                token = detector.next_token()
+                token = directive_filter.next_token()
                 if token.type_ is _cp.TokenType.END_OF_INPUT:
                     error_handler(token.pos, "Macro %s not found" % MACRO_NAME)
                     assert False

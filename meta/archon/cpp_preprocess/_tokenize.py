@@ -36,11 +36,17 @@ import archon.text_pos as _tp
 # subpositions cannot be interpolated across the token text.
 #
 # Tokens carry information about resolved free-standing UCNs in `ucn_map`. A free-standing
-# UCN is a UCN that is not between the the quotes of a string or character literal. A UCN
-# (Universal Character Name) is an escape sequence that names a universal (Unicode)
-# character. The information about resolved UCNs allow for reconstruction of the original
-# token text, and for non-synthetic tokens, it allows for the mapping of positions in the
-# resolved token text to positions in the original source code.
+# UCN is a UCN that is not situated between the opening and closing quotation marks of a
+# string or character literal. A UCN (Universal Character Name) is an escape sequence that
+# specifies a universal (Unicode) character either by code point value or by name. The
+# information about resolved UCNs allow for reconstruction of the original token text (see
+# `reconstruct()`), and for non-synthetic tokens, it allows for the mapping of positions in
+# the resolved token text to positions in the original source code (see `subpos()`).
+#
+# Error tokens such as `BAD_IDENTIFIER` may have valid free-standing UCNs that are not
+# resolved. It may also have resolved UCNs. In general, the application must assume that
+# `ucn_map` can be nonempty for error tokens if the corresponding non-error token allows for
+# free-standing UCNs.
 #
 @dataclasses.dataclass(slots=True, frozen=True)
 class Token:

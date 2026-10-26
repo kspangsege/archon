@@ -94,7 +94,7 @@ try:
                 if token.type_ is _cp.TokenType.NEWLINE:
                     flush()
                     continue
-                parts.append(token.text)
+                parts.append(token.reconstruct())
         if error:
             sys.exit(1)
 except FileNotFoundError as e:
