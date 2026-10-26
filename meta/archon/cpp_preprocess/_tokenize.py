@@ -35,14 +35,12 @@ import archon.text_pos as _tp
 # operator). In that case, the position refers to the position of the operator and
 # subpositions cannot be interpolated across the token text.
 #
-# Non-synthesized tokens carry information about resolved free-standing UCNs in `ucn_map`. A
-# free-standing UCN is a UCN that is not between the the quotes of a string or character
-# literal. An UCN (Universal Character Name) is an escape sequence that names a universal
-# (Unicode) character. The information about resolved UCNs allow for reconstruction of the
-# original token text and allows for the mapping of position in the resolved token text to
-# positions in the original source code.
-#
-# INVARIANT: not self.ucn_map or not self.synthetic
+# Tokens carry information about resolved free-standing UCNs in `ucn_map`. A free-standing
+# UCN is a UCN that is not between the the quotes of a string or character literal. A UCN
+# (Universal Character Name) is an escape sequence that names a universal (Unicode)
+# character. The information about resolved UCNs allow for reconstruction of the original
+# token text, and for non-synthetic tokens, it allows for the mapping of positions in the
+# resolved token text to positions in the original source code.
 #
 @dataclasses.dataclass(slots=True, frozen=True)
 class Token:
@@ -69,6 +67,19 @@ class Token:
             return self.pos
         offset_2 = offset if self.ucn_map is None else self.ucn_map(offset)
         return self.pos.shift(offset_2)
+
+    def reconstruct(self) -> str:
+        if self.ucn_map is None:
+            return self.text
+        parts: list[str] = []
+        i = 0
+        for entry in self.ucn_map.entries:
+            j = entry.pos
+            parts.append(self.text[i:j])
+            parts.append(entry.orig)
+            i = j + entry.size
+        parts.append(self.text[i:])
+        return "".join(parts)
 
 
 # A `BLOCKED_IDENTIFIER` token is like an `IDENTIFIER` token except that it cannot be the

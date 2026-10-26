@@ -195,14 +195,20 @@ class FuseOperation:
 # (`##`). C++26 requires that `__VA_ARGS__` and `__VA_OPT__` occur nowhere outside the body
 # of a variadic macro definition. Presumably, this applies to both immediate occurrence and
 # synthesis through token fusion. GCC and Clang ban both immediate and synthesized
-# occurrences. MSVC warns in moth cases.
+# occurrences. MSVC warns in both cases.
 #
-def verify_no_va_names(text: str, pos: _ct.Position, error_handler: _ct.ErrorHandler) -> bool:
+def verify_no_va_names(text: str, pos: _ct.Position, error_handler: _ct.ErrorHandler, synthetic: bool) -> bool:
     if text == _VA_ARGS_NAME:
-        error_handler(pos, "`__VA_ARGS__` can only appear in body of a variadic macro definition")
+        if synthetic:
+            error_handler(pos, "`__VA_ARGS__` must not be formed through token fusion")
+        else:
+            error_handler(pos, "`__VA_ARGS__` must only appear in body of a variadic macro definition")
         return False
     if text == _VA_OPT_NAME:
-        error_handler(pos, "`__VA_OPT__` can only appear in body of a variadic macro definition")
+        if synthetic:
+            error_handler(pos, "`__VA_OPT__` must not be formed through token fusion")
+        else:
+            error_handler(pos, "`__VA_OPT__` must only appear in body of a variadic macro definition")
         return False
     return True
 
@@ -270,7 +276,7 @@ def _parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position
     if name == _DEFINED_NAME:
         error_handler(token.pos, "`defined` cannot be used as a macro name")
         return None
-    if not verify_no_va_names(name, token.pos, error_handler):
+    if not verify_no_va_names(name, token.pos, error_handler, synthetic=False):
         return None
 
     params: list[str] | None = None
@@ -299,7 +305,7 @@ def _parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position
                     if token is not None:
                         if token.type_ is _ct.TokenType.IDENTIFIER:
                             param = token.text
-                            if not verify_no_va_names(param, token.pos, error_handler):
+                            if not verify_no_va_names(param, token.pos, error_handler, synthetic=False):
                                 return None
                             if param in params:
                                 error_handler(token_pos, "Duplicate name %s in macro parameter list",

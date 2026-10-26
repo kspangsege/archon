@@ -31,6 +31,11 @@ import archon.cpp_preprocess._tokenize as _ct
 import archon.cpp_preprocess._directive as _cd
 
 
+# Preprocess source code in accordance with C++26 standard. Output is a stream of
+# preprocessing tokens not including token types `HEADER_NAME` and `BLOCKED_IDENTIFIER`, and
+# also not including any of the error tokens. End of output is marked by an `END_OF_INPUT`
+# token.
+#
 def preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker,
                macro_registry: dict[str, _cd.MacroDef], error_handler: _ct.ErrorHandler) -> _cabc.Iterator[_ct.Token]:
     return _preprocess(input_, file_index, tracker, macro_registry, error_handler)
@@ -266,6 +271,7 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
                 case _cd.VaArgs():
                     return expand_arg(None, is_fuse_context)
                 case _cd.VaOpt() as va_opt:
+                    assert va_args
                     if va_args.tokens:
                         return expand(va_opt.elements)
                     return []
@@ -276,6 +282,7 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
                         case _cd.VaArgs():
                             return [stringify_arg(None, op.pos)]
                         case _cd.VaOpt() as va_opt:
+                            assert va_args
                             if va_args.tokens:
                                 tokens = expand(va_opt.elements)
                             else:
@@ -325,7 +332,7 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
             result.append(token)
         return result
 
-    def stringify(tokens: list[_ct.Token], pos: _ct.Position) -> _ct.Token:
+    def stringify(tokens: list[_ct.Token], operator_pos: _ct.Position) -> _ct.Token:
         parts: list[str] = []
         pending_space = False
         def flush_space() -> None:
@@ -333,34 +340,38 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
             if pending_space:
                 parts.append(" ")
                 pending_space = False
+        token: _ct.Token | None
         for token in tokens:
             if token.type_ in _ct.SPACE:
                 pending_space = True
                 continue
             flush_space()
-            part = token.text
+            part = token.reconstruct()
             # C++26 mandates that escaping only takes place on string and character literals
             if token.type_ in {_ct.TokenType.RAW_STRING_LIT, _ct.TokenType.STRING_LIT, _ct.TokenType.CHAR_LIT}:
                 part = part.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
             parts.append(part)
         flush_space()
         text = '"%s"' % "".join(parts)
-        token_type = validate_token(text)
-        if token_type is None:
-            error_handler(pos, "Stringification did not produce a valid preprocessing token")
+        token = synthesize_token(text, operator_pos)
+        if token is None:
+            error_handler(operator_pos, "Stringification did not produce a valid preprocessing token")
             raise _ExpandError
-        assert token_type is _ct.TokenType.STRING_LIT
-        return _ct.Token(_ct.TokenType.STRING_LIT, text, pos, synthetic=True)
+        assert token.type_ is _ct.TokenType.STRING_LIT
+        return token
 
-    def fuse_tokens(left: _ct.Token, right: _ct.Token, pos: _ct.Position) -> _ct.Token:
-        text = left.text + right.text
-        token_type = validate_token(text)
-        if token_type is None:
-            error_handler(pos, "Fusion %s is not a valid preprocessing token" % _b.clamped_quote(text, 64))
+    def fuse_tokens(left: _ct.Token, right: _ct.Token, operator_pos: _ct.Position) -> _ct.Token:
+        text = left.reconstruct() + right.reconstruct()
+        token = synthesize_token(text, operator_pos)
+        if token is None:
+            error_handler(operator_pos, "Fusion %s is not a valid preprocessing token" % _b.clamped_quote(text, 64))
             raise _ExpandError
-        return _ct.Token(token_type, text, pos, synthetic=True)
+        if token.type_ is _ct.TokenType.IDENTIFIER:
+            if not _cd.verify_no_va_names(token.text, operator_pos, error_handler, synthetic=True):
+                raise _ExpandError
+        return token
 
-    def validate_token(text: str) -> _ct.TokenType | None:
+    def synthesize_token(text: str, pos: _ct.Position) -> _ct.Token | None:
         dummy_file_index = 0
         dummy_tracker = _tp.TextPosTracker()
         with io.StringIO(text) as input_:
@@ -377,7 +388,7 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
                 return None
             if error or token_1.text != text:
                 return None
-            return token_1.type_
+            return dataclasses.replace(token_1, pos=pos, synthetic=True)
 
     def directive_handler(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position) -> None:
         if in_argument:
