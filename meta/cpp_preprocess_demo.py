@@ -61,11 +61,14 @@ try:
     with open(path) as file_:
         tracker = _tp.TextPosTracker()
         macro_registry: dict[str, _cp.MacroDef] = {}
+        error = False
         def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
+            global error
             assert pos.file_index == 0
             text_pos = tracker.get_text_pos(pos.pos_in_file)
             context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
             _l.FileContextLogger(logger, context).error(message, *args)
+            error = True
         tokens_iter = _cp.preprocess(input_ = file_, file_index = 0, tracker = tracker,
                                      macro_registry = macro_registry, error_handler = error_handler)
         if no_serialize.value:
@@ -92,6 +95,8 @@ try:
                     flush()
                     continue
                 parts.append(token.text)
+        if error:
+            sys.exit(1)
 except FileNotFoundError as e:
     logger.error("Failed to open %s: %s", _b.quote(str(path)), e.strerror)
     sys.exit(1)

@@ -30,9 +30,9 @@ import archon.text_pos as _tp
 import archon.cpp_preprocess._tokenize as _ct
 
 
-# Is called with the tokens that make up a preprocessor directive, except the leading `#`
+# Is called with the tokens that make up a preprocessing directive, except the leading `#`
 # and the whitespace that immediately follows it. Additionally, since leading and trailing
-# whitespace is not considered part of a preprocessor directive, the passed tokens will
+# whitespace is not considered part of a preprocessing directive, the passed tokens will
 # never have trailing whitespace. For a null directive, an empty sequence will be
 # passed. The passed position, `pos`, is the position of the `#` token. `end_pos` is the
 # position of the first non-whitespace token that follows the directive (`NEWLINE` or
@@ -44,7 +44,7 @@ class DirectiveHandler(typing.Protocol):
 
 
 # The directive detector operates as a wrapper around a tokenizer and scans the token stream
-# for preprocessor directives. Whenever it finds a directive, it removes the tokens from the
+# for preprocessing directives. Whenever it finds a directive, it removes the tokens from the
 # token stream and passes them to the directive handler. The tokens that make up a directive
 # is understood as starting with the `#` token and ending with the last non-whitespace token
 # on the logical line (produced by line splicing). Thus, the tokens of a directive do not
@@ -148,9 +148,9 @@ class MacroDef:
     replacement: tuple[ReplaceElem, ...]
 
 
-type ReplaceElem = FuseOperand | FuseOperation
+type ReplaceElem = ReplacePrim | FuseOperation
 
-type FuseOperand = _ct.Token | StringifyOperand | StringifyOperation
+type ReplacePrim = _ct.Token | StringifyOperand | StringifyOperation
 
 type StringifyOperand = ParamRef | VaArgs | VaOpt
 
@@ -175,13 +175,13 @@ class StringifyOperation:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class FuseOperation:
-    left:   FuseOperand
+    left:   ReplacePrim
     rights: tuple[Right, ...]
     pos:    _ct.Position  # Of left operand
 
     @dataclasses.dataclass(slots=True, frozen=True)
     class Right:
-        operand: FuseOperand
+        operand: ReplacePrim
         pos:     _ct.Position  # Operator position
 
 
@@ -191,7 +191,7 @@ class FuseOperation:
 #
 # This check is generally performed as part of directive parsing. It is the responsibility
 # of the application (the preprocessor) to check identifiers that are not part of
-# preprocessor directives. This includes identifiers formed through token fusion
+# preprocessing directives. This includes identifiers formed through token fusion
 # (`##`). C++26 requires that `__VA_ARGS__` and `__VA_OPT__` occur nowhere outside the body
 # of a variadic macro definition. Presumably, this applies to both immediate occurrence and
 # synthesis through token fusion. GCC and Clang ban both immediate and synthesized
@@ -221,11 +221,11 @@ def _preparse_directive(tokens: _cabc.Sequence[_ct.Token],
     token_type = token.type_
     assert token_type not in _ct.SPACE
     if token_type is not _ct.TokenType.IDENTIFIER:
-        error_handler(token.pos, "Invalid token type after `#` in preprocessor directive")
+        error_handler(token.pos, "Invalid token type after `#` in preprocessing directive")
         return None
     directive_type = _DIRECTIVE_MAP.get(token.text)
     if directive_type is None:
-        error_handler(token.pos, "Invalid directive type (%s) in preprocessor directive",
+        error_handler(token.pos, "Invalid directive type (%s) in preprocessing directive",
                       _b.clamped_quote(token.text, 64))
         return None
     i = 1
@@ -409,7 +409,7 @@ def _parse_macro_replacement_tokens(macro_name: str, params: tuple[str, ...] | N
             if elem.type_ is _ct.TokenType.IDENTIFIER:
                 if elem.text != _VA_OPT_NAME:
                     continue
-                error_handler(elem.pos, "`__VA_OPT__` cannot occur inside `__VA_OPT__(...)`")
+                error_handler(elem.pos, "`__VA_OPT__` is not allowed to occur inside `__VA_OPT__(...)`")
                 return None
             if elem.type_ is _ct.TokenType.PUNCT:
                 if elem.text == "(":
@@ -431,7 +431,7 @@ def _parse_macro_replacement_tokens(macro_name: str, params: tuple[str, ...] | N
             return None
         elements_2.append(VaOpt(tuple(opt_elements_3), va_opt_pos))
 
-    elements_3: _cabc.Sequence[FuseOperand] | None
+    elements_3: _cabc.Sequence[ReplacePrim] | None
     if params is not None:
         elements_3 = _parse_stringification(elements_2, end_pos, macro_name, error_handler)
         if elements_3 is None:
@@ -448,8 +448,8 @@ def _parse_macro_replacement_tokens(macro_name: str, params: tuple[str, ...] | N
 
 
 def _parse_stringification(elements: _cabc.Sequence[_ct.Token | StringifyOperand], end_pos: _ct.Position,
-                           macro_name: str, error_handler: _ct.ErrorHandler) -> list[FuseOperand] | None:
-    result: list[FuseOperand] = []
+                           macro_name: str, error_handler: _ct.ErrorHandler) -> list[ReplacePrim] | None:
+    result: list[ReplacePrim] = []
     i = 0
     n = len(elements)
     while i < n:
@@ -479,7 +479,7 @@ def _parse_stringification(elements: _cabc.Sequence[_ct.Token | StringifyOperand
     return result
 
 
-def _parse_fusion(elements: _cabc.Sequence[FuseOperand], is_nested: bool, macro_name: str,
+def _parse_fusion(elements: _cabc.Sequence[ReplacePrim], is_nested: bool, macro_name: str,
                   error_handler: _ct.ErrorHandler) -> list[ReplaceElem] | None:
     elem: ReplaceElem
 

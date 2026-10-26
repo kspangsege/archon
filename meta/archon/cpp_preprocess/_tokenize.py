@@ -71,7 +71,7 @@ class Token:
         return self.pos.shift(offset_2)
 
 
-# A `HIDDEN_IDENTIFIER` token is like an `IDENTIFIER` token except that it cannot be the
+# A `BLOCKED_IDENTIFIER` token is like an `IDENTIFIER` token except that it cannot be the
 # leading identifier of a macro invocation.
 #
 # `BAD_BLOCK_COMMENT` is an unterminated block comment. It extends to the end of input.
@@ -121,8 +121,8 @@ class TokenType(enum.Enum):
 
     # Special
     HEADER_NAME        = enum.auto()
-    HIDDEN_IDENTIFIER  = enum.auto()
     END_OF_INPUT       = enum.auto()
+    BLOCKED_IDENTIFIER = enum.auto()  # Used internally in the preprocessor
 
     # Error
     BAD_BLOCK_COMMENT  = enum.auto()
@@ -137,7 +137,7 @@ class TokenType(enum.Enum):
 
 SPACE = {TokenType.NEWLINE, TokenType.WHITESPACE, TokenType.LINE_COMMENT, TokenType.BLOCK_COMMENT}
 
-SPECIAL = {TokenType.HEADER_NAME, TokenType.HIDDEN_IDENTIFIER, TokenType.END_OF_INPUT}
+SPECIAL = {TokenType.HEADER_NAME, TokenType.END_OF_INPUT, TokenType.BLOCKED_IDENTIFIER}
 
 ERROR = {TokenType.BAD_BLOCK_COMMENT, TokenType.BAD_RAW_STRING_LIT, TokenType.BAD_STRING_LIT, TokenType.BAD_CHAR_LIT,
          TokenType.BAD_NUMBER, TokenType.BAD_IDENTIFIER, TokenType.BAD_CHAR, TokenType.BAD_HEADER_NAME}
@@ -199,7 +199,7 @@ class ReplacementMap:
 # The input must be "newline normalized" (text mode).
 #
 # The output is a stream of preprocessing tokens not including token type
-# `HIDDEN_IDENTIFIER`. At the end of input, an `END_OF_INPUT` token is generated.
+# `BLOCKED_IDENTIFIER`. At the end of input, an `END_OF_INPUT` token is generated.
 #
 # The tokenizer verifies that all generated identifier tokens are on Unicode Normalization
 # Form C (NFC). The application ensure that any synthesized identifiers are also Unicode

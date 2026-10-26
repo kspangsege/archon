@@ -1163,7 +1163,7 @@ def test_CppPreprocess_ParseDefineDirective(context: _t.Context) -> None:
                   _cp.Position(file_index, 7)),
     ])
     _check_bad_define_directive(context, "M(...) __VA_OPT__(__VA_OPT__)", [
-        ("`__VA_OPT__` cannot occur inside `__VA_OPT__(...)`", _tp.TextPos(1, 18)),
+        ("`__VA_OPT__` is not allowed to occur inside `__VA_OPT__(...)`", _tp.TextPos(1, 18)),
     ])
     _check_bad_define_directive(context, "__VA_OPT__ foo", [
         ("`__VA_OPT__` can only appear in body of a variadic macro definition", _tp.TextPos(1, 0)),
