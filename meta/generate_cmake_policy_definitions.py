@@ -72,8 +72,8 @@ class Error(Exception):
 
 tracker = _tp.TextPosTracker()
 
-def extract_macro_definition() -> _cp.MacroDef:
-    macro_def: _cp.MacroDef | None = None
+def extract_macro_definition() -> _cp.DefineDirective:
+    define_directive: _cp.DefineDirective | None = None
     class Found(Exception):
         pass
     try:
@@ -81,23 +81,27 @@ def extract_macro_definition() -> _cp.MacroDef:
             file_index = 0
             tokenizer = _cp.Tokenizer(file_, file_index, tracker, error_handler)
             def directive_handler(tokens: _cabc.Sequence[_cp.Token], pos: _cp.Position, end_pos: _cp.Position) -> None:
-                nonlocal macro_def
+                nonlocal define_directive
                 result = _cp.preparse_directive(tokens, error_handler)
                 assert result
                 directive_type, remaining_tokens = result
                 if directive_type is not _cp.DirectiveType.DEFINE:
                     return
-                def_ = _cp.parse_define_directive(remaining_tokens, pos, end_pos, error_handler)
-                assert def_
-                if def_.name != MACRO_NAME:
+                directive = _cp.parse_define_directive(remaining_tokens, pos, end_pos, error_handler)
+                assert directive
+                signature = directive.signature
+                if signature.name != MACRO_NAME:
                     return
-                if def_.is_variadic:
+                if signature.params is None:
+                    error_handler(pos, "Unexpected object-like macro")
+                    assert False
+                if signature.is_variadic:
                     error_handler(pos, "Unexpected variadic macro")
                     assert False
-                if def_.params != MACRO_PARAMS:
+                if signature.params != MACRO_PARAMS:
                     error_handler(pos, "Unexpected macro parameters")
                     assert False
-                macro_def = def_
+                define_directive = directive
                 raise Found
             directive_filter = _cp.DirectiveFilter(tokenizer, directive_handler)
             while True:
@@ -109,8 +113,8 @@ def extract_macro_definition() -> _cp.MacroDef:
         logger.error("Failed to open %s: %s", _b.quote(str(path)), e.strerror)
         assert False
     except Found:
-        assert macro_def
-        return macro_def
+        assert define_directive
+        return define_directive
     assert False
 
 def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
@@ -124,9 +128,9 @@ def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
 def extract_policies() -> list[Policy] | None:
     policies: list[Policy] = []
     try:
-        macro_def = extract_macro_definition()
+        define_directive = extract_macro_definition()
         state = State.INITIAL
-        for elem in macro_def.replacement:
+        for elem in define_directive.replacement:
             match elem:
                 case _cp.Token() as token:
                     if token.is_space():

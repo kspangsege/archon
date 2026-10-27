@@ -135,17 +135,26 @@ class DirectiveType(enum.Enum):
 
 
 def parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
-                           error_handler: _ct.ErrorHandler) -> MacroDef | None:
+                           error_handler: _ct.ErrorHandler) -> DefineDirective | None:
     return _parse_define_directive(tokens, pos, end_pos, error_handler)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class MacroDef:
+class DefineDirective:
     pos:         _ct.Position
+    signature:   MacroSignature
+    replacement: tuple[ReplaceElem, ...]
+
+
+# If `params` is `None`, the macro is object-like. Otherwise it is function-like. If the
+# macro is function-like and `is_variadic` is true, the macro is variadic. Otherwise it is
+# not variadic.
+#
+@dataclasses.dataclass(slots=True, frozen=True)
+class MacroSignature:
     name:        str
     params:      tuple[str, ...] | None
     is_variadic: bool
-    replacement: tuple[ReplaceElem, ...]
 
 
 type ReplaceElem = ReplacePrim | FuseOperation
@@ -249,7 +258,7 @@ _DIRECTIVE_MAP = {
 
 
 def _parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
-                            error_handler: _ct.ErrorHandler) -> MacroDef | None:
+                            error_handler: _ct.ErrorHandler) -> DefineDirective | None:
     if not tokens:
         error_handler(end_pos, "Missing macro name in #define directive")
         return None
@@ -337,7 +346,8 @@ def _parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position
     replacement = _parse_macro_replacement_tokens(name, params_2, is_variadic, tokens[i:], end_pos, error_handler)
     if replacement is None:
         return None
-    return MacroDef(pos, name, params_2, is_variadic, replacement)
+    signature = MacroSignature(name, params_2, is_variadic)
+    return DefineDirective(pos, signature, replacement)
 
 
 def _parse_macro_replacement_tokens(macro_name: str, params: tuple[str, ...] | None, is_variadic: bool,

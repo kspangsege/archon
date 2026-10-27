@@ -1484,15 +1484,16 @@ def _check_valid_define_directive(context: _t.Context, text: str, file_index: in
     tokens, end_pos = _tokenize(path, file_index, text, position_tracker, error_handler)
     context.check_not(error)
     pos = _cp.Position(file_index, 0)
-    macro_def = _cp.parse_define_directive(tokens, pos, end_pos, error_handler)
+    directive = _cp.parse_define_directive(tokens, pos, end_pos, error_handler)
     context.check_not(error)
-    context.check_is_not_none(macro_def)
-    assert macro_def is not None
-    context.check_equal(macro_def.pos, pos)
-    context.check_equal(macro_def.name, expected_name)
-    context.check_equal(macro_def.params, expected_params)
-    context.check_equal(macro_def.is_variadic, expected_is_variadic)
-    _check_replace_elements(context, macro_def.replacement, tuple(expected_replacement))
+    context.check_is_not_none(directive)
+    assert directive is not None
+    context.check_equal(directive.pos, pos)
+    signature = directive.signature
+    context.check_equal(signature.name, expected_name)
+    context.check_equal(signature.params, expected_params)
+    context.check_equal(signature.is_variadic, expected_is_variadic)
+    _check_replace_elements(context, directive.replacement, tuple(expected_replacement))
 
 
 def _check_bad_define_directive(context: _t.Context, text: str,
@@ -1510,8 +1511,8 @@ def _check_bad_define_directive(context: _t.Context, text: str,
     tokens, end_pos = _tokenize(path, file_index, text, position_tracker, error_handler)
     context.check_is_empty(errors)
     pos = _cp.Position(file_index, 0)
-    macro_def = _cp.parse_define_directive(tokens, pos, end_pos, error_handler)
-    context.check_is_none(macro_def)
+    directive = _cp.parse_define_directive(tokens, pos, end_pos, error_handler)
+    context.check_is_none(directive)
     _check_errors(context, errors, expected_errors)
 
 

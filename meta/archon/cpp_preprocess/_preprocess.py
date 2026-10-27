@@ -41,9 +41,34 @@ import archon.cpp_preprocess._directive as _cd
 # The preprocessor operates in a streaming fashion, meaning that it starts generating tokens
 # before having seen the end of input.
 #
-def preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker,
-               macro_registry: dict[str, _cd.MacroDef], error_handler: _ct.ErrorHandler) -> _cabc.Iterator[_ct.Token]:
-    return _preprocess(input_, file_index, tracker, macro_registry, error_handler)
+def preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker, error_handler: _ct.ErrorHandler,
+               predefined_macros: _cabc.Sequence[Macro] | None = None) -> _cabc.Iterator[_ct.Token]:
+    return _preprocess(input_, file_index, tracker, error_handler, predefined_macros)
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class Macro:
+    definition_pos: _ct.Position
+    signature:      _cd.MacroSignature
+    replacement:    tuple[_cd.ReplaceElem, ...] | MacroFunction
+
+
+# When invoked by the preprocessor, the preprocessor guarantees that `arguments` is not
+# `None` when and only when the macro is function-like, and it guarantees that `va_args` is
+# not `None` when and only when the macro is variadic. The macro can only be variadic if it
+# is function-like.
+#
+# The function must return `None` if and only if an error occurred.
+#
+class MacroFunction(typing.Protocol):
+    def __call__(self, arguments: list[MacroArg] | None, va_args: MacroArg | None) -> list[_ct.Token] | None:
+        ...
+
+
+@dataclasses.dataclass(slots=True)
+class MacroArg:
+    tokens:  list[_ct.Token]
+    end_pos: _ct.Position
 
 
 
@@ -52,8 +77,9 @@ def preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrack
 
 
 
-def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker,
-                macro_registry: dict[str, _cd.MacroDef], error_handler: _ct.ErrorHandler) -> _cabc.Iterator[_ct.Token]:
+def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker, error_handler: _ct.ErrorHandler,
+                predefined_macros: _cabc.Sequence[Macro] | None) -> _cabc.Iterator[_ct.Token]:
+    macro_registry: dict[str, Macro] = {}
     active_set: set[str] = set()
     in_argument = False
 
@@ -91,7 +117,7 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
             arg_delims.append(_ArgDelim(begin, end, closing_token.pos))
             return end
 
-        def get_arg(begin: int, end: int) -> _Arg:
+        def get_arg(begin: int, end: int) -> MacroArg:
             assert begin <= end <= len(arg_delims)
             assert end > 0
             closing_delim = arg_delims[end - 1]
@@ -105,7 +131,7 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
                 arg_tokens = tokens[i:j]
             else:
                 arg_tokens = []
-            return _Arg(arg_tokens, closing_delim.pos)
+            return MacroArg(arg_tokens, closing_delim.pos)
 
         token = next_token()
         while True:
@@ -116,8 +142,8 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
                     continue
                 break
             name = token.text
-            macro_def = macro_registry.get(name)
-            if macro_def is None:
+            macro = macro_registry.get(name)
+            if macro is None:
                 yield token
                 token = next_token()
                 continue
@@ -125,10 +151,14 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
                 yield dataclasses.replace(token, type_=_ct.TokenType.BLOCKED_IDENTIFIER)
                 token = next_token()
                 continue
-            if macro_def.params is None:
+            signature = macro.signature
+            if signature.params is None:
                 # Object-like macro
-                replacement = expand_replacement(macro_def, arguments=None, va_args=None)
-                if replacement is not None:
+                if callable(macro.replacement):
+                    replacement = macro.replacement(arguments=None, va_args=None)
+                else:
+                    replacement = expand_replacement(signature, macro.replacement, arguments=None, va_args=None)
+                if replacement:
                     push(name, replacement)
                 token = next_token()
                 continue
@@ -181,14 +211,15 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
                 continue
             in_argument = False
 
-            n = len(macro_def.params)
+            n = len(signature.params)
             if len(arg_delims) < n:
                 pos = arg_delims[-1].pos
                 error_handler(pos, "Too few arguments in invocation of function-like macro %s",
                               _b.clamped_quote(name, 64))
                 token = next_token()
                 continue
-            if not macro_def.is_variadic and len(arg_delims) > n and (len(arg_delims) > 1 or get_arg(0, 1).tokens):
+            is_variadic = signature.params is not None and signature.is_variadic
+            if not is_variadic and len(arg_delims) > n and (len(arg_delims) > 1 or get_arg(0, 1).tokens):
                 # Determine the position of the delimiter (comma or closing parenthesis)
                 # that succeeds the last argument with a corresponding parameter, or, if
                 # there are no parameters, the position of the first non-whitespace token of
@@ -206,17 +237,20 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
 
             arguments = [get_arg(i, i + 1) for i in range(n)]
             va_args = None
-            if macro_def.is_variadic:
+            if is_variadic:
                 va_args = get_arg(n, len(arg_delims))
-            replacement = expand_replacement(macro_def, arguments, va_args)
-            if replacement is not None:
+            if callable(macro.replacement):
+                replacement = macro.replacement(arguments, va_args)
+            else:
+                replacement = expand_replacement(signature, macro.replacement, arguments, va_args)
+            if replacement:
                 push(name, replacement)
             token = next_token()
 
-    def expand_replacement(macro_def: _cd.MacroDef, arguments: list[_Arg] | None,
-                           va_args: _Arg | None) -> list[_ct.Token] | None:
-        assert (macro_def.params is not None) == (arguments is not None)
-        assert macro_def.is_variadic == (va_args is not None)
+    def expand_replacement(signature: _cd.MacroSignature, replacement: tuple[_cd.ReplaceElem, ...],
+                           arguments: list[MacroArg] | None, va_args: MacroArg | None) -> list[_ct.Token] | None:
+        assert (signature.params is not None) == (arguments is not None)
+        assert (signature.params is not None and signature.is_variadic) == (va_args is not None)
 
         def expand(elements: _cabc.Sequence[_cd.ReplaceElem]) -> list[_ct.Token]:
             result: list[_ct.Token] = []
@@ -324,7 +358,7 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
             return arg_slots[index]
 
         try:
-            return expand(macro_def.replacement)
+            return expand(replacement)
         except _ExpandError:
             return None
 
@@ -407,19 +441,30 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
             case _cd.DirectiveType.NULL:
                 return
             case _cd.DirectiveType.DEFINE:
-                macro_def = _cd.parse_define_directive(remaining_tokens, pos, end_pos, error_handler)
-                if macro_def is None:
+                define_directive = _cd.parse_define_directive(remaining_tokens, pos, end_pos, error_handler)
+                if define_directive is None:
                     return
-                if macro_def.name in macro_registry:
-                    error_handler(pos, "Redefinition of macro %s", _b.clamped_quote(macro_def.name, 64))
+                signature = define_directive.signature
+                if signature.name in macro_registry:
+                    error_handler(pos, "Redefinition of macro %s", _b.clamped_quote(signature.name, 64))
                     # FIXME: Consider logging separate message ("note" level) pointing to
                     # position of preexisting definition    
                     return
                 # FIXME: Support special built-in macros (`__has_embed`, `__has_include`,
                 # and `__has_cpp_attribute`)    
-                macro_registry[macro_def.name] = macro_def
+                macro = Macro(define_directive.pos, signature, define_directive.replacement)
+                macro_registry[signature.name] = macro
                 return
         raise NotImplementedError         
+
+    # FIXME: Set up built-in macros here        
+    # macro_registry["__LINE__"] = Macro()                                           
+
+    if predefined_macros is not None:
+        for macro in predefined_macros:
+            name = macro.signature.name
+            assert name not in macro_registry
+            macro_registry[name] = macro
 
     tokenizer = _ct.Tokenizer(input_, file_index, tracker, error_handler)
     directive_filter = _cd.DirectiveFilter(tokenizer, directive_handler)
@@ -446,14 +491,8 @@ class _ArgDelim:
 
 
 @dataclasses.dataclass(slots=True)
-class _Arg:
-    tokens:  list[_ct.Token]
-    end_pos: _ct.Position
-
-
-@dataclasses.dataclass(slots=True)
 class _ArgSlot:
-    arg:         _Arg
+    arg:         MacroArg
     expanded:    list[_ct.Token] | None = None
     stringified: _ct.Token | None       = None
 
