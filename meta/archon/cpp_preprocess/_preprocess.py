@@ -478,12 +478,19 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
         signature = _cd.MacroSignature(name, params=None, is_variadic=False)
         macro_registry[name] = BuiltinMacro(signature, func)
 
+    def file_func(invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
+                  va_args: MacroArg | None) -> list[_ct.Token] | None:
+        text = _make_string_lit(...)
+        token = _ct.Token(_ct.TokenType.NUMBER, text, invoke_pos, synthetic=True)
+        return [token]
+
     def line_func(invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
                   va_args: MacroArg | None) -> list[_ct.Token] | None:
         text = str(tracker.line_no)
         token = _ct.Token(_ct.TokenType.NUMBER, text, invoke_pos, synthetic=True)
         return [token]
 
+    add_objectlike_macro("__FILE__", file_func)
     add_objectlike_macro("__LINE__", line_func)
 
     # FIXME: Set up more built-in macros here        
