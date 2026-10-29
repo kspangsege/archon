@@ -1127,27 +1127,27 @@ def test_CppPreprocess_ParseDefineDirective(context: _t.Context) -> None:
 
     # `__VA_ARGS__`
     _check_bad_define_directive(context, "M __VA_ARGS__", [
-        ("`__VA_ARGS__` can only appear in body of a variadic macro definition", _tp.TextPos(1, 2)),
+        ("`__VA_ARGS__` must only appear in body of a variadic macro definition", _tp.TextPos(1, 2)),
     ])
     _check_bad_define_directive(context, "M(x) __VA_ARGS__", [
-        ("`__VA_ARGS__` can only appear in body of a variadic macro definition", _tp.TextPos(1, 5)),
+        ("`__VA_ARGS__` must only appear in body of a variadic macro definition", _tp.TextPos(1, 5)),
     ])
     _check_valid_define_directive(context, "M(...) __VA_ARGS__", file_index, "M", (), True, [
         _cp.VaArgs(_cp.Position(file_index, 7)),
     ])
     _check_bad_define_directive(context, "__VA_ARGS__ foo", [
-        ("`__VA_ARGS__` can only appear in body of a variadic macro definition", _tp.TextPos(1, 0)),
+        ("`__VA_ARGS__` must only appear in body of a variadic macro definition", _tp.TextPos(1, 0)),
     ])
     _check_bad_define_directive(context, "M(__VA_ARGS__) foo", [
-        ('`__VA_ARGS__` can only appear in body of a variadic macro definition', _tp.TextPos(1, 2)),
+        ('`__VA_ARGS__` must only appear in body of a variadic macro definition', _tp.TextPos(1, 2)),
     ])
 
     # `__VA_OPT__`
     _check_bad_define_directive(context, "M __VA_OPT__", [
-        ("`__VA_OPT__` can only appear in body of a variadic macro definition", _tp.TextPos(1, 2)),
+        ("`__VA_OPT__` must only appear in body of a variadic macro definition", _tp.TextPos(1, 2)),
     ])
     _check_bad_define_directive(context, "M(x) __VA_OPT__", [
-        ("`__VA_OPT__` can only appear in body of a variadic macro definition", _tp.TextPos(1, 5)),
+        ("`__VA_OPT__` must only appear in body of a variadic macro definition", _tp.TextPos(1, 5)),
     ])
     _check_bad_define_directive(context, "M(...) __VA_OPT__", [
         ("`__VA_OPT__` must be followed by `(`", _tp.TextPos(1, 17)),
@@ -1166,10 +1166,10 @@ def test_CppPreprocess_ParseDefineDirective(context: _t.Context) -> None:
         ("`__VA_OPT__` is not allowed to occur inside `__VA_OPT__(...)`", _tp.TextPos(1, 18)),
     ])
     _check_bad_define_directive(context, "__VA_OPT__ foo", [
-        ("`__VA_OPT__` can only appear in body of a variadic macro definition", _tp.TextPos(1, 0)),
+        ("`__VA_OPT__` must only appear in body of a variadic macro definition", _tp.TextPos(1, 0)),
     ])
     _check_bad_define_directive(context, "M(__VA_OPT__) foo", [
-        ("`__VA_OPT__` can only appear in body of a variadic macro definition", _tp.TextPos(1, 2)),
+        ("`__VA_OPT__` must only appear in body of a variadic macro definition", _tp.TextPos(1, 2)),
     ])
 
     # Stringification
@@ -1193,13 +1193,13 @@ def test_CppPreprocess_ParseDefineDirective(context: _t.Context) -> None:
          'Must be a parameter name, `__VA_ARGS__`, or `__VA_OPT__(...)`', _tp.TextPos(1, 10)),
     ])
     _check_bad_define_directive(context, "M(x) #__VA_ARGS__", [
-        ('`__VA_ARGS__` can only appear in body of a variadic macro definition', _tp.TextPos(1, 6)),
+        ('`__VA_ARGS__` must only appear in body of a variadic macro definition', _tp.TextPos(1, 6)),
     ])
     _check_valid_define_directive(context, "M(...) #__VA_ARGS__", file_index, "M", (), True, [
         _cp.StringifyOperation(_cp.VaArgs(_cp.Position(file_index, 8)), _cp.Position(file_index, 7)),
     ])
     _check_bad_define_directive(context, "M(x) #__VA_OPT__()", [
-        ('`__VA_OPT__` can only appear in body of a variadic macro definition', _tp.TextPos(1, 6)),
+        ('`__VA_OPT__` must only appear in body of a variadic macro definition', _tp.TextPos(1, 6)),
     ])
     _check_valid_define_directive(context, "M(...) #__VA_OPT__()", file_index, "M", (), True, [
         _cp.StringifyOperation(_cp.VaOpt((), _cp.Position(file_index, 8)), _cp.Position(file_index, 7)),
