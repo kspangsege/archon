@@ -481,7 +481,7 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
     def line_func(invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
                   va_args: MacroArg | None) -> list[_ct.Token] | None:
         text = str(tracker.line_no)
-        token = _ct.Token(_ct.TokenType.NUMBER, text, invoke_pos)
+        token = _ct.Token(_ct.TokenType.NUMBER, text, invoke_pos, synthetic=True)
         return [token]
 
     add_objectlike_macro("__LINE__", line_func)
@@ -490,9 +490,7 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
 
     if predefined_macros is not None:
         for macro in predefined_macros:
-            name = macro.signature.name
-            assert name not in macro_registry
-            macro_registry[name] = macro
+            macro_registry[macro.signature.name] = macro
 
     tokenizer = _ct.Tokenizer(input_, file_index, tracker, error_handler)
     directive_filter = _cd.DirectiveFilter(tokenizer, directive_handler)
