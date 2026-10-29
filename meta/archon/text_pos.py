@@ -42,8 +42,13 @@ class TextPosTracker:
             i = j
         return orig_offset
 
+    @property
     def current(self) -> int:
         return self._offset
+
+    @property
+    def line_no(self) -> int:
+        return len(self._line_offsets)
 
     def advance(self, size: int) -> None:
         self._offset += size

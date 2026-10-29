@@ -42,15 +42,24 @@ import archon.cpp_preprocess._directive as _cd
 # before having seen the end of input.
 #
 def preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker, error_handler: _ct.ErrorHandler,
-               predefined_macros: _cabc.Sequence[Macro] | None = None) -> _cabc.Iterator[_ct.Token]:
+               predefined_macros: _cabc.Sequence[BuiltinMacro] | None = None) -> _cabc.Iterator[_ct.Token]:
     return _preprocess(input_, file_index, tracker, error_handler, predefined_macros)
 
 
+type Macro = BuiltinMacro | RegularMacro
+
 @dataclasses.dataclass(slots=True, frozen=True)
-class Macro:
+class MacroBase:
+    signature: _cd.MacroSignature
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class BuiltinMacro(MacroBase):
+    func: MacroFunction
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class RegularMacro(MacroBase):
+    replacement:    tuple[_cd.ReplaceElem, ...]
     definition_pos: _ct.Position
-    signature:      _cd.MacroSignature
-    replacement:    tuple[_cd.ReplaceElem, ...] | MacroFunction
 
 
 # When invoked by the preprocessor, the preprocessor guarantees that `arguments` is not
@@ -61,7 +70,8 @@ class Macro:
 # The function must return `None` if and only if an error occurred.
 #
 class MacroFunction(typing.Protocol):
-    def __call__(self, arguments: list[MacroArg] | None, va_args: MacroArg | None) -> list[_ct.Token] | None:
+    def __call__(self, invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
+                 va_args: MacroArg | None) -> list[_ct.Token] | None:
         ...
 
 
@@ -78,7 +88,7 @@ class MacroArg:
 
 
 def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker, error_handler: _ct.ErrorHandler,
-                predefined_macros: _cabc.Sequence[Macro] | None) -> _cabc.Iterator[_ct.Token]:
+                predefined_macros: _cabc.Sequence[BuiltinMacro] | None) -> _cabc.Iterator[_ct.Token]:
     macro_registry: dict[str, Macro] = {}
     active_set: set[str] = set()
     in_argument = False
@@ -151,13 +161,17 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
                 yield dataclasses.replace(token, type_=_ct.TokenType.BLOCKED_IDENTIFIER)
                 token = next_token()
                 continue
+            invoke_pos = token.pos
             signature = macro.signature
             if signature.params is None:
                 # Object-like macro
-                if callable(macro.replacement):
-                    replacement = macro.replacement(arguments=None, va_args=None)
-                else:
-                    replacement = expand_replacement(signature, macro.replacement, arguments=None, va_args=None)
+                match macro:
+                    case BuiltinMacro():
+                        replacement = macro.func(invoke_pos, arguments=None, va_args=None)
+                    case RegularMacro():
+                        replacement = expand_replacement(signature, macro.replacement, arguments=None, va_args=None)
+                    case _:
+                        typing.assert_never(macro)
                 if replacement:
                     push(name, replacement)
                 token = next_token()
@@ -239,10 +253,13 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
             va_args = None
             if is_variadic:
                 va_args = get_arg(n, len(arg_delims))
-            if callable(macro.replacement):
-                replacement = macro.replacement(arguments, va_args)
-            else:
-                replacement = expand_replacement(signature, macro.replacement, arguments, va_args)
+            match macro:
+                case BuiltinMacro():
+                    replacement = macro.func(invoke_pos, arguments, va_args)
+                case RegularMacro():
+                    replacement = expand_replacement(signature, macro.replacement, arguments, va_args)
+                case _:
+                    typing.assert_never(macro)
             if replacement:
                 push(name, replacement)
             token = next_token()
@@ -452,13 +469,24 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
                     return
                 # FIXME: Support special built-in macros (`__has_embed`, `__has_include`,
                 # and `__has_cpp_attribute`)    
-                macro = Macro(define_directive.pos, signature, define_directive.replacement)
+                macro = RegularMacro(signature, define_directive.replacement, define_directive.pos)
                 macro_registry[signature.name] = macro
                 return
         raise NotImplementedError         
 
-    # FIXME: Set up built-in macros here        
-    # macro_registry["__LINE__"] = Macro()                                           
+    def add_objectlike_macro(name: str, func: MacroFunction) -> None:
+        signature = _cd.MacroSignature(name, params=None, is_variadic=False)
+        macro_registry[name] = BuiltinMacro(signature, func)
+
+    def line_func(invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
+                  va_args: MacroArg | None) -> list[_ct.Token] | None:
+        text = str(tracker.line_no)
+        token = _ct.Token(_ct.TokenType.NUMBER, text, invoke_pos)
+        return [token]
+
+    add_objectlike_macro("__LINE__", line_func)
+
+    # FIXME: Set up more built-in macros here        
 
     if predefined_macros is not None:
         for macro in predefined_macros:

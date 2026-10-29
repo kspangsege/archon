@@ -31,10 +31,6 @@ import archon.base as _b
 import archon.text_pos as _tp
 
 
-# When `synthetic` is True, the token has been synthesized (produced by `#` or `##`
-# operator). In that case, the position refers to the position of the operator and
-# subpositions cannot be interpolated across the token text.
-#
 # Tokens carry information about resolved free-standing UCNs in `ucn_map`. A free-standing
 # UCN is a UCN that is not situated between the opening and closing quotation marks of a
 # string or character literal. A UCN (Universal Character Name) is an escape sequence that
@@ -47,6 +43,14 @@ import archon.text_pos as _tp
 # resolved. It may also have resolved UCNs. In general, the application must assume that
 # `ucn_map` can be nonempty for error tokens if the corresponding non-error token allows for
 # free-standing UCNs.
+#
+# When `synthetic` is true, the token has been synthesized, which means that the token text
+# is not (necessarily) present in the source code. This, in turn, means that subposition
+# interpolation is impossible (`subpos()`). For synthesized tokens, the position, `pos`,
+# should refer to the point of synthesis. For example, the preprocessing operators `#` and
+# `##` produce synthetic tokens, and in this case, the position should be the position of
+# the operator. Built-in macros also produce synthetic tokens, and in that case, the
+# position should be the position of the invocation of the built-in macro.
 #
 @dataclasses.dataclass(slots=True, frozen=True)
 class Token:
@@ -408,7 +412,7 @@ class Tokenizer:
     #
     def _get_pos(self) -> Position:
         assert self._buffer_pos == 0  # At roll-back position
-        pos_in_file = self._position_tracker.current()
+        pos_in_file = self._position_tracker.current
         return Position(self._file_index, pos_in_file)
 
     def _consume_char_or_string_lit(self, prefix: str, first_char: str, pos: Position) -> Token:
