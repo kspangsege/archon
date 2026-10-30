@@ -89,7 +89,6 @@ def get_include_order(header_path):
 def find_files(dir_path, suffixes, subdir_filter = None):
     paths = []
     def traverse(path):
-        names = os.listdir(dir_path)
         for name in os.listdir(path):
             subpath = os.path.join(path, name)
             if os.path.isfile(subpath):

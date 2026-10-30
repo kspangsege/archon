@@ -6,9 +6,11 @@ set_target_properties(SetupStdColormap PROPERTIES
   OUTPUT_NAME "archon-setup-std-colormap"
 )
 
-target_link_libraries(SetupStdColormap PUBLIC
-  Cli
-  Display
+target_link_libraries(SetupStdColormap
+  PRIVATE Core
+  PRIVATE Log
+  PRIVATE Cli
+  PRIVATE Display
 )
 
 if(ARCHON_GOOD_X11_FOUND)
