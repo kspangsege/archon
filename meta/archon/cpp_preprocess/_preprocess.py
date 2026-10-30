@@ -552,3 +552,48 @@ class _TokenIterator(_cabc.Iterator[_ct.Token]):
         elif token_type is _ct.TokenType.END_OF_INPUT:
             self._at_end = True
         return token
+
+
+def _make_string_lit(string: str) -> str:
+    parts: list[str] = ['"']
+    for ch in string:
+        if part := _SIMPLE_ESCAPES.get(ch):
+            parts.append(part)
+            continue
+        code_point = ord(ch)
+        if code_point < 32 or code_point == 127:
+            cp = ord(ch)
+            # Strictly enforce 4-digit (\u) vs 8-digit (\U) UCN bounds
+            if cp <= 0xFFFF:
+                parts.append(f"\\u{cp:04X}")
+            else:
+                parts.append(f"\\U{cp:08X}")
+        else:
+            parts.append(ch)
+
+        # 2. Escape other non-printable ASCII control characters (0-31, 127).
+        # Use a UCN instead of an octal/hex numeric escape. This explicitly injects 
+        # a Unicode code point rather than a raw code unit, forcing the compiler 
+        # to handle the encoding translation.
+        elif ord(ch) < 32 or ord(ch) == 127:
+            parts.append(f"\\u{ord(ch):04X}")
+
+        # 3. Leave normal printable ASCII and all Unicode characters alone.
+        else:
+            parts.append(ch)
+
+    parts.append('"')
+    return "".join(parts)
+
+
+_SIMPLE_ESCAPES = {
+    '\\': '\\\\',
+    '"':  '\\"',
+    '\a': '\\a',
+    '\b': '\\b',
+    '\f': '\\f',
+    '\n': '\\n',
+    '\r': '\\r',
+    '\t': '\\t',
+    '\v': '\\v',
+}
