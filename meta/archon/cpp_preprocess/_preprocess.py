@@ -471,17 +471,21 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
                 if define_directive is None:
                     return
                 signature = define_directive.signature
-                if signature.name in macro_registry:
-                    # FIXME: Allow redefinition if original is RegularMacro and if the
-                    # replacement side of the original definition matches the new definition
-                    # token for token except that all whitespace tokens must be considered
-                    # equal        
-                    error_handler(pos, "Redefinition of macro %s", _b.clamped_quote(signature.name, 64))
+                name = signature.name
+                existing = macro_registry.get(name)
+                if existing:
+                    # Identical redefinition is a no-op
+                    same = (isinstance(existing, RegularMacro) and
+                            _same_macro_signature(existing.signature, signature) and
+                            _same_replacement_list(existing.replacement, define_directive.replacement))
+                    if same:
+                        return
+                    error_handler(pos, "Redefinition of macro %s", _b.clamped_quote(name, 64))
                     # FIXME: Consider logging separate message ("note" level) pointing to
                     # position of preexisting definition    
                     return
                 macro = RegularMacro(signature, define_directive.replacement, define_directive.pos)
-                macro_registry[signature.name] = macro
+                macro_registry[name] = macro
                 return
             case _cd.DirectiveType.UNDEF:
                 undef_directive = _cd.parse_undef_directive(remaining_tokens, pos, end_pos, error_handler)
@@ -614,3 +618,73 @@ _SIMPLE_ESCAPES = {
     '\t': '\\t',
     '\v': '\\v',
 }
+
+
+def _same_macro_signature(a: _cd.MacroSignature, b: _cd.MacroSignature) -> bool:
+    return (a.name == b.name and
+            a.params == b.params and
+            (a.params is None or a.is_variadic == b.is_variadic))
+
+def _same_replacement_list(a: _cabc.Sequence[_cd.ReplaceElem], b: _cabc.Sequence[_cd.ReplaceElem]) -> bool:
+    def same_seq(a: _cabc.Sequence[_cd.ReplaceElem], b: _cabc.Sequence[_cd.ReplaceElem]) -> bool:
+        i = 0
+        j = 0
+        m = len(a)
+        n = len(b)
+        while i < m and j < n:
+            e = a[i]
+            f = b[j]
+            i += 1
+            j += 1
+            # All runs of whitespace need to be considered the same
+            s = isinstance(e, _ct.Token) and e.type_ in _ct.SPACE
+            t = isinstance(f, _ct.Token) and f.type_ in _ct.SPACE
+            if s or t:
+                if not (s and t):
+                    return False
+                while i < m:
+                    match a[i]:
+                        case _ct.Token() as token:
+                            if token.type_ in _ct.SPACE:
+                                i += 1
+                                continue
+                    break
+                while j < n:
+                    match b[j]:
+                        case _ct.Token() as token:
+                            if token.type_ in _ct.SPACE:
+                                j += 1
+                                continue
+                    break
+                continue
+            if not same_elem(e, f):
+                return False
+        return i == m and j == n
+
+    def same_elem(a: _cd.ReplaceElem, b: _cd.ReplaceElem) -> bool:
+        match a:
+            case _ct.Token():
+                return isinstance(b, _ct.Token) and a.type_ is b.type_ and a.text == b.text
+            case _cd.ParamRef():
+                return isinstance(b, _cd.ParamRef) and a.param_index == b.param_index
+            case _cd.VaArgs():
+                return isinstance(b, _cd.VaArgs)
+            case _cd.VaOpt():
+                return isinstance(b, _cd.VaOpt) and same_seq(a.elements, b.elements)
+            case _cd.StringifyOperation():
+                return isinstance(b, _cd.StringifyOperation) and same_elem(a.operand, b.operand)
+            case _cd.FuseOperation():
+                if not isinstance(b, _cd.FuseOperation):
+                    return False
+                if not same_elem(a.left, b.left):
+                    return False
+                if len(a.rights) != len(b.rights):
+                    return False
+                for r, s in zip(a.rights, b.rights):
+                    if not same_elem(r.operand, s.operand):
+                        return False
+                return True
+            case _:
+                typing.assert_never(a)
+
+    return same_seq(a, b)
