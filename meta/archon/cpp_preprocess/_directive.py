@@ -102,13 +102,14 @@ class DirectiveFilter:
 
 # This function determines the type of directive made up by the specified tokens, which must
 # be the tokens that follow the leading `#` minus any whitespace that immediately follows
-# `#`. If the list of specified tokens is empty, the directive is a null
-# directive. Otherwise, the directive type is determined by the first token in the specified
-# list. If that token is not an identifier or the identifier does not name one of the
-# defined directive types in C++26, this function generates an error and returns
-# `None`. When the function is able to determine the directive type, it returns that type
-# and the list of remaining tokens minus any whitespace occurring immediately after the
-# type-specifying identifier.
+# `#`. Since trailing whitespace is not considered part of a preprocessing directive, the
+# specified tokens must not have trailing whitespace. If the list of specified tokens is
+# empty, the directive is a null directive. Otherwise, the directive type is determined by
+# the first token in the specified list. If that token is not an identifier or the
+# identifier does not name one of the defined directive types in C++26, this function
+# generates an error and returns `None`. When the function is able to determine the
+# directive type, it returns that type and the list of remaining tokens minus any whitespace
+# occurring immediately after the type-specifying identifier.
 #
 def preparse_directive(tokens: _cabc.Sequence[_ct.Token],
                        error_handler: _ct.ErrorHandler) -> tuple[DirectiveType, _cabc.Sequence[_ct.Token]] | None:
@@ -138,12 +139,21 @@ def parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position,
                            error_handler: _ct.ErrorHandler) -> DefineDirective | None:
     return _parse_define_directive(tokens, pos, end_pos, error_handler)
 
+def parse_undef_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
+                            error_handler: _ct.ErrorHandler) -> UndefDirective | None:
+    return _parse_undef_directive(tokens, pos, end_pos, error_handler)
+
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class DefineDirective:
     pos:         _ct.Position
     signature:   MacroSignature
     replacement: tuple[ReplaceElem, ...]
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class UndefDirective:
+    pos:  _ct.Position
+    name: str
 
 
 # If `params` is `None`, the macro is object-like. Otherwise it is function-like. If the
@@ -266,12 +276,12 @@ def _parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position
     token: _ct.Token | None
     token = tokens[0]
     if token.type_ is not _ct.TokenType.IDENTIFIER:
-        error_handler(token.pos, "Macro name must be an identifier")
+        error_handler(token.pos, "Macro name in #define directive must be an identifier")
         return None
 
     name = token.text
     if name == _DEFINED_NAME:
-        error_handler(token.pos, "`defined` cannot be used as a macro name")
+        error_handler(token.pos, "`defined` cannot be used as a macro name in #define directive")
         return None
     if not verify_no_va_names(name, token.pos, error_handler, synthetic=False):
         return None
@@ -557,6 +567,36 @@ def _parse_fusion(elements: _cabc.Sequence[ReplacePrim], is_nested: bool, macro_
         result.append(operation)
 
     return result
+
+
+def _parse_undef_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
+                           error_handler: _ct.ErrorHandler) -> UndefDirective | None:
+    if not tokens:
+        error_handler(end_pos, "Missing macro name in #undef directive")
+        return None
+
+    token = tokens[0]
+    if token.type_ is not _ct.TokenType.IDENTIFIER:
+        error_handler(token.pos, "Macro name in #undef directive must be an identifier")
+        return None
+
+    name = token.text
+    if name == _DEFINED_NAME:
+        error_handler(token.pos, "`defined` cannot be used as a macro name in #undef directive")
+        return None
+    if not verify_no_va_names(name, token.pos, error_handler, synthetic=False):
+        return None
+
+    i = 1
+    n = len(tokens)
+    while i < n:
+        token = tokens[i]
+        if token.type_ not in _ct.SPACE:
+            error_handler(token.pos, "Expected nothing after macro name in #undef directive")
+            return None
+        i += 1
+
+    return UndefDirective(pos, name)
 
 
 def _verify_no_va_names(text: str, pos: _ct.Position, error_handler: _ct.ErrorHandler, synthetic: bool) -> bool:

@@ -462,6 +462,7 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
         if result is None:
             return
         directive_type, remaining_tokens = result
+        macro: Macro | None
         match directive_type:
             case _cd.DirectiveType.NULL:
                 return
@@ -471,14 +472,29 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
                     return
                 signature = define_directive.signature
                 if signature.name in macro_registry:
+                    # FIXME: Allow redefinition if original is RegularMacro and if the
+                    # replacement side of the original definition matches the new definition
+                    # token for token except that all whitespace tokens must be considered
+                    # equal        
                     error_handler(pos, "Redefinition of macro %s", _b.clamped_quote(signature.name, 64))
                     # FIXME: Consider logging separate message ("note" level) pointing to
                     # position of preexisting definition    
                     return
-                # FIXME: Support special built-in macros (`__has_embed`, `__has_include`,
-                # and `__has_cpp_attribute`)    
                 macro = RegularMacro(signature, define_directive.replacement, define_directive.pos)
                 macro_registry[signature.name] = macro
+                return
+            case _cd.DirectiveType.UNDEF:
+                undef_directive = _cd.parse_undef_directive(remaining_tokens, pos, end_pos, error_handler)
+                if undef_directive is None:
+                    return
+                macro = macro_registry.get(undef_directive.name)
+                if macro is None:
+                    return  # No-op
+                if isinstance(macro, BuiltinMacro) and macro.permanent:
+                    error_handler(pos, "Cannot undefine permanent built-in macro %s",
+                                  _b.clamped_quote(undef_directive.name, 64))
+                    return
+                del macro_registry[undef_directive.name]
                 return
         raise NotImplementedError         
 
@@ -503,6 +519,9 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
     add_objectlike_macro("__LINE__", line_func)
 
     # FIXME: Set up more built-in macros here        
+
+    # FIXME: Support special built-in macros `__has_embed`, `__has_include`, and
+    # `__has_cpp_attribute`        
 
     if predefined_macros is not None:
         for macro in predefined_macros:
@@ -574,6 +593,7 @@ def _make_string_lit(string: str) -> str:
         else:
             code_point = ord(ch)
             if 0xD800 <= code_point <= 0xDFFF:
+                # FIXME: Should this instead be a hard error?    
                 code_point = 0xFFFD  # Unicode replacement character
             if code_point <= 0xFFFF:
                 part = "\\u%04X" % code_point
