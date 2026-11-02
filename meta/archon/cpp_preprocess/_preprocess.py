@@ -24,6 +24,7 @@ import typing
 import dataclasses
 import collections.abc as _cabc
 import io
+import pathlib
 
 import archon.base as _b
 import archon.text_pos as _tp
@@ -41,9 +42,15 @@ import archon.cpp_preprocess._directive as _cd
 # The preprocessor operates in a streaming fashion, meaning that it starts generating tokens
 # before having seen the end of input.
 #
-def preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker, error_handler: _ct.ErrorHandler,
+def preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, error_handler: _ct.ErrorHandler,
                predefined_macros: _cabc.Sequence[BuiltinMacro] | None = None) -> _cabc.Iterator[_ct.Token]:
-    return _preprocess(input_, file_index, tracker, error_handler, predefined_macros)
+    return _preprocess(source, file_index, tracker, error_handler, predefined_macros)
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class Source:
+    input_: typing.TextIO
+    path:   pathlib.Path
 
 
 type Macro = BuiltinMacro | RegularMacro
@@ -87,7 +94,7 @@ class MacroArg:
 
 
 
-def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker, error_handler: _ct.ErrorHandler,
+def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, error_handler: _ct.ErrorHandler,
                 predefined_macros: _cabc.Sequence[BuiltinMacro] | None) -> _cabc.Iterator[_ct.Token]:
     macro_registry: dict[str, Macro] = {}
     active_set: set[str] = set()
@@ -480,7 +487,7 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
 
     def file_func(invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
                   va_args: MacroArg | None) -> list[_ct.Token] | None:
-        text = _make_string_lit(...)
+        text = _make_string_lit(str(source.path))
         token = _ct.Token(_ct.TokenType.NUMBER, text, invoke_pos, synthetic=True)
         return [token]
 
@@ -499,7 +506,7 @@ def _preprocess(input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTrac
         for macro in predefined_macros:
             macro_registry[macro.signature.name] = macro
 
-    tokenizer = _ct.Tokenizer(input_, file_index, tracker, error_handler)
+    tokenizer = _ct.Tokenizer(source.input_, file_index, tracker, error_handler)
     directive_filter = _cd.DirectiveFilter(tokenizer, directive_handler)
     iterator = _TokenIterator(directive_filter, error_handler)
     for token in process(iterator):
@@ -555,35 +562,23 @@ class _TokenIterator(_cabc.Iterator[_ct.Token]):
 
 
 def _make_string_lit(string: str) -> str:
-    parts: list[str] = ['"']
+    parts: list[str] = []
     for ch in string:
-        if part := _SIMPLE_ESCAPES.get(ch):
-            parts.append(part)
-            continue
-        code_point = ord(ch)
-        if code_point < 32 or code_point == 127:
-            cp = ord(ch)
-            # Strictly enforce 4-digit (\u) vs 8-digit (\U) UCN bounds
-            if cp <= 0xFFFF:
-                parts.append(f"\\u{cp:04X}")
+        result = _SIMPLE_ESCAPES.get(ch)
+        if result is not None:
+            part = result
+        elif ch.isprintable():
+            part = ch
+        else:
+            code_point = ord(ch)
+            if 0xD800 <= code_point <= 0xDFFF:
+                code_point = 0xFFFD  # Unicode replacement character
+            if code_point <= 0xFFFF:
+                part = "\\u%04X" % code_point
             else:
-                parts.append(f"\\U{cp:08X}")
-        else:
-            parts.append(ch)
-
-        # 2. Escape other non-printable ASCII control characters (0-31, 127).
-        # Use a UCN instead of an octal/hex numeric escape. This explicitly injects 
-        # a Unicode code point rather than a raw code unit, forcing the compiler 
-        # to handle the encoding translation.
-        elif ord(ch) < 32 or ord(ch) == 127:
-            parts.append(f"\\u{ord(ch):04X}")
-
-        # 3. Leave normal printable ASCII and all Unicode characters alone.
-        else:
-            parts.append(ch)
-
-    parts.append('"')
-    return "".join(parts)
+                part = "\\U%08X" % code_point
+        parts.append(part)
+    return '"%s"' % "".join(parts)
 
 
 _SIMPLE_ESCAPES = {

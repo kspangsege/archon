@@ -68,7 +68,8 @@ try:
             context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
             _l.FileContextLogger(logger, context).error(message, *args)
             error = True
-        tokens_iter = _cp.preprocess(input_ = file_, file_index = 0, tracker = tracker, error_handler = error_handler)
+        source = _cp.Source(file_, path)
+        tokens_iter = _cp.preprocess(source, file_index = 0, tracker = tracker, error_handler = error_handler)
         if no_serialize.value:
             for token in tokens_iter:
                 pos = token.pos
