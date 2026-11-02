@@ -61,7 +61,8 @@ class MacroBase:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class BuiltinMacro(MacroBase):
-    func: MacroFunction
+    permanent: bool
+    func:      MacroFunction
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class RegularMacro(MacroBase):
@@ -483,12 +484,13 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
 
     def add_objectlike_macro(name: str, func: MacroFunction) -> None:
         signature = _cd.MacroSignature(name, params=None, is_variadic=False)
-        macro_registry[name] = BuiltinMacro(signature, func)
+        permanent = True
+        macro_registry[name] = BuiltinMacro(signature, permanent, func)
 
     def file_func(invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
                   va_args: MacroArg | None) -> list[_ct.Token] | None:
         text = _make_string_lit(str(source.path))
-        token = _ct.Token(_ct.TokenType.NUMBER, text, invoke_pos, synthetic=True)
+        token = _ct.Token(_ct.TokenType.STRING_LIT, text, invoke_pos, synthetic=True)
         return [token]
 
     def line_func(invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
