@@ -696,7 +696,6 @@ def _make_string_lit(string: str) -> str:
         else:
             code_point = ord(ch)
             if 0xD800 <= code_point <= 0xDFFF:
-                # FIXME: Should this instead be a hard error?    
                 code_point = 0xFFFD  # Unicode replacement character
             if code_point <= 0xFFFF:
                 part = "\\u%04X" % code_point
