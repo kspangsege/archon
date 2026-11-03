@@ -336,7 +336,7 @@ bool Scene::try_prepare(std::string& error)
         png_load_config.expand_lum_to_rgb = true;
         png_load_config.ensure_alpha_channel = true;
         image::FileFormat::SpecialLoadConfigRegistry special_load_config_registry;
-        special_load_config_registry.register_(png_load_config); // Throws
+        special_load_config_registry.set(png_load_config); // Throws
         image::LoadConfig load_config;
         load_config.vertical_flip = true;
         load_config.logger = &sublogger;

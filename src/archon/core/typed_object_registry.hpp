@@ -39,9 +39,8 @@ namespace archon::core {
 /// \brief Registry of objects identified by their type.
 ///
 /// A typed object registry allows for objects to be registered by their type. If an object
-/// of type `T` has been registered using \ref register_(), a reference to that object can
-/// later be retrieved using \ref get(). Registered objects must be kept alive by the
-/// application.
+/// of type `T` has been registered using \ref set(), a reference to that object can later
+/// be retrieved using \ref get(). Registered objects must be kept alive by the application.
 ///
 /// If the specified base class (\p B) is `void`, objects of any type can by registered;
 /// otherwise, only objects that inherit from the base class can be registered (including
@@ -51,13 +50,13 @@ namespace archon::core {
 /// qualified objects can be retrieved from the registry. This constraint is enforced at
 /// compile time.
 ///
-template<class B, std::size_t N = 0> class TypedObjectRegistry {
+template<class B, std::size_t N = 0> class typed_object_registry {
 public:
     using object_base_type = B;
 
     static constexpr std::size_t static_capacity = N;
 
-    TypedObjectRegistry() noexcept = default;
+    typed_object_registry() noexcept = default;
 
     /// \brief Register object by type.
     ///
@@ -65,7 +64,7 @@ public:
     /// retrieved using \ref get(). If an object of the same type was previously registered,
     /// the earlier registration will be forgotten.
     ///
-    template<class T> void register_(T& obj);
+    template<class T> void set(T& obj);
 
     /// \brief Check for object registration and assign.
     ///
@@ -78,11 +77,11 @@ public:
     /// \brief Retrieve registered object by type.
     ///
     /// This function retrieves a reference to a previously registered object of the
-    /// specified type (\ref register_()). If an object is registered using
-    /// `register_(obj)`, it can be retrieved only by the type of `obj`, i.e., using
-    /// `get<decltype(obj)>()`. On the other hand, if an object is registered using
-    /// `register_<T>(obj)`, the object will be registered under the type `T` irrespective
-    /// of the actual type of `obj`, and it can then only be retrieved by `T`.
+    /// specified type (\ref set()). If an object is registered using `set(obj)`, it can be
+    /// retrieved only by the type of `obj`, i.e., using `get<decltype(obj)>()`. On the
+    /// other hand, if an object is registered using `set<T>(obj)`, the object will be
+    /// registered under the type `T` irrespective of the actual type of `obj`, and it can
+    /// then only be retrieved by `T`.
     ///
     template<class T> auto get() const noexcept -> T*;
 
@@ -105,7 +104,7 @@ private:
 
 
 template<class B, std::size_t N>
-template<class T> void TypedObjectRegistry<B, N>::register_(T& obj)
+template<class T> void typed_object_registry<B, N>::set(T& obj)
 {
     key_type key = {};
     if (ARCHON_LIKELY(try_get_key<T>(key))) {
@@ -117,7 +116,7 @@ template<class T> void TypedObjectRegistry<B, N>::register_(T& obj)
 
 
 template<class B, std::size_t N>
-template<class T> inline bool TypedObjectRegistry<B, N>::get(T& obj) const
+template<class T> inline bool typed_object_registry<B, N>::get(T& obj) const
     noexcept(std::is_nothrow_copy_assignable_v<T>)
 {
     const T* ptr = get<const T>();
@@ -129,7 +128,7 @@ template<class T> inline bool TypedObjectRegistry<B, N>::get(T& obj) const
 
 
 template<class B, std::size_t N>
-template<class T> auto TypedObjectRegistry<B, N>::get() const noexcept -> T*
+template<class T> auto typed_object_registry<B, N>::get() const noexcept -> T*
 {
     key_type key = {};
     if (ARCHON_LIKELY(try_get_key<T>(key))) {
@@ -142,7 +141,7 @@ template<class T> auto TypedObjectRegistry<B, N>::get() const noexcept -> T*
 
 
 template<class B, std::size_t N>
-template<class T> inline bool TypedObjectRegistry<B, N>::try_get_key(key_type& key) noexcept
+template<class T> inline bool typed_object_registry<B, N>::try_get_key(key_type& key) noexcept
 {
     return core::try_get_type_ident<std::remove_cv_t<T>>(key);
 }

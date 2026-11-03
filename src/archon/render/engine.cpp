@@ -167,6 +167,12 @@ void Engine::set_fullscreen_mode(bool on)
 }
 
 
+void Engine::set_immersive_mode(bool on)
+{
+    m_impl->set_immersive_mode(on); // Throws
+}
+
+
 void Engine::set_orientation(const math::Rotation& orientation)
 {
     m_impl->set_orientation(orientation); // Throws

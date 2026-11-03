@@ -6,12 +6,11 @@ set_target_properties(CreateTestImage PROPERTIES
   OUTPUT_NAME "archon-create-test-image"
 )
 
-target_link_libraries(CreateTestImage PRIVATE
-  Core
-  Log
-  Cli
-  Util
-  Image
+target_link_libraries(CreateTestImage
+  PRIVATE Core
+  PRIVATE Cli
+  PRIVATE Util
+  PRIVATE Image
 )
 
 
@@ -23,11 +22,11 @@ set_target_properties(ConvertImage PROPERTIES
   OUTPUT_NAME "archon-convert-image"
 )
 
-target_link_libraries(ConvertImage PRIVATE
-  Core
-  Log
-  Cli
-  Image
+target_link_libraries(ConvertImage
+  PRIVATE Core
+  PRIVATE Log
+  PRIVATE Cli
+  PRIVATE Image
 )
 
 
@@ -39,12 +38,12 @@ set_target_properties(RectanglePacker PROPERTIES
   OUTPUT_NAME "archon-rectangle-packer"
 )
 
-target_link_libraries(RectanglePacker PRIVATE
-  Core
-  Log
-  Cli
-  Util
-  Image
+target_link_libraries(RectanglePacker
+  PRIVATE Core
+  PRIVATE Log
+  PRIVATE Cli
+  PRIVATE Util
+  PRIVATE Image
 )
 
 
@@ -56,11 +55,11 @@ set_target_properties(ImageCompose PROPERTIES
   OUTPUT_NAME "archon-image-compose"
 )
 
-target_link_libraries(ImageCompose PRIVATE
-  Core
-  Log
-  Cli
-  Image
+target_link_libraries(ImageCompose
+  PRIVATE Core
+  PRIVATE Log
+  PRIVATE Cli
+  PRIVATE Image
 )
 
 
@@ -72,12 +71,12 @@ set_target_properties(ImageFill PROPERTIES
   OUTPUT_NAME "archon-image-fill"
 )
 
-target_link_libraries(ImageFill PRIVATE
-  Core
-  Log
-  Cli
-  Util
-  Image
+target_link_libraries(ImageFill
+  PRIVATE Core
+  PRIVATE Log
+  PRIVATE Cli
+  PRIVATE Util
+  PRIVATE Image
 )
 
 
@@ -89,12 +88,12 @@ set_target_properties(PerlinNoise PROPERTIES
   OUTPUT_NAME "archon-perlin-noise"
 )
 
-target_link_libraries(PerlinNoise PRIVATE
-  Core
-  Log
-  Cli
-  Util
-  Image
+target_link_libraries(PerlinNoise
+  PRIVATE Core
+  PRIVATE Cli
+  PRIVATE Math
+  PRIVATE Util
+  PRIVATE Image
 )
 
 
@@ -106,9 +105,9 @@ set_target_properties(ImageLoader PROPERTIES
   OUTPUT_NAME "archon-image-loader"
 )
 
-target_link_libraries(ImageLoader PRIVATE
-  Core
-  Log
-  Cli
-  Image
+target_link_libraries(ImageLoader
+  PRIVATE Core
+  PRIVATE Log
+  PRIVATE Cli
+  PRIVATE Image
 )

@@ -61,7 +61,7 @@ template<class T> auto get_type_name(const T&) -> std::string;
 /// \brief Get wrapped name of specified type.
 ///
 /// Get the name of the type resulting from wrapping the specified type using \ref
-/// core::Wrap. Demangling occurs as if by \ref demangle().
+/// core::wrap. Demangling occurs as if by \ref demangle().
 ///
 template<class T> auto get_wrapped_type_name() -> std::string;
 
@@ -96,7 +96,7 @@ template<class T> inline auto get_type_name(const T& v) -> std::string
 
 template<class T> auto get_wrapped_type_name() -> std::string
 {
-    return get_type_name<core::Wrap<T>>(); // Throws
+    return get_type_name<core::wrap<T>>(); // Throws
 }
 
 

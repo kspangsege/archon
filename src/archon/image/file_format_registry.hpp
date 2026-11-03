@@ -106,8 +106,8 @@ public:
     /// This function adds the specified file format to the registry. The caller must ensure
     /// that the referenced file format object stays alive for as long as the registry is in
     /// use. The registry can be safely destroyed after the destruction of the file format
-    /// object. Any other use of the registry after the dstruction of the file format object
-    /// causes undefined behavior.
+    /// object. Any other use of the registry after the destruction of the file format
+    /// object causes undefined behavior.
     ///
     /// If the registry already contains the specified file format, or another file format
     /// using the same identifier, this function throws.

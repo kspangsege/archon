@@ -154,15 +154,17 @@ public:
     virtual bool on_mouseup(const display::MouseButtonEvent&);
     /// \}
 
-    /// \brief Mouse pointer moved during pointer grab.
+    /// \brief Mouse pointer moved during pointer grab while not in immersive mode.
     ///
-    /// This function is called when the "mouse move" event is generated. The targeted event
-    /// handler object is the window's associated window handler (see \ref
+    /// This function is called when the "regular mouse motion" event is generated. The
+    /// targeted event handler object is the window's associated window handler (see \ref
     /// display::Connection::new_window()).
     ///
-    /// A "mouse move" event is generated for a particular window when the mouse moves
-    /// during a pointer grab that was initiated in that window. See \ref on_mousedown() for
-    /// more on pointer grabs.
+    /// A "regular mouse motion" event is generated for a particular window when the mouse
+    /// moves during a pointer grab that was initiated in that window. See \ref
+    /// on_mousedown() for more on pointer grabs. When the window is in immersive mode (\ref
+    /// display::Window::set_immersive_mode()), "relative mouse motion" events (\ref
+    /// on_rel_mousemove()) are generated instead of "regular mouse motion" events.
     ///
     /// FIXME: Verify above claims on macOS and Windows platforms                            
     ///
@@ -170,8 +172,28 @@ public:
     ///
     /// \sa \ref on_mousedown()
     /// \sa \ref on_scroll()
+    /// \sa \ref on_rel_mousemove()
     ///
     virtual bool on_mousemove(const display::MouseMotionEvent&);
+
+    /// \brief Mouse pointer moved during pointer grab. while in immersive mode.
+    ///
+    /// This function is called when the "relative mouse motion" event is generated. The
+    /// targeted event handler object is the window's associated window handler (see \ref
+    /// display::Connection::new_window()).
+    ///
+    /// A "relative mouse motion" event is generated for a particular window when the mouse
+    /// moves during a pointer grab that was initiated in that window and the window is in
+    /// immersive mode (\ref display::Window::set_immersive_mode()). See \ref on_mousedown()
+    /// for more on pointer grabs. When the window is not in immersive mode, "regular mouse
+    /// motion" events (\ref on_mousemove()) are generated instead "relative mouse motion"
+    /// events.
+    ///
+    /// The default implementation of this function does nothing other than return `true`.
+    ///
+    /// \sa \ref on_mousemove()
+    ///
+    virtual bool on_rel_mousemove(const display::RelativeMouseMotionEvent&);
 
     /// \brief Mouse scroll wheel moved.
     ///
