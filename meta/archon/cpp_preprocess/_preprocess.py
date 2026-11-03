@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import typing
+import abc
 import dataclasses
 import collections.abc as _cabc
 import io
@@ -35,22 +36,35 @@ import archon.cpp_preprocess._directive as _cd
 # Streaming C++26 preprocessor.
 #
 # Preprocess source code in accordance with C++26 standard. Output is a stream of
-# preprocessing tokens not including token types `HEADER_NAME` and `BLOCKED_IDENTIFIER`, and
-# also not including any of the error tokens. End of output is marked by an `END_OF_INPUT`
-# token.
+# preprocessing tokens not including token types `HEADER_NAME` and `BLOCKED_IDENTIFIER`. End
+# of output is marked by an `END_OF_INPUT` token.
 #
 # The preprocessor operates in a streaming fashion, meaning that it starts generating tokens
 # before having seen the end of input.
 #
-def preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, error_handler: _ct.ErrorHandler,
+def preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, context: Context,
                predefined_macros: _cabc.Sequence[BuiltinMacro] | None = None) -> _cabc.Iterator[_ct.Token]:
-    return _preprocess(source, file_index, tracker, error_handler, predefined_macros)
+    return _preprocess(source, file_index, tracker, context, predefined_macros)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class Source:
     input_: typing.TextIO
     path:   pathlib.Path
+
+
+class Context(abc.ABC):
+    @abc.abstractmethod
+    def handle_error(self, pos: _ct.Position, message: str, *args: typing.Any) -> None:
+        ...
+
+    # Called with the tokens of the pragma directive minus the leading `#pragma` and minus
+    # any minus whitespace that follows immediately after `#pragma`. Since trailing
+    # whitespace is not considered part of a directive, the passed token sequence will
+    # neither have have leading nor trailing whitespace.
+    #
+    def handle_pragma(self, tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position) -> None:
+        pass
 
 
 type Macro = BuiltinMacro | RegularMacro
@@ -95,7 +109,7 @@ class MacroArg:
 
 
 
-def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, error_handler: _ct.ErrorHandler,
+def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, context: Context,
                 predefined_macros: _cabc.Sequence[BuiltinMacro] | None) -> _cabc.Iterator[_ct.Token]:
     macro_registry: dict[str, Macro] = {}
     active_set: set[str] = set()
@@ -224,8 +238,8 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
                             record_arg(token)
                             break
                 elif token.type_ is _ct.TokenType.END_OF_INPUT:
-                    error_handler(token.pos, "Expected closing parenthesis or comma in invocation of "
-                                  "function-like macro %s", _b.clamped_quote(name, 64))
+                    error(token.pos, "Expected closing parenthesis or comma in invocation of function-like macro %s",
+                          _b.clamped_quote(name, 64))
                     break
                 tokens.append(token)
                 continue
@@ -236,8 +250,7 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
             n = len(signature.params)
             if len(arg_delims) < n:
                 pos = arg_delims[-1].pos
-                error_handler(pos, "Too few arguments in invocation of function-like macro %s",
-                              _b.clamped_quote(name, 64))
+                error(pos, "Too few arguments in invocation of function-like macro %s", _b.clamped_quote(name, 64))
                 token = next_token()
                 continue
             is_variadic = signature.params is not None and signature.is_variadic
@@ -252,8 +265,7 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
                 else:
                     arg = get_arg(0, 1)
                     pos = arg.tokens[0].pos if arg.tokens else arg.end_pos
-                error_handler(pos, "Too many arguments in invocation of function-like macro %s",
-                              _b.clamped_quote(name, 64))
+                error(pos, "Too many arguments in invocation of function-like macro %s", _b.clamped_quote(name, 64))
                 token = next_token()
                 continue
 
@@ -419,7 +431,7 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
         text = '"%s"' % "".join(parts)
         token = synthesize_token(text, operator_pos)
         if token is None:
-            error_handler(operator_pos, "Stringification did not produce a valid preprocessing token")
+            error(operator_pos, "Stringification did not produce a valid preprocessing token")
             raise _ExpandError
         assert token.type_ is _ct.TokenType.STRING_LIT
         return token
@@ -428,10 +440,10 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
         text = left.reconstruct() + right.reconstruct()
         token = synthesize_token(text, operator_pos)
         if token is None:
-            error_handler(operator_pos, "Fusion %s is not a valid preprocessing token" % _b.clamped_quote(text, 64))
+            error(operator_pos, "Fusion %s is not a valid preprocessing token" % _b.clamped_quote(text, 64))
             raise _ExpandError
         if token.type_ is _ct.TokenType.IDENTIFIER:
-            if not _cd.verify_no_va_names(token.text, operator_pos, error_handler, synthetic=True):
+            if not _cd.verify_no_va_names(token.text, operator_pos, error, synthetic=True):
                 raise _ExpandError
         return token
 
@@ -439,10 +451,10 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
         dummy_file_index = 0
         dummy_tracker = _tp.TextPosTracker()
         with io.StringIO(text) as input_:
-            error = False
+            has_error = False
             def error_handler(pos: _ct.Position, message: str, *args: typing.Any) -> None:
-                nonlocal error
-                error = True
+                nonlocal has_error
+                has_error = True
             tokenizer = _ct.Tokenizer(input_, dummy_file_index, dummy_tracker, error_handler)
             token_1 = tokenizer.next_token()
             if token_1.type_ is _ct.TokenType.END_OF_INPUT:
@@ -450,15 +462,15 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
             token_2 = tokenizer.next_token()
             if token_2.type_ is not _ct.TokenType.END_OF_INPUT:
                 return None
-            if error or token_1.text != text:
+            if has_error or token_1.text != text:
                 return None
             return dataclasses.replace(token_1, pos=pos, synthetic=True)
 
     def directive_handler(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position) -> None:
         if in_argument:
-            error_handler(pos, "Preprocessing directive inside macro argument is not allowed")
+            error(pos, "Preprocessing directive inside macro argument is not allowed")
             return
-        result = _cd.preparse_directive(tokens, error_handler)
+        result = _cd.preparse_directive(tokens, error)
         if result is None:
             return
         directive_type, remaining_tokens = result
@@ -467,7 +479,7 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
             case _cd.DirectiveType.NULL:
                 return
             case _cd.DirectiveType.DEFINE:
-                define_directive = _cd.parse_define_directive(remaining_tokens, pos, end_pos, error_handler)
+                define_directive = _cd.parse_define_directive(remaining_tokens, pos, end_pos, error)
                 if define_directive is None:
                     return
                 signature = define_directive.signature
@@ -480,7 +492,7 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
                             _same_replacement_list(existing.replacement, define_directive.replacement))
                     if same:
                         return
-                    error_handler(pos, "Redefinition of macro %s", _b.clamped_quote(name, 64))
+                    error(pos, "Redefinition of macro %s", _b.clamped_quote(name, 64))
                     # FIXME: Consider logging separate message ("note" level) pointing to
                     # position of preexisting definition    
                     return
@@ -488,19 +500,25 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
                 macro_registry[name] = macro
                 return
             case _cd.DirectiveType.UNDEF:
-                undef_directive = _cd.parse_undef_directive(remaining_tokens, pos, end_pos, error_handler)
+                undef_directive = _cd.parse_undef_directive(remaining_tokens, pos, end_pos, error)
                 if undef_directive is None:
                     return
                 macro = macro_registry.get(undef_directive.name)
                 if macro is None:
                     return  # No-op
                 if isinstance(macro, BuiltinMacro) and macro.permanent:
-                    error_handler(pos, "Cannot undefine permanent built-in macro %s",
-                                  _b.clamped_quote(undef_directive.name, 64))
+                    error(pos, "Cannot undefine permanent built-in macro %s",
+                          _b.clamped_quote(undef_directive.name, 64))
                     return
                 del macro_registry[undef_directive.name]
                 return
+            case _cd.DirectiveType.PRAGMA:
+                context.handle_pragma(remaining_tokens, pos, end_pos)
+                return
         raise NotImplementedError         
+
+    def error(pos: _ct.Position, message: str, *args: typing.Any) -> None:
+        context.handle_error(pos, message, *args)
 
     def add_objectlike_macro(name: str, func: MacroFunction) -> None:
         signature = _cd.MacroSignature(name, params=None, is_variadic=False)
@@ -531,9 +549,9 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, er
         for macro in predefined_macros:
             macro_registry[macro.signature.name] = macro
 
-    tokenizer = _ct.Tokenizer(source.input_, file_index, tracker, error_handler)
+    tokenizer = _ct.Tokenizer(source.input_, file_index, tracker, error)
     directive_filter = _cd.DirectiveFilter(tokenizer, directive_handler)
-    iterator = _TokenIterator(directive_filter, error_handler)
+    iterator = _TokenIterator(directive_filter, error)
     for token in process(iterator):
         if token.type_ is not _ct.TokenType.BLOCKED_IDENTIFIER:
             yield token

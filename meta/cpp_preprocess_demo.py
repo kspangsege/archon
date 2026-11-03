@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import typing
+import collections.abc as _cabc
 import sys
 import pathlib
 
@@ -56,20 +57,36 @@ if len(args) != 1:
 path = pathlib.Path(args[0])
 
 logger = _l.LimitLogger(root_logger, log_level.value)
+tracker = _tp.TextPosTracker()
+
+
+class Context(_cp.Context):
+    def __init__(self) -> None:
+        self.error = False
+
+    @typing.override
+    def handle_error(self, pos: _cp.Position, message: str, *args: typing.Any) -> None:
+        assert pos.file_index == 0
+        text_pos = tracker.get_text_pos(pos.pos_in_file)
+        context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
+        _l.FileContextLogger(logger, context).error(message, *args)
+        self.error = True
+
+    @typing.override
+    def handle_pragma(self, tokens: _cabc.Sequence[_cp.Token], pos: _cp.Position, end_pos: _cp.Position) -> None:
+        text = "".join(t.text for t in tokens)
+        assert pos.file_index == 0
+        text_pos = tracker.get_text_pos(pos.pos_in_file)
+        context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
+        _l.FileContextLogger(logger, context).info("Pragma: %s", text)
+
 
 try:
     with open(path) as file_:
-        tracker = _tp.TextPosTracker()
-        error = False
-        def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
-            global error
-            assert pos.file_index == 0
-            text_pos = tracker.get_text_pos(pos.pos_in_file)
-            context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
-            _l.FileContextLogger(logger, context).error(message, *args)
-            error = True
         source = _cp.Source(file_, path)
-        tokens_iter = _cp.preprocess(source, file_index = 0, tracker = tracker, error_handler = error_handler)
+        file_index = 0
+        context = Context()
+        tokens_iter = _cp.preprocess(source, file_index, tracker, context)
         if no_serialize.value:
             for token in tokens_iter:
                 pos = token.pos
@@ -94,7 +111,7 @@ try:
                     flush()
                     continue
                 parts.append(token.reconstruct())
-        if error:
+        if context.error:
             sys.exit(1)
 except FileNotFoundError as e:
     logger.error("Failed to open %s: %s", _b.quote(str(path)), e.strerror)
