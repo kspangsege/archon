@@ -136,7 +136,7 @@ class PosMappedString:
 
 class PosMappedStringBuilder:
     def __init__(self) -> None:
-        self._string = ""
+        self._parts: list[str] = []
         self._pos_map_builder = PosMapBuilder()
 
     @property
@@ -144,24 +144,28 @@ class PosMappedStringBuilder:
         return self._pos_map_builder.ref_pos
 
     def add_linear(self, string: str, ref_pos: int | None = None) -> None:
-        self._string += string
+        self._parts.append(string)
         self._pos_map_builder.add_linear(len(string), ref_pos)
 
     def add_nonlinear(self, string: str, ref_pos: int | None = None) -> None:
-        self._string += string
+        self._parts.append(string)
         self._pos_map_builder.add_nonlinear(len(string), ref_pos)
 
     def add_pos_mapped_string(self, string: PosMappedString) -> None:
         self._pos_map_builder.add_pos_map(string.pos_map)
-        self._string += string.string
+        self._parts.append(string.string)
+
+    def bump_ref_pos_by(self, size: int) -> None:
+        self._pos_map_builder.bump_ref_pos_by(size)
 
     def bump_ref_pos_to(self, ref_pos: int) -> None:
         self._pos_map_builder.bump_ref_pos_to(ref_pos)
 
     def finalize_and_get(self) -> PosMappedString:
         pos_map = self._pos_map_builder.finalize_and_get()
-        assert len(self._string) == pos_map.size
-        return PosMappedString(self._string, pos_map)
+        string = "".join(self._parts)
+        assert len(string) == pos_map.size
+        return PosMappedString(string, pos_map)
 
 
 # Maps character positions in a *derivative string* to positions in the associated
@@ -314,6 +318,18 @@ class PosMap:
                 return False
         return True
 
+    @classmethod
+    def simple_linear(cls, size: int, ref_pos: int = 0) -> PosMap:
+        builder = PosMapBuilder()
+        builder.add_linear(size, ref_pos)
+        return builder.finalize_and_get()
+
+    @classmethod
+    def simple_nonlinear(cls, size: int, ref_pos: int = 0) -> PosMap:
+        builder = PosMapBuilder()
+        builder.add_nonlinear(size, ref_pos)
+        return builder.finalize_and_get()
+
     # Find last linear segment that begins at or before the specified position. If no linear
     # segment begins at or before the specified position, this function returns -1.
     def _find_segment(self, pos: int, offset: int = 0) -> int:
@@ -387,6 +403,9 @@ class PosMapBuilder:
             self.add_linear(seg.size, seg.ref_pos)
             pos = seg.end
         self.add_nonlinear(pos_map.size - pos)
+
+    def bump_ref_pos_by(self, size: int) -> None:
+        self.bump_ref_pos_to(self._ref_pos + size)
 
     def bump_ref_pos_to(self, ref_pos: int) -> None:
         if ref_pos < self._ref_pos:

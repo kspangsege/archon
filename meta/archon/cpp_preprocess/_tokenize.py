@@ -167,7 +167,7 @@ REGULAR = set(TokenType) - SPACE - ERROR - SPECIAL
 
 
 class ErrorHandler(typing.Protocol):
-    def __call__(self, pos: Position, message: str, *args: typing.Any) -> None:
+    def __call__(self, pos: Position, message: str, /, *args: typing.Any) -> None:
         ...
 
 

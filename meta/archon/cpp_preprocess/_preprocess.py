@@ -75,8 +75,9 @@ class MacroBase:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class BuiltinMacro(MacroBase):
-    permanent: bool
-    func:      MacroFunction
+    permanent:     bool  # Cannot be undefined
+    require_paren: bool  # Occurrence of macro name is always an invocation
+    func:          MacroFunction
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class RegularMacro(MacroBase):
@@ -212,6 +213,8 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, co
                     continue
                 break
             if not found_lparen:
+                if isinstance(macro, BuiltinMacro) and macro.require_paren:
+                    error(token.pos, "Expected opening parenthesis after `%s`", name)
                 yield from tokens
                 continue
 
@@ -448,23 +451,35 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, co
         return token
 
     def synthesize_token(text: str, pos: _ct.Position) -> _ct.Token | None:
+        tokens = synthesize_tokens(text, pos)
+        return tokens[0] if tokens is not None and len(tokens) == 1 else None
+
+    def synthesize_tokens(text: str, pos: _ct.Position, offset_map: _tp.PosMap | None = None,
+                          generate_error_messages: bool = False) -> list[_ct.Token] | None:
         dummy_file_index = 0
         dummy_tracker = _tp.TextPosTracker()
         with io.StringIO(text) as input_:
             has_error = False
-            def error_handler(pos: _ct.Position, message: str, *args: typing.Any) -> None:
+            def error_handler(subpos: _ct.Position, message: str, *args: typing.Any) -> None:
                 nonlocal has_error
+                if generate_error_messages:
+                    pos_2 = get_pos(subpos.pos_in_file)
+                    error(pos_2, message, *args)
                 has_error = True
+            def get_pos(offset: int) -> _ct.Position:
+                if offset_map is None:
+                    return pos
+                offset_2 = offset_map.map_(offset)
+                return pos.shift(offset_2)
             tokenizer = _ct.Tokenizer(input_, dummy_file_index, dummy_tracker, error_handler)
-            token_1 = tokenizer.next_token()
-            if token_1.type_ is _ct.TokenType.END_OF_INPUT:
-                return None
-            token_2 = tokenizer.next_token()
-            if token_2.type_ is not _ct.TokenType.END_OF_INPUT:
-                return None
-            if has_error or token_1.text != text:
-                return None
-            return dataclasses.replace(token_1, pos=pos, synthetic=True)
+            tokens: list[_ct.Token] = []
+            while True:
+                token = tokenizer.next_token()
+                if token.type_ is _ct.TokenType.END_OF_INPUT:
+                    return tokens if not has_error else None
+                pos_2 = get_pos(token.pos.pos_in_file)
+                token_2 = dataclasses.replace(token, pos=pos_2, synthetic=True)
+                tokens.append(token_2)
 
     def directive_handler(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position) -> None:
         if in_argument:
@@ -507,8 +522,7 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, co
                 if macro is None:
                     return  # No-op
                 if isinstance(macro, BuiltinMacro) and macro.permanent:
-                    error(pos, "Cannot undefine permanent built-in macro %s",
-                          _b.clamped_quote(undef_directive.name, 64))
+                    error(pos, "Cannot undefine permanent built-in macro `%s`", undef_directive.name)
                     return
                 del macro_registry[undef_directive.name]
                 return
@@ -520,25 +534,92 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, co
     def error(pos: _ct.Position, message: str, *args: typing.Any) -> None:
         context.handle_error(pos, message, *args)
 
-    def add_objectlike_macro(name: str, func: MacroFunction) -> None:
+    class ObjectlikeFunction(typing.Protocol):
+        def __call__(self, invoke_pos: _ct.Position) -> list[_ct.Token] | None:
+            ...
+
+    class FunctionlikeFunction(typing.Protocol):
+        def __call__(self, invoke_pos: _ct.Position, arg: MacroArg) -> list[_ct.Token] | None:
+            ...
+
+    def add_objectlike_macro(name: str, func: ObjectlikeFunction) -> None:
         signature = _cd.MacroSignature(name, params=None, is_variadic=False)
         permanent = True
-        macro_registry[name] = BuiltinMacro(signature, permanent, func)
+        require_paren = False
+        def func_2(invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
+                   va_args: MacroArg | None) -> list[_ct.Token] | None:
+            return func(invoke_pos)
+        macro_registry[name] = BuiltinMacro(signature, permanent, require_paren, func_2)
 
-    def file_func(invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
-                  va_args: MacroArg | None) -> list[_ct.Token] | None:
+    def add_functionlike_macro(name: str, func: FunctionlikeFunction) -> None:
+        signature = _cd.MacroSignature(name, params=("_",), is_variadic=False)
+        permanent = True
+        require_paren = True
+        def func_2(invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
+                   va_args: MacroArg | None) -> list[_ct.Token] | None:
+            assert arguments is not None
+            return func(invoke_pos, arguments[0])
+        macro_registry[name] = BuiltinMacro(signature, permanent, require_paren, func_2)
+
+    def file_func(invoke_pos: _ct.Position) -> list[_ct.Token] | None:
         text = _make_string_lit(str(source.path))
         token = _ct.Token(_ct.TokenType.STRING_LIT, text, invoke_pos, synthetic=True)
         return [token]
 
-    def line_func(invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
-                  va_args: MacroArg | None) -> list[_ct.Token] | None:
+    def line_func(invoke_pos: _ct.Position) -> list[_ct.Token] | None:
         text = str(tracker.line_no)
         token = _ct.Token(_ct.TokenType.NUMBER, text, invoke_pos, synthetic=True)
         return [token]
 
+    def pragma_func(invoke_pos: _ct.Position, arg: MacroArg) -> list[_ct.Token] | None:
+        if len(arg.tokens) != 1 or arg.tokens[0].type_ is not _ct.TokenType.STRING_LIT:
+            pos = arg.tokens[0].pos if arg.tokens else arg.end_pos
+            error(pos, "Invalid argument in _Pragma() invocation: Must be a single string literal")
+            return None
+        token = arg.tokens[0]
+        text = token.text
+        # Since a string literal cannot have resolved UCNs before the closing quotation
+        # mark, `text` and `token.reconstruct()` are equal at least up until the closing
+        # quotation mark
+        i = text.find('"')
+        j = text.rfind('"')
+        assert 0 <= i < j
+        if j + 1 != len(text):
+            pos = token.subpos(j + 1)
+            error(pos, "Invalid argument in _Pragma() invocation: String literal must have no suffix")
+            return None
+        i += 1
+        builder = _tp.PosMappedStringBuilder()
+        builder.bump_ref_pos_to(i)
+        while True:
+            k = text.find("\\", i, j)
+            if k < 0:
+                builder.add_linear(text[i:j])
+                break
+            assert k + 1 < j  # Stray trailing backslash is not possible
+            ch = text[k + 1]
+            if ch not in '\\"':
+                k += 2
+                builder.add_linear(text[i:k])
+                i = k
+                continue
+            builder.add_linear(text[i:k])
+            builder.add_nonlinear(ch)
+            builder.bump_ref_pos_by(2)
+            i = k + 2
+        pos_mapped_string = builder.finalize_and_get()
+        offset_map = pos_mapped_string.pos_map if not token.synthetic else None
+        synthesized_tokens = synthesize_tokens(pos_mapped_string.string, token.pos, offset_map,
+                                               generate_error_messages=True)
+        if synthesized_tokens is None:
+            return None
+        end_pos = token.subpos(j)
+        context.handle_pragma(synthesized_tokens, invoke_pos, end_pos)
+        return []
+
     add_objectlike_macro("__FILE__", file_func)
     add_objectlike_macro("__LINE__", line_func)
+    add_functionlike_macro("_Pragma", pragma_func)
 
     # FIXME: Set up more built-in macros here        
 
