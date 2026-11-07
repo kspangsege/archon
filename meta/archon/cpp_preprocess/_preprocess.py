@@ -54,8 +54,10 @@ class Source:
 
 
 class Context(abc.ABC):
+    # Returns file index as used in `_ct.Position` objects.
+    #
     @abc.abstractmethod
-    def handle_error(self, pos: _ct.Position, message: str, *args: typing.Any) -> None:
+    def resolve_include(self, name: str, resolution_type: _cd.ResolutionType, /) -> int | None:
         ...
 
     # Called with the tokens of the pragma directive minus the leading `#pragma` and minus
@@ -63,8 +65,12 @@ class Context(abc.ABC):
     # whitespace is not considered part of a directive, the passed token sequence will
     # neither have have leading nor trailing whitespace.
     #
-    def handle_pragma(self, tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position) -> None:
+    def handle_pragma(self, tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position, /) -> None:
         pass
+
+    @abc.abstractmethod
+    def handle_error(self, pos: _ct.Position, message: str, /, *args: typing.Any) -> None:
+        ...
 
 
 type Macro = BuiltinMacro | RegularMacro
@@ -376,7 +382,7 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, co
             if is_fuse_context:
                 return arg.tokens
             if slot.expanded is None:
-                slot.expanded = preexpand_arg(arg.tokens, arg.end_pos)
+                slot.expanded = macro_expand(arg.tokens, arg.end_pos)
             return slot.expanded
 
         def stringify_arg(param_index: int | None, operator_pos: _ct.Position) -> _ct.Token:
@@ -402,7 +408,7 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, co
         except _ExpandError:
             return None
 
-    def preexpand_arg(tokens: _cabc.Sequence[_ct.Token], end_pos: _ct.Position) -> list[_ct.Token]:
+    def macro_expand(tokens: _cabc.Sequence[_ct.Token], end_pos: _ct.Position) -> list[_ct.Token]:
         tokens_2 = list(tokens) + [_ct.Token(_ct.TokenType.END_OF_INPUT, "", end_pos)]
         result: list[_ct.Token] = []
         for token in process(iter(tokens_2)):
@@ -493,6 +499,21 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, co
         match directive_type:
             case _cd.DirectiveType.NULL:
                 return
+            case _cd.DirectiveType.INCLUDE:
+                include_directive = _cd.parse_include_directive(remaining_tokens, pos, end_pos, macro_expand, error)
+                if include_directive is None:
+                    return
+                file_index = context.resolve_include(include_directive.name, include_directive.resolution_type)
+                if file_index is None:
+                    match include_directive.resolution_type:
+                        case _cd.ResolutionType.BRACKETED:
+                            error(pos, "Cannot find header <%s>", include_directive.name)
+                            return
+                        case _cd.ResolutionType.QUOTED:
+                            error(pos, 'Cannot find source file "%s"', include_directive.name)
+                            return
+                    typing.assert_never(include_directive.resolution_type)
+                raise NotImplementedError         
             case _cd.DirectiveType.DEFINE:
                 define_directive = _cd.parse_define_directive(remaining_tokens, pos, end_pos, error)
                 if define_directive is None:

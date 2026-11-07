@@ -135,6 +135,10 @@ class DirectiveType(enum.Enum):
     PRAGMA   = enum.auto()
 
 
+def parse_include_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
+                            macro_expander: MacroExpander, error_handler: _ct.ErrorHandler) -> IncludeDirective | None:
+    return _parse_include_directive(tokens, pos, end_pos, macro_expander, error_handler)
+
 def parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
                            error_handler: _ct.ErrorHandler) -> DefineDirective | None:
     return _parse_define_directive(tokens, pos, end_pos, error_handler)
@@ -143,6 +147,12 @@ def parse_undef_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, 
                             error_handler: _ct.ErrorHandler) -> UndefDirective | None:
     return _parse_undef_directive(tokens, pos, end_pos, error_handler)
 
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class IncludeDirective:
+    pos:             _ct.Position
+    name:            str
+    resolution_type: ResolutionType
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class DefineDirective:
@@ -154,6 +164,11 @@ class DefineDirective:
 class UndefDirective:
     pos:  _ct.Position
     name: str
+
+
+class ResolutionType(enum.Enum):
+    BRACKETED = enum.auto()
+    QUOTED    = enum.auto()
 
 
 # If `params` is `None`, the macro is object-like. Otherwise it is function-like. If the
@@ -202,6 +217,11 @@ class FuseOperation:
     class Right:
         operand: ReplacePrim
         pos:     _ct.Position  # Operator position
+
+
+class MacroExpander(typing.Protocol):
+    def __call__(self, tokens: _cabc.Sequence[_ct.Token], end_pos: _ct.Position, /) -> list[_ct.Token]:
+        ...
 
 
 # If the specified text is neither `__VA_ARGS__` nor `__VA_OPT__`, this function returns
@@ -265,6 +285,92 @@ _DIRECTIVE_MAP = {
     "warning":  DirectiveType.WARNING,
     "pragma":   DirectiveType.PRAGMA,
 }
+
+
+def _parse_include_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
+                             macro_expander: MacroExpander,
+                             error_handler: _ct.ErrorHandler) -> IncludeDirective | None:
+    if len(tokens) == 1 and tokens[0].type_ is _ct.TokenType.HEADER_NAME:
+        text = tokens[0].text
+        if text[0] == "<":
+            resolution_type = ResolutionType.BRACKETED
+        elif text[0] == '"':
+            resolution_type = ResolutionType.QUOTED
+        else:
+            assert False
+        name = text[1:-1]
+    else:
+        # FIXME: Need a way to know whether any errors occurred during macro expansion. If
+        # an error did occur, the include directive should probably be dropped.      
+        expanded = macro_expander(tokens, end_pos)
+
+        @dataclasses.dataclass(slots=True, frozen=True)
+        class Part:
+            text:        str
+            token_index: int
+
+        parts: list[Part] = []
+        pending_space: int | None = None
+        for i, token in enumerate(expanded):
+            if token.type_ in _ct.SPACE:
+                if pending_space is None and parts:
+                    pending_space = i
+                continue
+            if pending_space is not None:
+                part = Part(" ", pending_space)
+                parts.append(part)
+                pending_space = None
+            part = Part(token.reconstruct(), i)
+            parts.append(part)
+        if not parts:
+            error_handler(end_pos, "Missing header name in #include directive")
+            return None
+        text = "".join(p.text for p in parts)
+
+        def get_subpos(offset: int) -> _ct.Position:
+            begin = 0
+            for part in parts:
+                end = begin + len(part.text)
+                if offset < end:
+                    token = expanded[part.token_index]
+                    return token.subpos(offset - begin)
+                begin = end
+            assert False
+
+        ch = text[0]
+        if ch == "<":
+            closing_char = ">"
+            resolution_type = ResolutionType.BRACKETED
+        elif ch == '"':
+            closing_char = '"'
+            resolution_type = ResolutionType.QUOTED
+        else:
+            subpos = get_subpos(0)
+            error_handler(subpos, 'Invalid header name (`<...>` or `"..."`) in #include directive')
+            return None
+
+        i = text.find(closing_char, 1)
+        if i < 0:
+            subpos = get_subpos(0)
+            error_handler(subpos, "Unterminated header name in #include directive: Missing closing `%s`" %
+                          closing_char)
+            return None
+
+        j = i + 1
+        if j != len(text):
+            subpos = get_subpos(j)
+            error_handler(subpos, "Expected nothing after header name in #include directive")
+            return None
+
+        j = text.find("\n", 1, i)
+        if j >= 0:
+            subpos = get_subpos(j)
+            error_handler(subpos, "Line break not allowed in header name of #include directive")
+            return None
+
+        name = text[1:i]
+
+    return IncludeDirective(pos, name, resolution_type)
 
 
 def _parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,

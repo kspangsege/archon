@@ -65,12 +65,9 @@ class Context(_cp.Context):
         self.error = False
 
     @typing.override
-    def handle_error(self, pos: _cp.Position, message: str, *args: typing.Any) -> None:
-        assert pos.file_index == 0
-        text_pos = tracker.get_text_pos(pos.pos_in_file)
-        context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
-        _l.FileContextLogger(logger, context).error(message, *args)
-        self.error = True
+    def resolve_include(self, name: str, resolution_type_: _cp.ResolutionType) -> int | None:
+        # FIXME: Implement this    
+        return None
 
     @typing.override
     def handle_pragma(self, tokens: _cabc.Sequence[_cp.Token], pos: _cp.Position, end_pos: _cp.Position) -> None:
@@ -79,6 +76,14 @@ class Context(_cp.Context):
         text_pos = tracker.get_text_pos(pos.pos_in_file)
         context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         _l.FileContextLogger(logger, context).info("Pragma: %s", text)
+
+    @typing.override
+    def handle_error(self, pos: _cp.Position, message: str, *args: typing.Any) -> None:
+        assert pos.file_index == 0
+        text_pos = tracker.get_text_pos(pos.pos_in_file)
+        context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
+        _l.FileContextLogger(logger, context).error(message, *args)
+        self.error = True
 
 
 try:
