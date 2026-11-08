@@ -91,7 +91,7 @@ class Context(_cp.Context):
         return None
 
     @typing.override
-    def open_file(self, file_index: int) -> _cp.Source | None:
+    def open_file(self, file_index: int) -> _cp.Source:
         entry = self._file_registry.get(file_index)
         input_ = open(entry.path)
         return _cp.Source(input_, entry.position_tracker)

@@ -42,9 +42,9 @@ import archon.cpp_preprocess._directive as _cd
 # The preprocessor operates in a streaming fashion, meaning that it starts generating tokens
 # before having seen the end of input.
 #
-def preprocess(file_: File, source: Source, context: Context,
+def preprocess(root_file: File, root_source: Source, context: Context,
                predefined_macros: _cabc.Sequence[BuiltinMacro] | None = None) -> _cabc.Iterator[_ct.Token]:
-    return _preprocess(file_, source, context, predefined_macros)
+    return _preprocess(root_file, root_source, context, predefined_macros)
 
 
 class Context(abc.ABC):
@@ -53,7 +53,7 @@ class Context(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def open_file(self, file_index: int) -> Source | None:
+    def open_file(self, file_index: int) -> Source:
         ...
 
     # Called with the tokens of the pragma directive minus the leading `#pragma` and minus
@@ -108,7 +108,7 @@ class RegularMacro(MacroBase):
 # The function must return `None` if and only if an error occurred.
 #
 class MacroFunction(typing.Protocol):
-    def __call__(self, invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
+    def __call__(self, invoc_pos: _ct.Position, /, arguments: list[MacroArg] | None,
                  va_args: MacroArg | None) -> list[_ct.Token] | None:
         ...
 
@@ -125,35 +125,27 @@ class MacroArg:
 
 
 
-def _preprocess(file_: File, source: Source, context: Context,
+def _preprocess(root_file: File, root_source: Source, context: Context,
                 predefined_macros: _cabc.Sequence[BuiltinMacro] | None) -> _cabc.Iterator[_ct.Token]:
     macro_registry: dict[str, Macro] = {}
+    include_stack: list[_IncludeStackEntry] = []
+    invoc_stack: list[_InvocStackEntry] = []
     active_set: set[str] = set()
     in_argument = False
 
     def process(tokens_iter: typing.Iterator[_ct.Token]) -> _cabc.Iterator[_ct.Token]:
         nonlocal in_argument
 
-        stack: list[_StackEntry] = []
+        base_level = len(invoc_stack)
         def next_token() -> _ct.Token:
-            while stack:
-                entry = stack[-1]
-                if entry.pos < len(entry.replacement):
-                    token = entry.replacement[entry.pos]
-                    entry.pos += 1
+            while len(invoc_stack) > base_level:
+                entry = invoc_stack[-1]
+                if entry.read_pos < len(entry.replacement):
+                    token = entry.replacement[entry.read_pos]
+                    entry.read_pos += 1
                     return token
-                pop()
+                pop_invoc()
             return next(tokens_iter)
-
-        def push(macro_name: str, replacement: list[_ct.Token]) -> None:
-            assert macro_name not in active_set
-            active_set.add(macro_name)
-            entry = _StackEntry(macro_name, replacement)
-            stack.append(entry)
-
-        def pop() -> None:
-            entry = stack.pop()
-            active_set.remove(entry.macro_name)
 
         tokens:        list[_ct.Token]
         tokens_offset: int
@@ -199,19 +191,19 @@ def _preprocess(file_: File, source: Source, context: Context,
                 yield dataclasses.replace(token, type_=_ct.TokenType.BLOCKED_IDENTIFIER)
                 token = next_token()
                 continue
-            invoke_pos = token.pos
+            invoc_pos = token.pos
             signature = macro.signature
             if signature.params is None:
                 # Object-like macro
                 match macro:
                     case BuiltinMacro():
-                        replacement = macro.func(invoke_pos, arguments=None, va_args=None)
+                        replacement = macro.func(invoc_pos, arguments=None, va_args=None)
                     case RegularMacro():
                         replacement = expand_replacement(signature, macro.replacement, arguments=None, va_args=None)
                     case _:
                         typing.assert_never(macro)
                 if replacement:
-                    push(name, replacement)
+                    push_invoc(name, replacement, invoc_pos)
                 token = next_token()
                 continue
 
@@ -293,14 +285,24 @@ def _preprocess(file_: File, source: Source, context: Context,
                 va_args = get_arg(n, len(arg_delims))
             match macro:
                 case BuiltinMacro():
-                    replacement = macro.func(invoke_pos, arguments, va_args)
+                    replacement = macro.func(invoc_pos, arguments, va_args)
                 case RegularMacro():
                     replacement = expand_replacement(signature, macro.replacement, arguments, va_args)
                 case _:
                     typing.assert_never(macro)
             if replacement:
-                push(name, replacement)
+                push_invoc(name, replacement, invoc_pos)
             token = next_token()
+
+    def push_invoc(macro_name: str, replacement: list[_ct.Token], invoc_pos: _ct.Position) -> None:
+        assert macro_name not in active_set
+        active_set.add(macro_name)
+        entry = _InvocStackEntry(invoc_pos, macro_name, replacement)
+        invoc_stack.append(entry)
+
+    def pop_invoc() -> None:
+        entry = invoc_stack.pop()
+        active_set.remove(entry.macro_name)
 
     def expand_replacement(signature: _cd.MacroSignature, replacement: tuple[_cd.ReplaceElem, ...],
                            arguments: list[MacroArg] | None, va_args: MacroArg | None) -> list[_ct.Token] | None:
@@ -512,9 +514,10 @@ def _preprocess(file_: File, source: Source, context: Context,
                 include_directive = _cd.parse_include_directive(remaining_tokens, pos, end_pos, macro_expand, error)
                 if include_directive is None:
                     return
-                file_index = context.resolve_include(include_directive.name, include_directive.resolution_type,
-                                                     file_.file_index)
-                if file_index is None:
+                includer = include_stack[-1].file_ if include_stack else root_file
+                file_ = context.resolve_include(include_directive.name, include_directive.resolution_type,
+                                                includer.file_index)
+                if file_ is None:
                     match include_directive.resolution_type:
                         case _cd.ResolutionType.BRACKETED:
                             error(pos, "Cannot find header <%s>", include_directive.name)
@@ -523,7 +526,12 @@ def _preprocess(file_: File, source: Source, context: Context,
                             error(pos, 'Cannot find source file "%s"', include_directive.name)
                             return
                     typing.assert_never(include_directive.resolution_type)
-                raise NotImplementedError         
+                source = context.open_file(file_.file_index)
+                tokenizer = _ct.Tokenizer(source.input_, file_.file_index, source.position_tracker, error)
+                directive_filter = _cd.DirectiveFilter(tokenizer, directive_handler)
+                entry = _IncludeStackEntry(file_, source, directive_filter)
+                include_stack.append(entry)
+                return
             case _cd.DirectiveType.DEFINE:
                 define_directive = _cd.parse_define_directive(remaining_tokens, pos, end_pos, error)
                 if define_directive is None:
@@ -566,43 +574,53 @@ def _preprocess(file_: File, source: Source, context: Context,
         context.handle_error(pos, message, *args)
 
     class ObjectlikeFunction(typing.Protocol):
-        def __call__(self, invoke_pos: _ct.Position) -> list[_ct.Token] | None:
+        def __call__(self, invoc_pos: _ct.Position) -> list[_ct.Token] | None:
             ...
 
     class FunctionlikeFunction(typing.Protocol):
-        def __call__(self, invoke_pos: _ct.Position, arg: MacroArg) -> list[_ct.Token] | None:
+        def __call__(self, invoc_pos: _ct.Position, arg: MacroArg) -> list[_ct.Token] | None:
             ...
 
     def add_objectlike_macro(name: str, func: ObjectlikeFunction) -> None:
         signature = _cd.MacroSignature(name, params=None, is_variadic=False)
         permanent = True
         require_paren = False
-        def func_2(invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
+        def func_2(invoc_pos: _ct.Position, arguments: list[MacroArg] | None,
                    va_args: MacroArg | None) -> list[_ct.Token] | None:
-            return func(invoke_pos)
+            return func(invoc_pos)
         macro_registry[name] = BuiltinMacro(signature, permanent, require_paren, func_2)
 
     def add_functionlike_macro(name: str, func: FunctionlikeFunction) -> None:
         signature = _cd.MacroSignature(name, params=("_",), is_variadic=False)
         permanent = True
         require_paren = True
-        def func_2(invoke_pos: _ct.Position, arguments: list[MacroArg] | None,
+        def func_2(invoc_pos: _ct.Position, arguments: list[MacroArg] | None,
                    va_args: MacroArg | None) -> list[_ct.Token] | None:
             assert arguments is not None
-            return func(invoke_pos, arguments[0])
+            return func(invoc_pos, arguments[0])
         macro_registry[name] = BuiltinMacro(signature, permanent, require_paren, func_2)
 
-    def file_func(invoke_pos: _ct.Position) -> list[_ct.Token] | None:
+    def file_func(invoc_pos: _ct.Position) -> list[_ct.Token] | None:
+        file_ = include_stack[-1].file_ if include_stack else root_file
         text = _make_string_lit(str(file_.path))
-        token = _ct.Token(_ct.TokenType.STRING_LIT, text, invoke_pos, synthetic=True)
+        token = _ct.Token(_ct.TokenType.STRING_LIT, text, invoc_pos, synthetic=True)
         return [token]
 
-    def line_func(invoke_pos: _ct.Position) -> list[_ct.Token] | None:
-        text = str(source.position_tracker.line_no)
-        token = _ct.Token(_ct.TokenType.NUMBER, text, invoke_pos, synthetic=True)
+    def line_func(invoc_pos: _ct.Position) -> list[_ct.Token] | None:
+        root_invoc_pos = invoc_stack[0].invoc_pos if invoc_stack else invoc_pos
+        if include_stack:
+            top = include_stack[-1]
+            assert root_invoc_pos.file_index == top.file_.file_index
+            source = top.source
+        else:
+            assert root_invoc_pos.file_index == root_file.file_index
+            source = root_source
+        text_pos = source.position_tracker.get_text_pos(root_invoc_pos.pos_in_file)
+        text = str(text_pos.line_no)
+        token = _ct.Token(_ct.TokenType.NUMBER, text, invoc_pos, synthetic=True)
         return [token]
 
-    def pragma_func(invoke_pos: _ct.Position, arg: MacroArg) -> list[_ct.Token] | None:
+    def pragma_func(invoc_pos: _ct.Position, arg: MacroArg) -> list[_ct.Token] | None:
         if len(arg.tokens) != 1 or arg.tokens[0].type_ is not _ct.TokenType.STRING_LIT:
             pos = arg.tokens[0].pos if arg.tokens else arg.end_pos
             error(pos, "Invalid argument in _Pragma() invocation: Must be a single string literal")
@@ -645,7 +663,7 @@ def _preprocess(file_: File, source: Source, context: Context,
         if synthesized_tokens is None:
             return None
         end_pos = token.subpos(j)
-        context.handle_pragma(synthesized_tokens, invoke_pos, end_pos)
+        context.handle_pragma(synthesized_tokens, invoc_pos, end_pos)
         return []
 
     add_objectlike_macro("__FILE__", file_func)
@@ -661,21 +679,33 @@ def _preprocess(file_: File, source: Source, context: Context,
         for macro in predefined_macros:
             macro_registry[macro.signature.name] = macro
 
-    tokenizer = _ct.Tokenizer(source.input_, file_.file_index, source.position_tracker, error)
+    tokenizer = _ct.Tokenizer(root_source.input_, root_file.file_index, root_source.position_tracker, error)
     directive_filter = _cd.DirectiveFilter(tokenizer, directive_handler)
-    iterator = _TokenIterator(directive_filter, error)
-    for token in process(iterator):
-        if token.type_ is not _ct.TokenType.BLOCKED_IDENTIFIER:
-            yield token
-            continue
-        yield dataclasses.replace(token, type_=_ct.TokenType.IDENTIFIER)
+    iterator = _TokenIterator(directive_filter, include_stack, error)
+    try:
+        for token in process(iterator):
+            if token.type_ is not _ct.TokenType.BLOCKED_IDENTIFIER:
+                yield token
+                continue
+            yield dataclasses.replace(token, type_=_ct.TokenType.IDENTIFIER)
+    finally:
+        for entry in include_stack:
+            entry.source.input_.close()
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _IncludeStackEntry:
+    file_:            File
+    source:           Source
+    directive_filter: _cd.DirectiveFilter
 
 
 @dataclasses.dataclass(slots=True)
-class _StackEntry:
+class _InvocStackEntry:
+    invoc_pos:   _ct.Position
     macro_name:  str
     replacement: list[_ct.Token]
-    pos:         int = 0
+    read_pos:    int = 0
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -697,16 +727,27 @@ class _ExpandError(Exception):
 
 
 class _TokenIterator(_cabc.Iterator[_ct.Token]):
-    def __init__(self, directive_filter: _cd.DirectiveFilter, error_handler: _ct.ErrorHandler) -> None:
-        self._directive_filter = directive_filter
+    def __init__(self, root_directive_filter: _cd.DirectiveFilter, include_stack: list[_IncludeStackEntry],
+                 error_handler: _ct.ErrorHandler) -> None:
+        self._root_directive_filter = root_directive_filter
+        self._include_stack = include_stack
         self._error_handler = error_handler
         self._at_end = False
 
     @typing.override
     def __next__(self) -> _ct.Token:
-        if self._at_end:
-            raise StopIteration
-        token = self._directive_filter.next_token()
+        while True:
+            if not self._include_stack:
+                if self._at_end:
+                    raise StopIteration
+                token = self._root_directive_filter.next_token()
+                break
+            top = self._include_stack[-1]
+            token = top.directive_filter.next_token()
+            if token.type_ is not _ct.TokenType.END_OF_INPUT:
+                break
+            top.source.input_.close()
+            self._include_stack.pop()
         token_type = token.type_
         if token_type is _ct.TokenType.IDENTIFIER:
             if not _cd.verify_no_va_names(token.text, token.pos, self._error_handler, synthetic=False):
