@@ -42,22 +42,18 @@ import archon.cpp_preprocess._directive as _cd
 # The preprocessor operates in a streaming fashion, meaning that it starts generating tokens
 # before having seen the end of input.
 #
-def preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, context: Context,
+def preprocess(file_: File, source: Source, context: Context,
                predefined_macros: _cabc.Sequence[BuiltinMacro] | None = None) -> _cabc.Iterator[_ct.Token]:
-    return _preprocess(source, file_index, tracker, context, predefined_macros)
-
-
-@dataclasses.dataclass(slots=True, frozen=True)
-class Source:
-    input_: typing.TextIO
-    path:   pathlib.Path
+    return _preprocess(file_, source, context, predefined_macros)
 
 
 class Context(abc.ABC):
-    # Returns file index as used in `_ct.Position` objects.
-    #
     @abc.abstractmethod
-    def resolve_include(self, name: str, resolution_type: _cd.ResolutionType, /) -> int | None:
+    def resolve_include(self, name: str, resolution_type: _cd.ResolutionType, base_file_index: int, /) -> File | None:
+        ...
+
+    @abc.abstractmethod
+    def open_file(self, file_index: int) -> Source | None:
         ...
 
     # Called with the tokens of the pragma directive minus the leading `#pragma` and minus
@@ -65,12 +61,25 @@ class Context(abc.ABC):
     # whitespace is not considered part of a directive, the passed token sequence will
     # neither have have leading nor trailing whitespace.
     #
+    @abc.abstractmethod
     def handle_pragma(self, tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position, /) -> None:
-        pass
+        ...
 
     @abc.abstractmethod
     def handle_error(self, pos: _ct.Position, message: str, /, *args: typing.Any) -> None:
         ...
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class File:
+    path:       pathlib.Path
+    file_index: int
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class Source:
+    input_:           typing.TextIO
+    position_tracker: _tp.TextPosTracker
 
 
 type Macro = BuiltinMacro | RegularMacro
@@ -116,7 +125,7 @@ class MacroArg:
 
 
 
-def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, context: Context,
+def _preprocess(file_: File, source: Source, context: Context,
                 predefined_macros: _cabc.Sequence[BuiltinMacro] | None) -> _cabc.Iterator[_ct.Token]:
     macro_registry: dict[str, Macro] = {}
     active_set: set[str] = set()
@@ -503,7 +512,8 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, co
                 include_directive = _cd.parse_include_directive(remaining_tokens, pos, end_pos, macro_expand, error)
                 if include_directive is None:
                     return
-                file_index = context.resolve_include(include_directive.name, include_directive.resolution_type)
+                file_index = context.resolve_include(include_directive.name, include_directive.resolution_type,
+                                                     file_.file_index)
                 if file_index is None:
                     match include_directive.resolution_type:
                         case _cd.ResolutionType.BRACKETED:
@@ -583,12 +593,12 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, co
         macro_registry[name] = BuiltinMacro(signature, permanent, require_paren, func_2)
 
     def file_func(invoke_pos: _ct.Position) -> list[_ct.Token] | None:
-        text = _make_string_lit(str(source.path))
+        text = _make_string_lit(str(file_.path))
         token = _ct.Token(_ct.TokenType.STRING_LIT, text, invoke_pos, synthetic=True)
         return [token]
 
     def line_func(invoke_pos: _ct.Position) -> list[_ct.Token] | None:
-        text = str(tracker.line_no)
+        text = str(source.position_tracker.line_no)
         token = _ct.Token(_ct.TokenType.NUMBER, text, invoke_pos, synthetic=True)
         return [token]
 
@@ -651,7 +661,7 @@ def _preprocess(source: Source, file_index: int, tracker: _tp.TextPosTracker, co
         for macro in predefined_macros:
             macro_registry[macro.signature.name] = macro
 
-    tokenizer = _ct.Tokenizer(source.input_, file_index, tracker, error)
+    tokenizer = _ct.Tokenizer(source.input_, file_.file_index, source.position_tracker, error)
     directive_filter = _cd.DirectiveFilter(tokenizer, directive_handler)
     iterator = _TokenIterator(directive_filter, error)
     for token in process(iterator):

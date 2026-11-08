@@ -21,9 +21,11 @@
 from __future__ import annotations
 
 import typing
+import dataclasses
 import collections.abc as _cabc
 import sys
 import pathlib
+import stat
 
 import archon.base as _b
 import archon.text_pos as _tp
@@ -36,8 +38,14 @@ no_serialize = _b.Wrap(False)
 log_level    = _b.Wrap(_l.LogLevel.INFO)
 help_        = _b.Wrap(False)
 
+include_path: list[pathlib.Path] = []
+
+def append_include_path_entry(path: pathlib.Path) -> None:
+    include_path.append(path)
+
 spec = _cli.Spec()
-spec.opt(["-s", "--no-serialize"], _cli.Raise(no_serialize))
+spec.opt(["-n", "--no-serialize"], _cli.Raise(no_serialize))
+spec.opt(["-I", "--search"], _cli.CallWithArg(pathlib.Path, append_include_path_entry))
 spec.opt(["-l", "--log-level"], _cli.AssignWithArg(_l.parse_log_level, log_level))
 spec.opt(["-h", "--help"], _cli.ShortCircuit(help_))
 spec.opt(["--"], _cli.Stop())
@@ -57,50 +65,117 @@ if len(args) != 1:
 path = pathlib.Path(args[0])
 
 logger = _l.LimitLogger(root_logger, log_level.value)
-tracker = _tp.TextPosTracker()
 
 
 class Context(_cp.Context):
-    def __init__(self) -> None:
+    def __init__(self, include_path: list[pathlib.Path], file_registry: FileRegistry) -> None:
         self.error = False
+        self._include_path = include_path
+        self._file_registry = file_registry
 
     @typing.override
-    def resolve_include(self, name: str, resolution_type_: _cp.ResolutionType) -> int | None:
-        # FIXME: Implement this    
+    def resolve_include(self, name: str, resolution_type: _cp.ResolutionType,
+                        base_file_index: int) -> _cp.File | None:
+        match resolution_type:
+            case _cp.ResolutionType.BRACKETED:
+                pass
+            case _cp.ResolutionType.QUOTED:
+                base_entry = self._file_registry.get(base_file_index)
+                if file_ := self._find_file(name, base_entry.path.parent):
+                    return file_
+            case _:
+                typing.assert_never(resolution_type)
+        for dir_path in self._include_path:
+            if file_ := self._find_file(name, dir_path):
+                return file_
         return None
+
+    @typing.override
+    def open_file(self, file_index: int) -> _cp.Source | None:
+        entry = self._file_registry.get(file_index)
+        input_ = open(entry.path)
+        return _cp.Source(input_, entry.position_tracker)
 
     @typing.override
     def handle_pragma(self, tokens: _cabc.Sequence[_cp.Token], pos: _cp.Position, end_pos: _cp.Position) -> None:
         text = "".join(t.text for t in tokens)
-        assert pos.file_index == 0
-        text_pos = tracker.get_text_pos(pos.pos_in_file)
-        context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
+        entry = self._file_registry.get(pos.file_index)
+        text_pos = entry.position_tracker.get_text_pos(pos.pos_in_file)
+        context = _l.FileContext(entry.path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         _l.FileContextLogger(logger, context).info("Pragma: %s", text)
 
     @typing.override
     def handle_error(self, pos: _cp.Position, message: str, *args: typing.Any) -> None:
-        assert pos.file_index == 0
-        text_pos = tracker.get_text_pos(pos.pos_in_file)
-        context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
+        entry = self._file_registry.get(pos.file_index)
+        text_pos = entry.position_tracker.get_text_pos(pos.pos_in_file)
+        context = _l.FileContext(entry.path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         _l.FileContextLogger(logger, context).error(message, *args)
         self.error = True
 
+    def _find_file(self, name: str, dir_path: pathlib.Path) -> _cp.File | None:
+        path = dir_path / name
+        file_index = self._file_registry.ensure(path)
+        if file_index is None:
+            return None
+        return _cp.File(path, file_index)
+
+
+class FileRegistry:
+    def __init__(self) -> None:
+        self._entries: list[FileEntry] = []
+        # Maps (st_dev, st_ino) to file_index
+        self._identities: dict[tuple[int, int], int] = {}
+
+    def ensure(self, path: pathlib.Path) -> int | None:
+        try:
+            stat_result = path.stat()
+        except (FileNotFoundError, NotADirectoryError):
+            return None
+        if not stat.S_ISREG(stat_result.st_mode):
+            return None
+
+        identity = (stat_result.st_dev, stat_result.st_ino)
+        if identity in self._identities:
+            return self._identities[identity]
+
+        position_tracker = _tp.TextPosTracker()
+        entry = FileEntry(path, position_tracker)
+        file_index = len(self._entries)
+        self._entries.append(entry)
+        self._identities[identity] = file_index
+        return file_index
+
+    def get(self, file_index: int) -> FileEntry:
+        return self._entries[file_index]
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class FileEntry:
+    path:             pathlib.Path
+    position_tracker: _tp.TextPosTracker
+
 
 try:
-    with open(path) as file_:
-        source = _cp.Source(file_, path)
-        file_index = 0
-        context = Context()
-        tokens_iter = _cp.preprocess(source, file_index, tracker, context)
+    with open(path) as input_:
+        file_registry = FileRegistry()
+        file_index = file_registry.ensure(path)
+        if file_index is None:
+            raise RuntimeError("Unexpected concurrent modification")
+        root_entry = file_registry.get(file_index)
+        file_ = _cp.File(path, file_index)
+        source = _cp.Source(input_, root_entry.position_tracker)
+        context = Context(include_path, file_registry)
+        tokens_iter = _cp.preprocess(file_, source, context)
         if no_serialize.value:
             for token in tokens_iter:
                 pos = token.pos
-                assert pos.file_index == 0
-                text_pos = tracker.get_text_pos(pos.pos_in_file)
+                entry = file_registry.get(pos.file_index)
+                text_pos = entry.position_tracker.get_text_pos(pos.pos_in_file)
                 string = _b.clamped_quote(token.text, 64)
                 if token.synthetic:
                     string += " (synthetic)"
-                logger.info("%s:%s: %s: %s", text_pos.line_no, text_pos.pos_on_line, token.type_.name, string)
+                logger.info("%s:%s:%s: %s: %s", entry.path, text_pos.line_no, text_pos.pos_on_line, token.type_.name,
+                            string)
         else:
             parts: list[str] = []
             def flush() -> None:
@@ -118,6 +193,6 @@ try:
                 parts.append(token.reconstruct())
         if context.error:
             sys.exit(1)
-except FileNotFoundError as e:
+except OSError as e:
     logger.error("Failed to open %s: %s", _b.quote(str(path)), e.strerror)
     sys.exit(1)
