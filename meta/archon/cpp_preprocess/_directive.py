@@ -24,6 +24,7 @@ import typing
 import dataclasses
 import collections.abc as _cabc
 import enum
+import pathlib
 
 import archon.base as _b
 import archon.text_pos as _tp
@@ -147,6 +148,10 @@ def parse_undef_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, 
                             error_handler: _ct.ErrorHandler) -> UndefDirective | None:
     return _parse_undef_directive(tokens, pos, end_pos, error_handler)
 
+def parse_line_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
+                         macro_expander: MacroExpander, error_handler: _ct.ErrorHandler) -> LineDirective | None:
+    return _parse_line_directive(tokens, pos, end_pos, macro_expander, error_handler)
+
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class IncludeDirective:
@@ -164,6 +169,12 @@ class DefineDirective:
 class UndefDirective:
     pos:  _ct.Position
     name: str
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class LineDirective:
+    pos:     _ct.Position
+    line_no: int
+    path:    pathlib.Path | None
 
 
 class ResolutionType(enum.Enum):
@@ -703,6 +714,12 @@ def _parse_undef_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position,
         i += 1
 
     return UndefDirective(pos, name)
+
+
+def _parse_line_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
+                          macro_expander: MacroExpander,
+                          error_handler: _ct.ErrorHandler) -> LineDirective | None:
+    raise NotImplementedError        
 
 
 def _verify_no_va_names(text: str, pos: _ct.Position, error_handler: _ct.ErrorHandler, synthetic: bool) -> bool:

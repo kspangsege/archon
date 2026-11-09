@@ -565,6 +565,11 @@ def _preprocess(root_file: File, root_source: Source, context: Context,
                     return
                 del macro_registry[undef_directive.name]
                 return
+            case _cd.DirectiveType.LINE:
+                line_directive = _cd.parse_line_directive(remaining_tokens, pos, end_pos, macro_expand, error)
+                if line_directive is None:
+                    return
+                raise NotImplementedError         
             case _cd.DirectiveType.PRAGMA:
                 context.handle_pragma(remaining_tokens, pos, end_pos)
                 return
