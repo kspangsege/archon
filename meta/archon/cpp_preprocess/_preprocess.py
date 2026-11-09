@@ -29,7 +29,9 @@ import pathlib
 
 import archon.base as _b
 import archon.text_pos as _tp
+import archon.cpp_preprocess._position as _cp
 import archon.cpp_preprocess._tokenize as _ct
+import archon.cpp_preprocess._unpack as _cu
 import archon.cpp_preprocess._directive as _cd
 
 
@@ -43,8 +45,8 @@ import archon.cpp_preprocess._directive as _cd
 # before having seen the end of input.
 #
 def preprocess(root_file: File, root_source: Source, context: Context,
-               predefined_macros: _cabc.Sequence[BuiltinMacro] | None = None) -> _cabc.Iterator[_ct.Token]:
-    return _preprocess(root_file, root_source, context, predefined_macros)
+               config: Config | None = None) -> _cabc.Iterator[_ct.Token]:
+    return _preprocess(root_file, root_source, context, config or Config())
 
 
 class Context(abc.ABC):
@@ -62,11 +64,11 @@ class Context(abc.ABC):
     # neither have have leading nor trailing whitespace.
     #
     @abc.abstractmethod
-    def handle_pragma(self, tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position, /) -> None:
+    def handle_pragma(self, tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position, /) -> None:
         ...
 
     @abc.abstractmethod
-    def handle_error(self, pos: _ct.Position, message: str, /, *args: typing.Any) -> None:
+    def handle_error(self, pos: _cp.Position, message: str, /, *args: typing.Any) -> None:
         ...
 
 
@@ -80,6 +82,12 @@ class File:
 class Source:
     input_:           typing.TextIO
     position_tracker: _tp.TextPosTracker
+
+
+@dataclasses.dataclass(slots=True)
+class Config:
+    encoding_info = _cu.EncodingInfo()
+    predefined_macros: _cabc.Sequence[BuiltinMacro] | None = None
 
 
 type Macro = BuiltinMacro | RegularMacro
@@ -97,7 +105,7 @@ class BuiltinMacro(MacroBase):
 @dataclasses.dataclass(slots=True, frozen=True)
 class RegularMacro(MacroBase):
     replacement:    tuple[_cd.ReplaceElem, ...]
-    definition_pos: _ct.Position
+    definition_pos: _cp.Position
 
 
 # When invoked by the preprocessor, the preprocessor guarantees that `arguments` is not
@@ -108,7 +116,7 @@ class RegularMacro(MacroBase):
 # The function must return `None` if and only if an error occurred.
 #
 class MacroFunction(typing.Protocol):
-    def __call__(self, invoc_pos: _ct.Position, /, arguments: list[MacroArg] | None,
+    def __call__(self, invoc_pos: _cp.Position, /, arguments: list[MacroArg] | None,
                  va_args: MacroArg | None) -> list[_ct.Token] | None:
         ...
 
@@ -116,7 +124,7 @@ class MacroFunction(typing.Protocol):
 @dataclasses.dataclass(slots=True)
 class MacroArg:
     tokens:  list[_ct.Token]
-    end_pos: _ct.Position
+    end_pos: _cp.Position
 
 
 
@@ -125,8 +133,7 @@ class MacroArg:
 
 
 
-def _preprocess(root_file: File, root_source: Source, context: Context,
-                predefined_macros: _cabc.Sequence[BuiltinMacro] | None) -> _cabc.Iterator[_ct.Token]:
+def _preprocess(root_file: File, root_source: Source, context: Context, config: Config) -> _cabc.Iterator[_ct.Token]:
     macro_registry: dict[str, Macro] = {}
     include_stack: list[_IncludeStackEntry] = []
     invoc_stack: list[_InvocStackEntry] = []
@@ -294,7 +301,7 @@ def _preprocess(root_file: File, root_source: Source, context: Context,
                 push_invoc(name, replacement, invoc_pos)
             token = next_token()
 
-    def push_invoc(macro_name: str, replacement: list[_ct.Token], invoc_pos: _ct.Position) -> None:
+    def push_invoc(macro_name: str, replacement: list[_ct.Token], invoc_pos: _cp.Position) -> None:
         assert macro_name not in active_set
         active_set.add(macro_name)
         entry = _InvocStackEntry(invoc_pos, macro_name, replacement)
@@ -318,7 +325,7 @@ def _preprocess(root_file: File, root_source: Source, context: Context,
                 fuse_operation = elem
                 accum: _ct.Token | None
                 composed: bool
-                def add(token: _ct.Token, operator_pos: _ct.Position) -> None:
+                def add(token: _ct.Token, operator_pos: _cp.Position) -> None:
                     nonlocal accum, composed
                     if accum is None:
                         assert not composed
@@ -396,7 +403,7 @@ def _preprocess(root_file: File, root_source: Source, context: Context,
                 slot.expanded = macro_expand(arg.tokens, arg.end_pos)
             return slot.expanded
 
-        def stringify_arg(param_index: int | None, operator_pos: _ct.Position) -> _ct.Token:
+        def stringify_arg(param_index: int | None, operator_pos: _cp.Position) -> _ct.Token:
             slot = get_arg_slot(param_index)
             if slot.stringified is None:
                 slot.stringified = stringify(slot.arg.tokens, operator_pos)
@@ -419,7 +426,7 @@ def _preprocess(root_file: File, root_source: Source, context: Context,
         except _ExpandError:
             return None
 
-    def macro_expand(tokens: _cabc.Sequence[_ct.Token], end_pos: _ct.Position) -> list[_ct.Token]:
+    def macro_expand(tokens: _cabc.Sequence[_ct.Token], end_pos: _cp.Position) -> list[_ct.Token]:
         tokens_2 = list(tokens) + [_ct.Token(_ct.TokenType.END_OF_INPUT, "", end_pos)]
         result: list[_ct.Token] = []
         for token in process(iter(tokens_2)):
@@ -428,7 +435,7 @@ def _preprocess(root_file: File, root_source: Source, context: Context,
             result.append(token)
         return result
 
-    def stringify(tokens: list[_ct.Token], operator_pos: _ct.Position) -> _ct.Token:
+    def stringify(tokens: list[_ct.Token], operator_pos: _cp.Position) -> _ct.Token:
         parts: list[str] = []
         pending_space = False
         def flush_space() -> None:
@@ -456,7 +463,7 @@ def _preprocess(root_file: File, root_source: Source, context: Context,
         assert token.type_ is _ct.TokenType.STRING_LIT
         return token
 
-    def fuse_tokens(left: _ct.Token, right: _ct.Token, operator_pos: _ct.Position) -> _ct.Token:
+    def fuse_tokens(left: _ct.Token, right: _ct.Token, operator_pos: _cp.Position) -> _ct.Token:
         text = left.reconstruct() + right.reconstruct()
         token = synthesize_token(text, operator_pos)
         if token is None:
@@ -467,23 +474,23 @@ def _preprocess(root_file: File, root_source: Source, context: Context,
                 raise _ExpandError
         return token
 
-    def synthesize_token(text: str, pos: _ct.Position) -> _ct.Token | None:
+    def synthesize_token(text: str, pos: _cp.Position) -> _ct.Token | None:
         tokens = synthesize_tokens(text, pos)
         return tokens[0] if tokens is not None and len(tokens) == 1 else None
 
-    def synthesize_tokens(text: str, pos: _ct.Position, offset_map: _tp.PosMap | None = None,
+    def synthesize_tokens(text: str, pos: _cp.Position, offset_map: _tp.PosMap | None = None,
                           generate_error_messages: bool = False) -> list[_ct.Token] | None:
         dummy_file_index = 0
         dummy_tracker = _tp.TextPosTracker()
         with io.StringIO(text) as input_:
             has_error = False
-            def error_handler(subpos: _ct.Position, message: str, *args: typing.Any) -> None:
+            def error_handler(subpos: _cp.Position, message: str, *args: typing.Any) -> None:
                 nonlocal has_error
                 if generate_error_messages:
                     pos_2 = get_pos(subpos.pos_in_file)
                     error(pos_2, message, *args)
                 has_error = True
-            def get_pos(offset: int) -> _ct.Position:
+            def get_pos(offset: int) -> _cp.Position:
                 if offset_map is None:
                     return pos
                 offset_2 = offset_map.map_(offset)
@@ -498,7 +505,7 @@ def _preprocess(root_file: File, root_source: Source, context: Context,
                 token_2 = dataclasses.replace(token, pos=pos_2, synthetic=True)
                 tokens.append(token_2)
 
-    def directive_handler(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position) -> None:
+    def directive_handler(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position) -> None:
         if in_argument:
             error(pos, "Preprocessing directive inside macro argument is not allowed")
             return
@@ -566,7 +573,8 @@ def _preprocess(root_file: File, root_source: Source, context: Context,
                 del macro_registry[undef_directive.name]
                 return
             case _cd.DirectiveType.LINE:
-                line_directive = _cd.parse_line_directive(remaining_tokens, pos, end_pos, macro_expand, error)
+                line_directive = _cd.parse_line_directive(remaining_tokens, pos, end_pos, macro_expand,
+                                                          config.encoding_info, error)
                 if line_directive is None:
                     return
                 raise NotImplementedError         
@@ -575,22 +583,22 @@ def _preprocess(root_file: File, root_source: Source, context: Context,
                 return
         raise NotImplementedError         
 
-    def error(pos: _ct.Position, message: str, *args: typing.Any) -> None:
+    def error(pos: _cp.Position, message: str, *args: typing.Any) -> None:
         context.handle_error(pos, message, *args)
 
     class ObjectlikeFunction(typing.Protocol):
-        def __call__(self, invoc_pos: _ct.Position) -> list[_ct.Token] | None:
+        def __call__(self, invoc_pos: _cp.Position) -> list[_ct.Token] | None:
             ...
 
     class FunctionlikeFunction(typing.Protocol):
-        def __call__(self, invoc_pos: _ct.Position, arg: MacroArg) -> list[_ct.Token] | None:
+        def __call__(self, invoc_pos: _cp.Position, arg: MacroArg) -> list[_ct.Token] | None:
             ...
 
     def add_objectlike_macro(name: str, func: ObjectlikeFunction) -> None:
         signature = _cd.MacroSignature(name, params=None, is_variadic=False)
         permanent = True
         require_paren = False
-        def func_2(invoc_pos: _ct.Position, arguments: list[MacroArg] | None,
+        def func_2(invoc_pos: _cp.Position, arguments: list[MacroArg] | None,
                    va_args: MacroArg | None) -> list[_ct.Token] | None:
             return func(invoc_pos)
         macro_registry[name] = BuiltinMacro(signature, permanent, require_paren, func_2)
@@ -599,19 +607,19 @@ def _preprocess(root_file: File, root_source: Source, context: Context,
         signature = _cd.MacroSignature(name, params=("_",), is_variadic=False)
         permanent = True
         require_paren = True
-        def func_2(invoc_pos: _ct.Position, arguments: list[MacroArg] | None,
+        def func_2(invoc_pos: _cp.Position, arguments: list[MacroArg] | None,
                    va_args: MacroArg | None) -> list[_ct.Token] | None:
             assert arguments is not None
             return func(invoc_pos, arguments[0])
         macro_registry[name] = BuiltinMacro(signature, permanent, require_paren, func_2)
 
-    def file_func(invoc_pos: _ct.Position) -> list[_ct.Token] | None:
+    def file_func(invoc_pos: _cp.Position) -> list[_ct.Token] | None:
         file_ = include_stack[-1].file_ if include_stack else root_file
         text = _make_string_lit(str(file_.path))
         token = _ct.Token(_ct.TokenType.STRING_LIT, text, invoc_pos, synthetic=True)
         return [token]
 
-    def line_func(invoc_pos: _ct.Position) -> list[_ct.Token] | None:
+    def line_func(invoc_pos: _cp.Position) -> list[_ct.Token] | None:
         root_invoc_pos = invoc_stack[0].invoc_pos if invoc_stack else invoc_pos
         if include_stack:
             top = include_stack[-1]
@@ -625,7 +633,7 @@ def _preprocess(root_file: File, root_source: Source, context: Context,
         token = _ct.Token(_ct.TokenType.NUMBER, text, invoc_pos, synthetic=True)
         return [token]
 
-    def pragma_func(invoc_pos: _ct.Position, arg: MacroArg) -> list[_ct.Token] | None:
+    def pragma_func(invoc_pos: _cp.Position, arg: MacroArg) -> list[_ct.Token] | None:
         if len(arg.tokens) != 1 or arg.tokens[0].type_ is not _ct.TokenType.STRING_LIT:
             pos = arg.tokens[0].pos if arg.tokens else arg.end_pos
             error(pos, "Invalid argument in _Pragma() invocation: Must be a single string literal")
@@ -680,8 +688,8 @@ def _preprocess(root_file: File, root_source: Source, context: Context,
     # FIXME: Support special built-in macros `__has_embed`, `__has_include`, and
     # `__has_cpp_attribute`        
 
-    if predefined_macros is not None:
-        for macro in predefined_macros:
+    if config.predefined_macros is not None:
+        for macro in config.predefined_macros:
             macro_registry[macro.signature.name] = macro
 
     tokenizer = _ct.Tokenizer(root_source.input_, root_file.file_index, root_source.position_tracker, error)
@@ -707,7 +715,7 @@ class _IncludeStackEntry:
 
 @dataclasses.dataclass(slots=True)
 class _InvocStackEntry:
-    invoc_pos:   _ct.Position
+    invoc_pos:   _cp.Position
     macro_name:  str
     replacement: list[_ct.Token]
     read_pos:    int = 0
@@ -717,7 +725,7 @@ class _InvocStackEntry:
 class _ArgDelim:
     begin: int
     end:   int
-    pos:   _ct.Position  # Position of comma or closing parenthesis
+    pos:   _cp.Position  # Position of comma or closing parenthesis
 
 
 @dataclasses.dataclass(slots=True)

@@ -29,6 +29,7 @@ import unicodedata
 
 import archon.base as _b
 import archon.text_pos as _tp
+import archon.cpp_preprocess._position as _cp
 
 
 # Tokens carry information about resolved free-standing UCNs in `ucn_map`. A free-standing
@@ -56,7 +57,7 @@ import archon.text_pos as _tp
 class Token:
     type_:     TokenType
     text:      str
-    pos:       Position
+    pos:       _cp.Position
     ucn_map:   ReplacementMap | None = None
     synthetic: bool                  = False
 
@@ -72,7 +73,7 @@ class Token:
     def is_special(self) -> bool:
         return self.type_ in SPECIAL
 
-    def subpos(self, offset: int) -> Position:
+    def subpos(self, offset: int) -> _cp.Position:
         if self.synthetic:
             return self.pos
         offset_2 = offset if self.ucn_map is None else self.ucn_map(offset)
@@ -167,27 +168,8 @@ REGULAR = set(TokenType) - SPACE - ERROR - SPECIAL
 
 
 class ErrorHandler(typing.Protocol):
-    def __call__(self, pos: Position, message: str, /, *args: typing.Any) -> None:
+    def __call__(self, pos: _cp.Position, message: str, /, *args: typing.Any) -> None:
         ...
-
-
-# `pos_in_file` marks a position within the position space created through use of a position
-# tracker (_tp.TextPosTracker). If the token was produced by a tokenizer, this is the
-# position tracker that was passed to the `Tokenizer` constructor. This position space does
-# not include honored splicing connectors (backslash + newline), which means that it is
-# expressed in terms of logical lines, not physical lines. This is necessary in order to
-# allow for accurate position interpolation across the token texts, which do not include the
-# splicing connectors. Splicing connectors cannot be dealt with in the same way as resolved
-# free-standing UCNs, because such UCNs must be restored by `#x`, but splicing connectors
-# must not.
-#
-@dataclasses.dataclass(slots=True, frozen=True)
-class Position:
-    file_index:  int
-    pos_in_file: int
-
-    def shift(self, offset: int) -> Position:
-        return Position(file_index = self.file_index, pos_in_file = self.pos_in_file + offset)
 
 
 # Given a string where non-overlapping substrings have been replaced by something new, this
@@ -410,12 +392,12 @@ class Tokenizer:
 
     # The read position must be at the current roll-back position (see _commit()).
     #
-    def _get_pos(self) -> Position:
+    def _get_pos(self) -> _cp.Position:
         assert self._buffer_pos == 0  # At roll-back position
         pos_in_file = self._position_tracker.current
-        return Position(self._file_index, pos_in_file)
+        return _cp.Position(self._file_index, pos_in_file)
 
-    def _consume_char_or_string_lit(self, prefix: str, first_char: str, pos: Position) -> Token:
+    def _consume_char_or_string_lit(self, prefix: str, first_char: str, pos: _cp.Position) -> Token:
         is_string = (first_char == '"')
         pattern = _QUOTATION_MARK_OR_BACKSLASH_OR_NEWLINE_REGEX if is_string else \
             _APOSTROPHE_OR_BACKSLASH_OR_NEWLINE_REGEX
@@ -443,7 +425,7 @@ class Tokenizer:
         text = "".join(state.parts)
         return Token(token_type, text, pos, state.get_ucn_map())
 
-    def _consume_raw_string_lit(self, prefix: str, pos: Position) -> Token:
+    def _consume_raw_string_lit(self, prefix: str, pos: _cp.Position) -> Token:
         parts = [prefix, self._commit()]
         delim_pos = self._get_pos()
         self._disable_splicing()
@@ -508,7 +490,7 @@ class Tokenizer:
         text = "".join(state.parts)
         return Token(token_type, text, pos, state.get_ucn_map())
 
-    def _consume_number(self, pos: Position) -> Token:
+    def _consume_number(self, pos: _cp.Position) -> Token:
         state = _IdentFragConsumeState()
         while True:
             ch = self._consume_until(_NONWORD_OR_EXPONENT_ASCII_REGEX)
@@ -547,7 +529,7 @@ class Tokenizer:
         text = "".join(state.parts)
         return Token(token_type, text, pos, state.get_ucn_map())
 
-    def _consume_punctuation(self, first_char: str, pos: Position) -> Token:
+    def _consume_punctuation(self, first_char: str, pos: _cp.Position) -> Token:
             text = first_char
             lexeme_len, valid_prefix = _PUNCTUATION_MAP.get(text, (None, False))
             best_len = lexeme_len
@@ -918,7 +900,7 @@ class Tokenizer:
 # from splitting off user-defined literal suffixes from character, string, and number
 # literals.
 #
-def verify_identifier_nfc(text: str, pos: Position, error_handler: ErrorHandler) -> bool:
+def verify_identifier_nfc(text: str, pos: _cp.Position, error_handler: ErrorHandler) -> bool:
     if unicodedata.is_normalized("NFC", text):
         return True
     error_handler(pos, "Identifier does not conform to Unicode Normalization Form C (NFC)")

@@ -1113,10 +1113,10 @@ def test_CppPreprocess_ParseDefineDirective(context: _t.Context) -> None:
         _cp.ParamRef(0, _cp.Position(file_index, 10)),
     ))
     _check_bad_define_directive(context, "defined foo", [
-        ("`defined` cannot be used as a macro name", _tp.TextPos(1, 0)),
+        ("`defined` cannot be used as a macro name in #define directive", _tp.TextPos(1, 0)),
     ])
     _check_bad_define_directive(context, "defined(x) foo", [
-        ("`defined` cannot be used as a macro name", _tp.TextPos(1, 0)),
+        ("`defined` cannot be used as a macro name in #define directive", _tp.TextPos(1, 0)),
     ])
     _check_bad_define_directive(context, "M'c'", [
         ("Missing whitespace after macro name in definition of object-like macro", _tp.TextPos(1, 1)),
@@ -1593,7 +1593,7 @@ def _check_valid_string_literal(context: _t.Context, text: str, expected_payload
 
     pos = _cp.Position(file_index, 0)
     synthetic = False
-    result = _cp.unpack_string_literal(text, pos, synthetic, error_handler, encoding_info)
+    result = _cp.unpack_string_literal(text, pos, synthetic, encoding_info or _cp.EncodingInfo(), error_handler)
 
     context.check_not(error)
     context.check_is_not_none(result)
@@ -1609,8 +1609,9 @@ def _check_numeric_escape_error(context: _t.Context, text: str, encoding_info: _
 
     pos = _cp.Position(0, 0)
     synthetic = False
+    encoding_info = _cp.EncodingInfo()
     with context.check_raises(_cp.NumericEscapeError):
-        _cp.unpack_string_literal(text, pos, synthetic, error_handler)
+        _cp.unpack_string_literal(text, pos, synthetic, encoding_info, error_handler)
 
 
 def _check_invalid_string_literal(context: _t.Context, text: str, expected_errors: list[tuple[str, int]],
@@ -1627,7 +1628,7 @@ def _check_invalid_string_literal(context: _t.Context, text: str, expected_error
 
     pos = _cp.Position(file_index, 0)
     synthetic = False
-    result = _cp.unpack_string_literal(text, pos, synthetic, error_handler, encoding_info)
+    result = _cp.unpack_string_literal(text, pos, synthetic, encoding_info or _cp.EncodingInfo(), error_handler)
 
     context.check_is_none(result)
     for i, (error, (expected_message, expected_offset)) in enumerate(zip(errors, expected_errors)):

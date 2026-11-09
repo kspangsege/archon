@@ -25,6 +25,7 @@ import dataclasses
 import enum
 
 import archon.base as _b
+import archon.cpp_preprocess._position as _cp
 import archon.cpp_preprocess._tokenize as _ct
 
 
@@ -53,13 +54,15 @@ import archon.cpp_preprocess._tokenize as _ct
 # produced by the tokenizer such as `BAD_STRING_LIT`.
 #
 # If an error occurs during unpacking, which will be due to an invalid escape sequence, this
-# function generates an error message and returns `None`. If the specified literal contains
-# a valid numeric escape sequence that is not a UCN and the target character encoding is not
-# known, this function raises `NumericEscapeError`. The target character encoding is known
-# if the prefix is `u8`, `u`, `U`, `u8R`, `uR`, or `UR`. It is also known if `encoding_info`
-# is not `None`. If neither is the case, the target encoding is not known. The target
-# character encoding never needs to be known to unpack raw string literals, because they do
-# not contain escape sequences of any kind.
+# function generates an error message and returns `None`.
+#
+# If the specified literal contains a valid numeric escape sequence that is not a UCN and
+# the target character encoding is not known, this function raises `NumericEscapeError`. The
+# target character encoding is not known if there is no prefix (plain string literal) and
+# `encoding_info.plain` is unspecified or if the prefix is `L` (wide string literal) and
+# `encoding_info.wide` is unspecified. In all other cases, target character encoding is
+# known. Note that there is no need to know the target encoding when unpacking raw string
+# literals, because they cannot contain escape sequences of any kind.
 #
 # When the target encoding is known, sequences of immediately adjacent numeric escapes are
 # decoded together. If there is a sequence that is not congruent with the encoding of one or
@@ -67,9 +70,9 @@ import archon.cpp_preprocess._tokenize as _ct
 # `None`. Note that C++26 allows for numeric escapes to produce invalid code units or
 # invalid sequences of code units. This function does not.
 #
-def unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_handler: _ct.ErrorHandler,
-                          encoding_info: EncodingInfo | None = None) -> UnpackedStringLiteral | None:
-    return _unpack_string_literal(text, pos, synthetic, error_handler, encoding_info)
+def unpack_string_literal(text: str, pos: _cp.Position, synthetic: bool, encoding_info: EncodingInfo,
+                          error_handler: _ct.ErrorHandler) -> UnpackedStringLiteral | None:
+    return _unpack_string_literal(text, pos, synthetic, encoding_info, error_handler)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -97,19 +100,31 @@ class WideCharacterEncoding(enum.Enum):
 
 
 # `plain` is the name of the execution character set encoding used for plain string
-# literals. It must be a valid byte-based encoding from the point of view of
+# literals. If specified, it must be a valid byte-based encoding from the point of view of
 # `bytes.decode()`.
 #
 # `wide` is the execution character set encoding used for wide string literals.
 #
 @dataclasses.dataclass(slots=True, frozen=True)
 class EncodingInfo:
-    plain: str = "utf-8"
-    wide: WideCharacterEncoding = WideCharacterEncoding.UTF_32
+    plain: str | None = None
+    wide: WideCharacterEncoding | None = None
 
 
+# Raised when a non-UCN numeric escape sequence occurs and the target character encoding is
+# unknown. See `unpack_string_literal()`.
+#
+# `offset` is the position of the offending numeric escape sequence relative to the start of
+# the specified string literal text.
+#
+# If `wide` is true, the problem was an unknown target character encoding for wide string
+# literals (`EncodingInfo.wide`). Otherwise, the problem was an unknown target character
+# encoding for plain string literals (`EncodingInfo.plain`).
+#
 class NumericEscapeError(Exception):
-    pass
+    def __init__(self, offset: int, wide: bool) -> None:
+        self.offset = offset
+        self.wide   = wide
 
 
 
@@ -118,8 +133,8 @@ class NumericEscapeError(Exception):
 
 
 
-def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_handler: _ct.ErrorHandler,
-                           encoding_info: EncodingInfo | None) -> UnpackedStringLiteral | None:
+def _unpack_string_literal(text: str, pos: _cp.Position, synthetic: bool, encoding_info: EncodingInfo,
+                           error_handler: _ct.ErrorHandler) -> UnpackedStringLiteral | None:
     i = text.find('"')
     assert i >= 0
     prefix = text[:i]
@@ -147,10 +162,10 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
     encoding: str | WideCharacterEncoding | None = None
     match literal_type:
         case StringLiteralType.PLAIN:
-            if encoding_info is not None:
+            if encoding_info.plain is not None:
                 encoding = encoding_info.plain
         case StringLiteralType.WIDE:
-            if encoding_info is not None:
+            if encoding_info.wide is not None:
                 encoding = encoding_info.wide
         case StringLiteralType.UTF_8:
             encoding = "utf-8"
@@ -161,7 +176,7 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
         case _:
             typing.assert_never(literal_type)
 
-    def get_subpos(offset: int) -> _ct.Position:
+    def get_subpos(offset: int) -> _cp.Position:
         return pos if synthetic else pos.shift(offset)
 
     parts: list[str] = []
@@ -259,7 +274,10 @@ def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, error_
                     ch = chr(code_point)
                     parts.append(ch)
             case None:
-                raise NumericEscapeError
+                offset = numeric_entries[0].offset
+                wide = literal_type == StringLiteralType.WIDE
+                assert wide or literal_type == StringLiteralType.PLAIN
+                raise NumericEscapeError(offset, wide)
             case _:
                 typing.assert_never(encoding)
         numeric_entries.clear()
