@@ -140,7 +140,7 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
     active_set: set[str] = set()
     in_argument = False
 
-    def process(tokens_iter: typing.Iterator[_ct.Token]) -> _cabc.Iterator[_ct.Token]:
+    def process(tokens_iter: typing.Iterator[_ct.Token], error_occurred: _b.Wrap[bool]) -> _cabc.Iterator[_ct.Token]:
         nonlocal in_argument
 
         base_level = len(invoc_stack)
@@ -211,6 +211,8 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
                         typing.assert_never(macro)
                 if replacement:
                     push_invoc(name, replacement, invoc_pos)
+                else:
+                    error_occurred.value = True
                 token = next_token()
                 continue
 
@@ -229,6 +231,7 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
             if not found_lparen:
                 if isinstance(macro, BuiltinMacro) and macro.require_paren:
                     error(token.pos, "Expected opening parenthesis after `%s`", name)
+                    error_occurred.value = True
                 yield from tokens
                 continue
 
@@ -257,6 +260,7 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
                 elif token.type_ is _ct.TokenType.END_OF_INPUT:
                     error(token.pos, "Expected closing parenthesis or comma in invocation of function-like macro %s",
                           _b.clamped_quote(name, 64))
+                    error_occurred.value = True
                     break
                 tokens.append(token)
                 continue
@@ -268,6 +272,7 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
             if len(arg_delims) < n:
                 pos = arg_delims[-1].pos
                 error(pos, "Too few arguments in invocation of function-like macro %s", _b.clamped_quote(name, 64))
+                error_occurred.value = True
                 token = next_token()
                 continue
             is_variadic = signature.params is not None and signature.is_variadic
@@ -283,6 +288,7 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
                     arg = get_arg(0, 1)
                     pos = arg.tokens[0].pos if arg.tokens else arg.end_pos
                 error(pos, "Too many arguments in invocation of function-like macro %s", _b.clamped_quote(name, 64))
+                error_occurred.value = True
                 token = next_token()
                 continue
 
@@ -299,6 +305,8 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
                     typing.assert_never(macro)
             if replacement:
                 push_invoc(name, replacement, invoc_pos)
+            else:
+                error_occurred.value = True
             token = next_token()
 
     def push_invoc(macro_name: str, replacement: list[_ct.Token], invoc_pos: _cp.Position) -> None:
@@ -400,7 +408,10 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
             if is_fuse_context:
                 return arg.tokens
             if slot.expanded is None:
-                slot.expanded = macro_expand(arg.tokens, arg.end_pos)
+                result = macro_expand(arg.tokens, arg.end_pos)
+                if result is None:
+                    raise _ExpandError
+                slot.expanded = result
             return slot.expanded
 
         def stringify_arg(param_index: int | None, operator_pos: _cp.Position) -> _ct.Token:
@@ -426,13 +437,16 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
         except _ExpandError:
             return None
 
-    def macro_expand(tokens: _cabc.Sequence[_ct.Token], end_pos: _cp.Position) -> list[_ct.Token]:
+    def macro_expand(tokens: _cabc.Sequence[_ct.Token], end_pos: _cp.Position) -> list[_ct.Token] | None:
         tokens_2 = list(tokens) + [_ct.Token(_ct.TokenType.END_OF_INPUT, "", end_pos)]
         result: list[_ct.Token] = []
-        for token in process(iter(tokens_2)):
+        error_occurred = _b.Wrap(False)
+        for token in process(iter(tokens_2), error_occurred):
             if token.type_ is _ct.TokenType.END_OF_INPUT:
                 break
             result.append(token)
+        if error_occurred.value:
+            return None
         return result
 
     def stringify(tokens: list[_ct.Token], operator_pos: _cp.Position) -> _ct.Token:
@@ -695,8 +709,9 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
     tokenizer = _ct.Tokenizer(root_source.input_, root_file.file_index, root_source.position_tracker, error)
     directive_filter = _cd.DirectiveFilter(tokenizer, directive_handler)
     iterator = _TokenIterator(directive_filter, include_stack, error)
+    error_occurred = _b.Wrap(False)
     try:
-        for token in process(iterator):
+        for token in process(iterator, error_occurred):
             if token.type_ is not _ct.TokenType.BLOCKED_IDENTIFIER:
                 yield token
                 continue

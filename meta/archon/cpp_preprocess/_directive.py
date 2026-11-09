@@ -233,8 +233,10 @@ class FuseOperation:
         pos:     _cp.Position  # Operator position
 
 
+# Returns `None` if an error occurred.
+#
 class MacroExpander(typing.Protocol):
-    def __call__(self, tokens: _cabc.Sequence[_ct.Token], end_pos: _cp.Position, /) -> list[_ct.Token]:
+    def __call__(self, tokens: _cabc.Sequence[_ct.Token], end_pos: _cp.Position, /) -> list[_ct.Token] | None:
         ...
 
 
@@ -314,9 +316,9 @@ def _parse_include_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Positio
             assert False
         name = text[1:-1]
     else:
-        # FIXME: Need a way to know whether any errors occurred during macro expansion. If
-        # an error did occur, the include directive should probably be dropped.      
         expanded = macro_expander(tokens, end_pos)
+        if expanded is None:
+            return None
 
         @dataclasses.dataclass(slots=True, frozen=True)
         class Part:
@@ -723,6 +725,9 @@ def _parse_line_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, 
                           macro_expander: MacroExpander, encoding_info: _cu.EncodingInfo,
                           error_handler: _ct.ErrorHandler) -> LineDirective | None:
     expanded = macro_expander(tokens, end_pos)
+    if expanded is None:
+        return None
+
     i = 0
     while i < len(expanded) and expanded[i].type_ in _ct.SPACE:
         i += 1
