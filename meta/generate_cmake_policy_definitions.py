@@ -106,6 +106,8 @@ def extract_macro_definition() -> _cp.DefineDirective:
             directive_filter = _cp.DirectiveFilter(tokenizer, directive_handler)
             while True:
                 token = directive_filter.next_token()
+                if token is None:
+                    continue
                 if token.type_ is _cp.TokenType.END_OF_INPUT:
                     error_handler(token.pos, "Macro %s not found" % MACRO_NAME)
                     assert False

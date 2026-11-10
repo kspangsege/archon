@@ -67,26 +67,26 @@ path = pathlib.Path(args[0])
 logger = _l.LimitLogger(root_logger, log_level.value)
 
 
-class Context(_cp.Context):
+class Application(_cp.Application):
     def __init__(self, include_path: list[pathlib.Path], file_registry: FileRegistry) -> None:
         self.error = False
         self._include_path = include_path
         self._file_registry = file_registry
 
     @typing.override
-    def resolve_include(self, name: str, resolution_type: _cp.ResolutionType, base_file_index: int) -> int | None:
+    def resolve_include(self, path: str, resolution_type: _cp.ResolutionType, base_file_index: int) -> int | None:
         match resolution_type:
             case _cp.ResolutionType.BRACKETED:
                 pass
             case _cp.ResolutionType.QUOTED:
                 base_entry = self._file_registry.get(base_file_index)
-                file_index = self._find_file(name, base_entry.path.parent)
+                file_index = self._find_file(path, base_entry.path.parent)
                 if file_index is not None:
                     return file_index
             case _:
                 typing.assert_never(resolution_type)
         for dir_path in self._include_path:
-            file_index = self._find_file(name, dir_path)
+            file_index = self._find_file(path, dir_path)
             if file_index is not None:
                 return file_index
         return None
@@ -113,9 +113,9 @@ class Context(_cp.Context):
         _l.FileContextLogger(logger, context).error(message, *args)
         self.error = True
 
-    def _find_file(self, name: str, dir_path: pathlib.Path) -> int | None:
-        path = dir_path / name
-        file_index = self._file_registry.ensure(path)
+    def _find_file(self, path: str, dir_path: pathlib.Path) -> int | None:
+        resolved_path = dir_path / path
+        file_index = self._file_registry.ensure(resolved_path)
         if file_index is None:
             return None
         return file_index
@@ -164,8 +164,8 @@ try:
             raise RuntimeError("Unexpected concurrent modification")
         root_entry = file_registry.get(file_index)
         source = _cp.Source(input_, root_entry.position_tracker)
-        context = Context(include_path, file_registry)
-        tokens_iter = _cp.preprocess(file_index, source, context)
+        app = Application(include_path, file_registry)
+        tokens_iter = _cp.preprocess(file_index, source, app)
         if no_serialize.value:
             for token in tokens_iter:
                 pos = token.pos
@@ -190,7 +190,7 @@ try:
                     flush()
                     continue
                 parts.append(token.reconstruct())
-        if context.error:
+        if app.error:
             sys.exit(1)
 except OSError as e:
     logger.error("Failed to open %s: %s", _b.quote(str(path)), e.strerror)

@@ -71,9 +71,16 @@ class DirectiveFilter:
         self._pending_tokens: _cabc.Iterator[_ct.Token] | None = None
         self._at_line_start = True
 
+    # This function returns `None` if the invocation cases the directive handler to be
+    # invoked. This means that the caller should repeat the invocation of `next_token()`. It
+    # allows the caller to reconsider the invocation of `next_token()` when circumstances
+    # may have changed due to the handling of a directive. For example, after an `#include`
+    # directive, the caller may instead want to fetch the next token from a different
+    # directive filter.
+    #
     # The end of the token stream is marked by an END_OF_INPUT token.
     #
-    def next_token(self) -> _ct.Token:
+    def next_token(self) -> _ct.Token | None:
         if self._pending_tokens:
             if token := next(self._pending_tokens, None):
                 return token
@@ -108,7 +115,7 @@ class DirectiveFilter:
         trailing_tokens = tokens[j:]
         trailing_tokens.append(terminator)
         self._pending_tokens = iter(trailing_tokens)
-        return next(self._pending_tokens)
+        return None
 
 
 # This function determines the type of directive made up by the specified tokens, which must
@@ -167,7 +174,7 @@ def parse_line_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, e
 @dataclasses.dataclass(slots=True, frozen=True)
 class IncludeDirective:
     pos:             _cp.Position
-    name:            str
+    path:            str
     resolution_type: ResolutionType
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -322,7 +329,7 @@ def _parse_include_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Positio
             resolution_type = ResolutionType.QUOTED
         else:
             assert False
-        name = text[1:-1]
+        path = text[1:-1]
     else:
         expanded = macro_expander(tokens, end_pos)
         if expanded is None:
@@ -392,9 +399,9 @@ def _parse_include_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Positio
             error_handler(subpos, "Line break not allowed in header name of #include directive")
             return None
 
-        name = text[1:i]
+        path = text[1:i]
 
-    return IncludeDirective(pos, name, resolution_type)
+    return IncludeDirective(pos, path, resolution_type)
 
 
 def _parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position,

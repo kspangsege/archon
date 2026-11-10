@@ -33,7 +33,7 @@ import archon.test as _t
 import archon.cpp_preprocess as _cp
 
 
-def test_CppPreprocess_Tokenizer_Basics(context: _t.Context) -> None:
+def test_CppPreprocess_Tokenize_Basics(context: _t.Context) -> None:
     _check_tokenize(context, "", [], 1, 0)
     _check_tokenize(context, "\n", [
         (_cp.TokenType.NEWLINE, "\n", 1, 0, ()),
@@ -87,7 +87,7 @@ def test_CppPreprocess_Tokenizer_Basics(context: _t.Context) -> None:
     _check_tokenize(context, "\u20AC", [
         (_cp.TokenType.BAD_CHAR, "\u20AC", 1, 0, ()),
     ], 1, 1, [
-        ('Invalid character: EURO SIGN', _tp.TextPos(1, 0)),
+        ('Invalid character: EURO SIGN', 1, 0),
     ])
 
     _check_tokenize(context, _trim_cpp_text(r"""
@@ -115,7 +115,7 @@ def test_CppPreprocess_Tokenizer_Basics(context: _t.Context) -> None:
     ], 2, 1)
 
 
-def test_CppPreprocess_Tokenizer_LineComment(context: _t.Context) -> None:
+def test_CppPreprocess_Tokenize_LineComment(context: _t.Context) -> None:
     _check_tokenize(context, "// first line \\\nsecond line\nthird line", [
         (_cp.TokenType.LINE_COMMENT, "// first line second line", 1, 0, ()),
         (_cp.TokenType.NEWLINE, "\n", 2, 11, ()),
@@ -137,14 +137,14 @@ def test_CppPreprocess_Tokenizer_LineComment(context: _t.Context) -> None:
     ], 2, 0)
 
 
-def test_CppPreprocess_Tokenizer_BlockComment(context: _t.Context) -> None:
+def test_CppPreprocess_Tokenize_BlockComment(context: _t.Context) -> None:
     _check_tokenize(context, "/***/", [
         (_cp.TokenType.BLOCK_COMMENT, "/***/", 1, 0, ()),
     ], 1, 5)
     _check_tokenize(context, "/* foo\n", [
         (_cp.TokenType.BAD_BLOCK_COMMENT, "/* foo\n", 1, 0, ()),
     ], 2, 0, [
-        ("Unterminated block comment", _tp.TextPos(1, 0)),
+        ("Unterminated block comment", 1, 0),
     ])
     # Non-nesting
     _check_tokenize(context, "/* // */", [
@@ -155,7 +155,7 @@ def test_CppPreprocess_Tokenizer_BlockComment(context: _t.Context) -> None:
     ], 1, 16)
 
 
-def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
+def test_CppPreprocess_Tokenize_RawStringLit(context: _t.Context) -> None:
     _check_tokenize(context, 'R"()"', [
         (_cp.TokenType.RAW_STRING_LIT, 'R"()"', 1, 0, ()),
     ], 1, 5)
@@ -179,30 +179,30 @@ def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
     _check_tokenize(context, 'R"\\()\\"', [
         (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"\\()\\"', 1, 0, ()),
     ], 1, 7, [
-        ('Invalid character ("\\\\") in raw string literal delimiter', _tp.TextPos(1, 2)),
+        ('Invalid character ("\\\\") in raw string literal delimiter', 1, 2),
     ])
     _check_tokenize(context, 'R"01234567890123456(foo)01234567890123456"', [
         (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"01234567890123456(foo)01234567890123456"', 1, 0, ()),
     ], 1, 42, [
-        ('Too many characters in raw string literal delimiter', _tp.TextPos(1, 18)),
+        ('Too many characters in raw string literal delimiter', 1, 18),
     ])
     _check_tokenize(context, 'R"foo\nbar', [
         (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"foo', 1, 0, ()),
         (_cp.TokenType.NEWLINE, "\n", 1, 5, ()),
         (_cp.TokenType.IDENTIFIER, 'bar', 2, 0, ()),
     ], 2, 3, [
-        ('Missing left parenthesis in raw string literal', _tp.TextPos(1, 5)),
+        ('Missing left parenthesis in raw string literal', 1, 5),
     ])
     _check_tokenize(context, 'R"foo(\nbar', [
         (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"foo(\nbar', 1, 0, ()),
     ], 2, 3, [
-        ('Unterminated raw string literal', _tp.TextPos(1, 0)),
+        ('Unterminated raw string literal', 1, 0),
     ])
     _check_tokenize(context, 'R"\\()"', [
         (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"\\()"', 1, 0, ()),
     ], 1, 6, [
-        ('Invalid character ("\\\\") in raw string literal delimiter', _tp.TextPos(1, 2)),
-        ('Unterminated raw string literal', _tp.TextPos(1, 0)),
+        ('Invalid character ("\\\\") in raw string literal delimiter', 1, 2),
+        ('Unterminated raw string literal', 1, 0),
     ])
 
     # Line splicing
@@ -219,13 +219,13 @@ def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
         (_cp.TokenType.PUNCT, ')', 2, 1, ()),
         (_cp.TokenType.BAD_STRING_LIT, '"', 2, 2, ()),
     ], 2, 3, [
-        ('Missing left parenthesis in raw string literal', _tp.TextPos(1, 3)),
-        ('Unterminated string literal', _tp.TextPos(2, 2)),
+        ('Missing left parenthesis in raw string literal', 1, 3),
+        ('Unterminated string literal', 2, 2),
     ])
     _check_tokenize(context, 'R"()\\\n"', [
         (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"()\\\n"', 1, 0, ()),
     ], 2, 1, [
-        ('Unterminated raw string literal', _tp.TextPos(1, 0)),
+        ('Unterminated raw string literal', 1, 0),
     ])
     _check_tokenize(context, 'R"()\\\n"\n)"', [
         (_cp.TokenType.RAW_STRING_LIT, 'R"()\\\n"\n)"', 1, 0, ()),
@@ -291,8 +291,8 @@ def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 31, ()),
         (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"(foo)"Z\\u20AC', 1, 32, ()),
     ], 1, 47, [
-        ('Invalid UCN code point (U+0967): Not in XID_Start', _tp.TextPos(1, 10)),
-        ('Invalid UCN code point (U+20AC): Not in XID_Continue', _tp.TextPos(1, 43)),
+        ('Invalid UCN code point (U+0967): Not in XID_Start', 1, 10),
+        ('Invalid UCN code point (U+20AC): Not in XID_Continue', 1, 43),
     ])
 
     # Transitions
@@ -308,7 +308,7 @@ def test_CppPreprocess_Tokenizer_RawStringLit(context: _t.Context) -> None:
     ], 1, 45)
 
 
-def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
+def test_CppPreprocess_Tokenize_StringLit(context: _t.Context) -> None:
     _check_tokenize(context, '""', [
         (_cp.TokenType.STRING_LIT, '""', 1, 0, ()),
     ], 1, 2)
@@ -323,12 +323,12 @@ def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
     _check_tokenize(context, '"foo', [
         (_cp.TokenType.BAD_STRING_LIT, '"foo', 1, 0, ()),
     ], 1, 4, [
-        ('Unterminated string literal', _tp.TextPos(1, 0)),
+        ('Unterminated string literal', 1, 0),
     ])
     _check_tokenize(context, '"foo\\"', [
         (_cp.TokenType.BAD_STRING_LIT, '"foo\\"', 1, 0, ()),
     ], 1, 6, [
-        ('Unterminated string literal', _tp.TextPos(1, 0)),
+        ('Unterminated string literal', 1, 0),
     ])
     _check_tokenize(context, '"foo\nbar"', [
         (_cp.TokenType.BAD_STRING_LIT, '"foo', 1, 0, ()),
@@ -336,8 +336,8 @@ def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
         (_cp.TokenType.IDENTIFIER, 'bar', 2, 0, ()),
         (_cp.TokenType.BAD_STRING_LIT, '"', 2, 3, ()),
     ], 2, 4, [
-        ('Unterminated string literal', _tp.TextPos(1, 0)),
-        ('Unterminated string literal', _tp.TextPos(2, 3)),
+        ('Unterminated string literal', 1, 0),
+        ('Unterminated string literal', 2, 3),
     ])
 
     # Payload UCNs are not resolved
@@ -355,7 +355,7 @@ def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
     _check_tokenize(context, '"\\\\\n"', [
         (_cp.TokenType.BAD_STRING_LIT, '"\\"', 1, 0, ()),
     ], 2, 1, [
-        ('Unterminated string literal', _tp.TextPos(1, 0)),
+        ('Unterminated string literal', 1, 0),
     ])
 
     # Prefix
@@ -418,8 +418,8 @@ def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 25, ()),
         (_cp.TokenType.BAD_STRING_LIT, '"foo"Z\\u20AC', 1, 26, ()),
     ], 1, 38, [
-        ('Invalid UCN code point (U+0967): Not in XID_Start', _tp.TextPos(1, 7)),
-        ('Invalid UCN code point (U+20AC): Not in XID_Continue', _tp.TextPos(1, 34)),
+        ('Invalid UCN code point (U+0967): Not in XID_Start', 1, 7),
+        ('Invalid UCN code point (U+20AC): Not in XID_Continue', 1, 34),
     ])
 
     # Transitions
@@ -435,7 +435,7 @@ def test_CppPreprocess_Tokenizer_StringLit(context: _t.Context) -> None:
     ], 1, 36)
 
 
-def test_CppPreprocess_Tokenizer_CharLit(context: _t.Context) -> None:
+def test_CppPreprocess_Tokenize_CharLit(context: _t.Context) -> None:
     _check_tokenize(context, "''", [
         (_cp.TokenType.CHAR_LIT, "''", 1, 0, ()),
     ], 1, 2)
@@ -453,20 +453,20 @@ def test_CppPreprocess_Tokenizer_CharLit(context: _t.Context) -> None:
     _check_tokenize(context, "'c", [
         (_cp.TokenType.BAD_CHAR_LIT, "'c", 1, 0, ()),
     ], 1, 2, [
-        ('Unterminated character literal', _tp.TextPos(1, 0)),
+        ('Unterminated character literal', 1, 0),
     ])
     _check_tokenize(context, "'\\'", [
         (_cp.TokenType.BAD_CHAR_LIT, "'\\'", 1, 0, ()),
     ], 1, 3, [
-        ('Unterminated character literal', _tp.TextPos(1, 0)),
+        ('Unterminated character literal', 1, 0),
     ])
     _check_tokenize(context, "'\n'", [
         (_cp.TokenType.BAD_CHAR_LIT, "'", 1, 0, ()),
         (_cp.TokenType.NEWLINE, "\n", 1, 1, ()),
         (_cp.TokenType.BAD_CHAR_LIT, "'", 2, 0, ()),
     ], 2, 1, [
-        ('Unterminated character literal', _tp.TextPos(1, 0)),
-        ('Unterminated character literal', _tp.TextPos(2, 0)),
+        ('Unterminated character literal', 1, 0),
+        ('Unterminated character literal', 2, 0),
     ])
 
     # Payload UCNs are not resolved
@@ -484,7 +484,7 @@ def test_CppPreprocess_Tokenizer_CharLit(context: _t.Context) -> None:
     _check_tokenize(context, "'\\\\\n'", [
         (_cp.TokenType.BAD_CHAR_LIT, "'\\'", 1, 0, ()),
     ], 2, 1, [
-        ('Unterminated character literal', _tp.TextPos(1, 0)),
+        ('Unterminated character literal', 1, 0),
     ])
 
     # Prefix
@@ -547,8 +547,8 @@ def test_CppPreprocess_Tokenizer_CharLit(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 21, ()),
         (_cp.TokenType.BAD_CHAR_LIT, "'c'Z\\u20AC", 1, 22, ()),
     ], 1, 32, [
-        ('Invalid UCN code point (U+0967): Not in XID_Start', _tp.TextPos(1, 5)),
-        ('Invalid UCN code point (U+20AC): Not in XID_Continue', _tp.TextPos(1, 28)),
+        ('Invalid UCN code point (U+0967): Not in XID_Start', 1, 5),
+        ('Invalid UCN code point (U+20AC): Not in XID_Continue', 1, 28),
     ])
 
     # Transitions
@@ -564,7 +564,7 @@ def test_CppPreprocess_Tokenizer_CharLit(context: _t.Context) -> None:
     ], 1, 30)
 
 
-def test_CppPreprocess_Tokenizer_Number(context: _t.Context) -> None:
+def test_CppPreprocess_Tokenize_Number(context: _t.Context) -> None:
     # Basic integer and floating point introducers
     _check_tokenize(context, "0 42 0x1A .5 1. 1.23", [
         (_cp.TokenType.NUMBER, "0", 1, 0, ()),
@@ -670,7 +670,7 @@ def test_CppPreprocess_Tokenizer_Number(context: _t.Context) -> None:
         (_cp.TokenType.BAD_CHAR_LIT, "'", 1, 1, ()),
         (_cp.TokenType.NEWLINE, "\n", 1, 2, ()),
     ], 2, 0, [
-        ('Unterminated character literal', _tp.TextPos(1, 1)),
+        ('Unterminated character literal', 1, 1),
     ])
 
     # Invalid UCNs
@@ -679,12 +679,12 @@ def test_CppPreprocess_Tokenizer_Number(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 9, ()),
         (_cp.TokenType.BAD_NUMBER, "456\\u20AC789", 1, 10, ()),
     ], 1, 22, [
-        ('Invalid UCN code point (U+20AC): Not in XID_Continue', _tp.TextPos(1, 5)),
-        ('Invalid UCN code point (U+20AC): Not in XID_Continue', _tp.TextPos(1, 15)),
+        ('Invalid UCN code point (U+20AC): Not in XID_Continue', 1, 5),
+        ('Invalid UCN code point (U+20AC): Not in XID_Continue', 1, 15),
     ])
 
 
-def test_CppPreprocess_Tokenizer_Identifier(context: _t.Context) -> None:
+def test_CppPreprocess_Tokenize_Identifier(context: _t.Context) -> None:
     _check_tokenize(context, "\u00e9", [
         (_cp.TokenType.IDENTIFIER, "\u00e9", 1, 0, ()),
     ], 1, 1)
@@ -693,8 +693,8 @@ def test_CppPreprocess_Tokenizer_Identifier(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 2, ()),
         (_cp.TokenType.BAD_IDENTIFIER, "n\u0303", 1, 3, (_cp.ReplacementMap.Entry(1, 1, "\\u0303"),)),
     ], 1, 10, [
-        ("Identifier does not conform to Unicode Normalization Form C (NFC)", _tp.TextPos(1, 0)),
-        ("Identifier does not conform to Unicode Normalization Form C (NFC)", _tp.TextPos(1, 3)),
+        ("Identifier does not conform to Unicode Normalization Form C (NFC)", 1, 0),
+        ("Identifier does not conform to Unicode Normalization Form C (NFC)", 1, 3),
     ])
     _check_tokenize(context, "\u0967ab \\u0967ab", [
         (_cp.TokenType.BAD_CHAR, "\u0967", 1, 0, ()),
@@ -702,8 +702,8 @@ def test_CppPreprocess_Tokenizer_Identifier(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 3, ()),
         (_cp.TokenType.BAD_IDENTIFIER, "\\u0967ab", 1, 4, ()),
     ], 1, 12, [
-        ('Invalid character: DEVANAGARI DIGIT ONE', _tp.TextPos(1, 0)),
-        ('Invalid UCN code point (U+0967): Not in XID_Start', _tp.TextPos(1, 6)),
+        ('Invalid character: DEVANAGARI DIGIT ONE', 1, 0),
+        ('Invalid UCN code point (U+0967): Not in XID_Start', 1, 6),
     ])
 
     # If not followed by a quote, these are just normal identifiers
@@ -728,7 +728,7 @@ def test_CppPreprocess_Tokenizer_Identifier(context: _t.Context) -> None:
     ], 1, 23)
 
 
-def test_CppPreprocess_Tokenizer_Punctuation(context: _t.Context) -> None:
+def test_CppPreprocess_Tokenize_Punctuation(context: _t.Context) -> None:
     # Maximal munch
     _check_tokenize(context, "x+++++y", [
         (_cp.TokenType.IDENTIFIER, "x", 1, 0, ()),
@@ -819,7 +819,7 @@ def test_CppPreprocess_Tokenizer_Punctuation(context: _t.Context) -> None:
     ], 2, 2)
 
 
-def test_CppPreprocess_Tokenizer_UniversalCharacterNames(context: _t.Context) -> None:
+def test_CppPreprocess_Tokenize_UniversalCharacterNames(context: _t.Context) -> None:
     _check_tokenize(context, "\\u00e9", [
         (_cp.TokenType.IDENTIFIER, "\u00e9", 1, 0, (_cp.ReplacementMap.Entry(0, 1, "\\u00e9"),)),
     ], 1, 6)
@@ -837,34 +837,34 @@ def test_CppPreprocess_Tokenizer_UniversalCharacterNames(context: _t.Context) ->
     _check_tokenize(context, "\\u0041", [
         (_cp.TokenType.BAD_IDENTIFIER, "\\u0041", 1, 0, ()),
     ], 1, 6, [
-        ('Invalid UCN code point (U+0041): In basic character set', _tp.TextPos(1, 2)),
+        ('Invalid UCN code point (U+0041): In basic character set', 1, 2),
     ])
     _check_tokenize(context, "\\u20AC", [
         (_cp.TokenType.BAD_IDENTIFIER, "\\u20AC", 1, 0, ()),
     ], 1, 6, [
-        ('Invalid UCN code point (U+20AC): Not in XID_Start', _tp.TextPos(1, 2)),
+        ('Invalid UCN code point (U+20AC): Not in XID_Start', 1, 2),
     ])
     _check_tokenize(context, "\\uD800", [
         (_cp.TokenType.BAD_IDENTIFIER, "\\uD800", 1, 0, ()),
     ], 1, 6, [
-        ('Invalid UCN code point (U+D800): In surrogate range', _tp.TextPos(1, 2)),
+        ('Invalid UCN code point (U+D800): In surrogate range', 1, 2),
     ])
     _check_tokenize(context, "\\u{FFFFFFFF}", [
         (_cp.TokenType.BAD_IDENTIFIER, "\\u{FFFFFFFF}", 1, 0, ()),
     ], 1, 12, [
-        ('Invalid UCN code point (U+FFFFFFFF): Outside Unicode range', _tp.TextPos(1, 3)),
+        ('Invalid UCN code point (U+FFFFFFFF): Outside Unicode range', 1, 3),
     ])
     _check_tokenize(context, "\\N{foo}", [
         (_cp.TokenType.BAD_IDENTIFIER, "\\N{foo}", 1, 0, ()),
     ], 1, 7, [
-        ('Invalid Unicode character name ("foo") in UCN', _tp.TextPos(1, 3)),
+        ('Invalid Unicode character name ("foo") in UCN', 1, 3),
     ])
 
     # Line splicing must occur despite the `R"`
     _check_tokenize(context, '\\N{R"(\\\n)"}', [
         (_cp.TokenType.BAD_IDENTIFIER, '\\N{R"()"}', 1, 0, ()),
     ], 2, 3, [
-        ('Invalid Unicode character name ("R\\"()\\"") in UCN', _tp.TextPos(1, 3)),
+        ('Invalid Unicode character name ("R\\"()\\"") in UCN', 1, 3),
     ])
     # But line splicing must not occur if there is no UCN because the closing brace is
     # missing, so `R"` does start a raw string literal (requires backtracking across
@@ -898,7 +898,7 @@ def test_CppPreprocess_Tokenizer_UniversalCharacterNames(context: _t.Context) ->
     ], 1, 19)
 
 
-def test_CppPreprocess_Tokenizer_HeaderName(context: _t.Context) -> None:
+def test_CppPreprocess_Tokenize_HeaderName(context: _t.Context) -> None:
     # Standard `#include` directives (angle brackets and quotes)
     _check_tokenize(context, "#include <foo/bar.h>", [
         (_cp.TokenType.HASH, "#", 1, 0, ()),
@@ -1053,7 +1053,7 @@ def test_CppPreprocess_Tokenizer_HeaderName(context: _t.Context) -> None:
         (_cp.TokenType.BAD_HEADER_NAME, "<unterminated", 1, 9, ()),
         (_cp.TokenType.NEWLINE, "\n", 1, 22, ()),
     ], 2, 0, [
-        ('Unterminated header name (missing closing `>`)', _tp.TextPos(1, 9)),
+        ('Unterminated header name (missing closing `>`)', 1, 9),
     ])
     _check_tokenize(context, '#embed "unterminated\n', [
         (_cp.TokenType.HASH, "#", 1, 0, ()),
@@ -1062,7 +1062,7 @@ def test_CppPreprocess_Tokenizer_HeaderName(context: _t.Context) -> None:
         (_cp.TokenType.BAD_HEADER_NAME, '"unterminated', 1, 7, ()),
         (_cp.TokenType.NEWLINE, "\n", 1, 20, ()),
     ], 2, 0, [
-        ('Unterminated header name (missing closing `"`)', _tp.TextPos(1, 7)),
+        ('Unterminated header name (missing closing `"`)', 1, 7),
     ])
 
     # Comments allowed
@@ -1088,158 +1088,6 @@ def test_CppPreprocess_Tokenizer_HeaderName(context: _t.Context) -> None:
         (_cp.TokenType.IDENTIFIER, "std", 1, 7, ()),
         (_cp.TokenType.PUNCT, ";", 1, 10, ()),
     ], 1, 11)
-
-
-def test_CppPreprocess_ParseDefineDirective(context: _t.Context) -> None:
-    file_index = 0
-    _check_valid_define_directive(context, "M", file_index, "M", None, False, ())
-    _check_valid_define_directive(context, "M()", file_index, "M", (), False, ())
-    _check_valid_define_directive(context, "M(x)", file_index, "M", ("x",), False, ())
-    _check_valid_define_directive(context, "M(...)", file_index, "M", (), True, ())
-    _check_valid_define_directive(context, "M(x, ...)", file_index, "M", ("x",), True, ())
-    _check_valid_define_directive(context, "M foo", file_index, "M", None, False, (
-        _cp.Token(_cp.TokenType.IDENTIFIER, "foo", _cp.Position(file_index, 2)),
-    ))
-    _check_valid_define_directive(context, "M(x) foo", file_index, "M", ("x",), False, (
-        _cp.Token(_cp.TokenType.IDENTIFIER, "foo", _cp.Position(file_index, 5)),
-    ))
-    _check_valid_define_directive(context, "M(x) x", file_index, "M", ("x",), False, (
-        _cp.ParamRef(0, _cp.Position(file_index, 5)),
-    ))
-    _check_valid_define_directive(context, "M(x, y) y x", file_index, "M", ("x", "y"), False, (
-        _cp.ParamRef(1, _cp.Position(file_index, 8)),
-        _cp.Token(_cp.TokenType.WHITESPACE, " ", _cp.Position(file_index, 9)),
-        _cp.ParamRef(0, _cp.Position(file_index, 10)),
-    ))
-    _check_bad_define_directive(context, "defined foo", [
-        ("`defined` cannot be used as a macro name in #define directive", _tp.TextPos(1, 0)),
-    ])
-    _check_bad_define_directive(context, "defined(x) foo", [
-        ("`defined` cannot be used as a macro name in #define directive", _tp.TextPos(1, 0)),
-    ])
-    _check_bad_define_directive(context, "M'c'", [
-        ("Missing whitespace after macro name in definition of object-like macro", _tp.TextPos(1, 1)),
-    ])
-    _check_valid_define_directive(context, "M(x)'c'", file_index, "M", ("x",), False, [
-        _cp.Token(_cp.TokenType.CHAR_LIT, "'c'", _cp.Position(file_index, 4)),
-    ])
-
-    # `__VA_ARGS__`
-    _check_bad_define_directive(context, "M __VA_ARGS__", [
-        ("`__VA_ARGS__` must only appear in body of a variadic macro definition", _tp.TextPos(1, 2)),
-    ])
-    _check_bad_define_directive(context, "M(x) __VA_ARGS__", [
-        ("`__VA_ARGS__` must only appear in body of a variadic macro definition", _tp.TextPos(1, 5)),
-    ])
-    _check_valid_define_directive(context, "M(...) __VA_ARGS__", file_index, "M", (), True, [
-        _cp.VaArgs(_cp.Position(file_index, 7)),
-    ])
-    _check_bad_define_directive(context, "__VA_ARGS__ foo", [
-        ("`__VA_ARGS__` must only appear in body of a variadic macro definition", _tp.TextPos(1, 0)),
-    ])
-    _check_bad_define_directive(context, "M(__VA_ARGS__) foo", [
-        ('`__VA_ARGS__` must only appear in body of a variadic macro definition', _tp.TextPos(1, 2)),
-    ])
-
-    # `__VA_OPT__`
-    _check_bad_define_directive(context, "M __VA_OPT__", [
-        ("`__VA_OPT__` must only appear in body of a variadic macro definition", _tp.TextPos(1, 2)),
-    ])
-    _check_bad_define_directive(context, "M(x) __VA_OPT__", [
-        ("`__VA_OPT__` must only appear in body of a variadic macro definition", _tp.TextPos(1, 5)),
-    ])
-    _check_bad_define_directive(context, "M(...) __VA_OPT__", [
-        ("`__VA_OPT__` must be followed by `(`", _tp.TextPos(1, 17)),
-    ])
-    _check_bad_define_directive(context, "M(...) __VA_OPT__(foo", [
-        ("Missing `)` after `__VA_OPT__(`", _tp.TextPos(1, 21)),
-    ])
-    _check_bad_define_directive(context, "M(...) __VA_OPT__((foo)", [
-        ("Missing `)` after `__VA_OPT__(`", _tp.TextPos(1, 23)),
-    ])
-    _check_valid_define_directive(context, "M(...) __VA_OPT__(foo)", file_index, "M", (), True, [
-        _cp.VaOpt((_cp.Token(_cp.TokenType.IDENTIFIER, "foo", _cp.Position(file_index, 18)),),
-                  _cp.Position(file_index, 7)),
-    ])
-    _check_bad_define_directive(context, "M(...) __VA_OPT__(__VA_OPT__)", [
-        ("`__VA_OPT__` is not allowed to occur inside `__VA_OPT__(...)`", _tp.TextPos(1, 18)),
-    ])
-    _check_bad_define_directive(context, "__VA_OPT__ foo", [
-        ("`__VA_OPT__` must only appear in body of a variadic macro definition", _tp.TextPos(1, 0)),
-    ])
-    _check_bad_define_directive(context, "M(__VA_OPT__) foo", [
-        ("`__VA_OPT__` must only appear in body of a variadic macro definition", _tp.TextPos(1, 2)),
-    ])
-
-    # Stringification
-    _check_valid_define_directive(context, "M #x", file_index, "M", None, False, [
-        _cp.Token(_cp.TokenType.HASH, "#", _cp.Position(file_index, 2)),
-        _cp.Token(_cp.TokenType.IDENTIFIER, "x", _cp.Position(file_index, 3)),
-    ])
-    _check_valid_define_directive(context, "M(x) #x", file_index, "M", ("x",), False, [
-        _cp.StringifyOperation(_cp.ParamRef(0, _cp.Position(file_index, 6)), _cp.Position(file_index, 5)),
-    ])
-    _check_bad_define_directive(context, "M(x) #", [
-        ('Missing operand of `#` (stringify operator) in definition of macro "M"',
-         _tp.TextPos(1, 6)),
-    ])
-    _check_bad_define_directive(context, "M(x) #7", [
-        ('Invalid operand of `#` (stringify operator) in definition of macro "M": '
-         'Must be a parameter name, `__VA_ARGS__`, or `__VA_OPT__(...)`', _tp.TextPos(1, 6)),
-    ])
-    _check_bad_define_directive(context, "M(x) foo #y", [
-        ('Invalid operand of `#` (stringify operator) in definition of macro "M": '
-         'Must be a parameter name, `__VA_ARGS__`, or `__VA_OPT__(...)`', _tp.TextPos(1, 10)),
-    ])
-    _check_bad_define_directive(context, "M(x) #__VA_ARGS__", [
-        ('`__VA_ARGS__` must only appear in body of a variadic macro definition', _tp.TextPos(1, 6)),
-    ])
-    _check_valid_define_directive(context, "M(...) #__VA_ARGS__", file_index, "M", (), True, [
-        _cp.StringifyOperation(_cp.VaArgs(_cp.Position(file_index, 8)), _cp.Position(file_index, 7)),
-    ])
-    _check_bad_define_directive(context, "M(x) #__VA_OPT__()", [
-        ('`__VA_OPT__` must only appear in body of a variadic macro definition', _tp.TextPos(1, 6)),
-    ])
-    _check_valid_define_directive(context, "M(...) #__VA_OPT__()", file_index, "M", (), True, [
-        _cp.StringifyOperation(_cp.VaOpt((), _cp.Position(file_index, 8)), _cp.Position(file_index, 7)),
-    ])
-
-    # Token fusion
-    _check_valid_define_directive(context, "M foo ## bar", file_index, "M", None, False, [
-        _cp.FuseOperation(_cp.Token(_cp.TokenType.IDENTIFIER, "foo", _cp.Position(file_index, 2)), (
-            _cp.FuseOperation.Right(_cp.Token(_cp.TokenType.IDENTIFIER, "bar", _cp.Position(file_index, 9)),
-                                    _cp.Position(file_index, 6)),
-        ), _cp.Position(file_index, 2)),
-    ])
-    _check_valid_define_directive(context, "M(x) foo ## x", file_index, "M", ("x",), False, [
-        _cp.FuseOperation(_cp.Token(_cp.TokenType.IDENTIFIER, "foo", _cp.Position(file_index, 5)), (
-            _cp.FuseOperation.Right(_cp.ParamRef(0, _cp.Position(file_index, 12)), _cp.Position(file_index, 9)),
-        ), _cp.Position(file_index, 5)),
-    ])
-    _check_bad_define_directive(context, "M ## foo", [
-        ('`##` (fuse operator) is not allowed at beginning of replacement list in definition of macro "M"',
-         _tp.TextPos(1, 2)),
-    ])
-    _check_bad_define_directive(context, "M foo ##", [
-        ('`##` (fuse operator) is not allowed at end of replacement list in definition of macro "M"',
-         _tp.TextPos(1, 6)),
-    ])
-    _check_bad_define_directive(context, "M(x) ## foo", [
-        ('`##` (fuse operator) is not allowed at beginning of replacement list in definition of macro "M"',
-         _tp.TextPos(1, 5)),
-    ])
-    _check_bad_define_directive(context, "M(x) foo ##", [
-        ('`##` (fuse operator) is not allowed at end of replacement list in definition of macro "M"',
-         _tp.TextPos(1, 9)),
-    ])
-    _check_valid_define_directive(context, "M(x) x ## ## x", file_index, "M", ("x",), False, [
-        _cp.FuseOperation(_cp.ParamRef(0, _cp.Position(file_index, 5)), (
-            _cp.FuseOperation.Right(_cp.Token(_cp.TokenType.HASH_HASH, "##", _cp.Position(file_index, 10)),
-                                    _cp.Position(file_index, 7)),
-        ), _cp.Position(file_index, 5)),
-        _cp.Token(_cp.TokenType.WHITESPACE, " ", _cp.Position(file_index, 12)),
-        _cp.ParamRef(0, _cp.Position(file_index, 13)),
-    ])
 
 
 def test_CppPreprocess_UnpackStringLiteral(context: _t.Context) -> None:
@@ -1402,6 +1250,191 @@ def test_CppPreprocess_UnpackStringLiteral(context: _t.Context) -> None:
     ], encoding_info)
 
 
+def test_CppPreprocess_ParseDefineDirective(context: _t.Context) -> None:
+    file_index = 0
+    _check_valid_define_directive(context, "M", file_index, "M", None, False, ())
+    _check_valid_define_directive(context, "M()", file_index, "M", (), False, ())
+    _check_valid_define_directive(context, "M(x)", file_index, "M", ("x",), False, ())
+    _check_valid_define_directive(context, "M(...)", file_index, "M", (), True, ())
+    _check_valid_define_directive(context, "M(x, ...)", file_index, "M", ("x",), True, ())
+    _check_valid_define_directive(context, "M foo", file_index, "M", None, False, (
+        _cp.Token(_cp.TokenType.IDENTIFIER, "foo", _cp.Position(file_index, 2)),
+    ))
+    _check_valid_define_directive(context, "M(x) foo", file_index, "M", ("x",), False, (
+        _cp.Token(_cp.TokenType.IDENTIFIER, "foo", _cp.Position(file_index, 5)),
+    ))
+    _check_valid_define_directive(context, "M(x) x", file_index, "M", ("x",), False, (
+        _cp.ParamRef(0, _cp.Position(file_index, 5)),
+    ))
+    _check_valid_define_directive(context, "M(x, y) y x", file_index, "M", ("x", "y"), False, (
+        _cp.ParamRef(1, _cp.Position(file_index, 8)),
+        _cp.Token(_cp.TokenType.WHITESPACE, " ", _cp.Position(file_index, 9)),
+        _cp.ParamRef(0, _cp.Position(file_index, 10)),
+    ))
+    _check_bad_define_directive(context, "defined foo", [
+        ("`defined` cannot be used as a macro name in #define directive", 1, 0),
+    ])
+    _check_bad_define_directive(context, "defined(x) foo", [
+        ("`defined` cannot be used as a macro name in #define directive", 1, 0),
+    ])
+    _check_bad_define_directive(context, "M'c'", [
+        ("Missing whitespace after macro name in definition of object-like macro", 1, 1),
+    ])
+    _check_valid_define_directive(context, "M(x)'c'", file_index, "M", ("x",), False, [
+        _cp.Token(_cp.TokenType.CHAR_LIT, "'c'", _cp.Position(file_index, 4)),
+    ])
+
+    # `__VA_ARGS__`
+    _check_bad_define_directive(context, "M __VA_ARGS__", [
+        ("`__VA_ARGS__` must only appear in body of a variadic macro definition", 1, 2),
+    ])
+    _check_bad_define_directive(context, "M(x) __VA_ARGS__", [
+        ("`__VA_ARGS__` must only appear in body of a variadic macro definition", 1, 5),
+    ])
+    _check_valid_define_directive(context, "M(...) __VA_ARGS__", file_index, "M", (), True, [
+        _cp.VaArgs(_cp.Position(file_index, 7)),
+    ])
+    _check_bad_define_directive(context, "__VA_ARGS__ foo", [
+        ("`__VA_ARGS__` must only appear in body of a variadic macro definition", 1, 0),
+    ])
+    _check_bad_define_directive(context, "M(__VA_ARGS__) foo", [
+        ('`__VA_ARGS__` must only appear in body of a variadic macro definition', 1, 2),
+    ])
+
+    # `__VA_OPT__`
+    _check_bad_define_directive(context, "M __VA_OPT__", [
+        ("`__VA_OPT__` must only appear in body of a variadic macro definition", 1, 2),
+    ])
+    _check_bad_define_directive(context, "M(x) __VA_OPT__", [
+        ("`__VA_OPT__` must only appear in body of a variadic macro definition", 1, 5),
+    ])
+    _check_bad_define_directive(context, "M(...) __VA_OPT__", [
+        ("`__VA_OPT__` must be followed by `(`", 1, 17),
+    ])
+    _check_bad_define_directive(context, "M(...) __VA_OPT__(foo", [
+        ("Missing `)` after `__VA_OPT__(`", 1, 21),
+    ])
+    _check_bad_define_directive(context, "M(...) __VA_OPT__((foo)", [
+        ("Missing `)` after `__VA_OPT__(`", 1, 23),
+    ])
+    _check_valid_define_directive(context, "M(...) __VA_OPT__(foo)", file_index, "M", (), True, [
+        _cp.VaOpt((_cp.Token(_cp.TokenType.IDENTIFIER, "foo", _cp.Position(file_index, 18)),),
+                  _cp.Position(file_index, 7)),
+    ])
+    _check_bad_define_directive(context, "M(...) __VA_OPT__(__VA_OPT__)", [
+        ("`__VA_OPT__` is not allowed to occur inside `__VA_OPT__(...)`", 1, 18),
+    ])
+    _check_bad_define_directive(context, "__VA_OPT__ foo", [
+        ("`__VA_OPT__` must only appear in body of a variadic macro definition", 1, 0),
+    ])
+    _check_bad_define_directive(context, "M(__VA_OPT__) foo", [
+        ("`__VA_OPT__` must only appear in body of a variadic macro definition", 1, 2),
+    ])
+
+    # Stringification
+    _check_valid_define_directive(context, "M #x", file_index, "M", None, False, [
+        _cp.Token(_cp.TokenType.HASH, "#", _cp.Position(file_index, 2)),
+        _cp.Token(_cp.TokenType.IDENTIFIER, "x", _cp.Position(file_index, 3)),
+    ])
+    _check_valid_define_directive(context, "M(x) #x", file_index, "M", ("x",), False, [
+        _cp.StringifyOperation(_cp.ParamRef(0, _cp.Position(file_index, 6)), _cp.Position(file_index, 5)),
+    ])
+    _check_bad_define_directive(context, "M(x) #", [
+        ('Missing operand of `#` (stringify operator) in definition of macro "M"', 1, 6),
+    ])
+    _check_bad_define_directive(context, "M(x) #7", [
+        ('Invalid operand of `#` (stringify operator) in definition of macro "M": '
+         'Must be a parameter name, `__VA_ARGS__`, or `__VA_OPT__(...)`', 1, 6),
+    ])
+    _check_bad_define_directive(context, "M(x) foo #y", [
+        ('Invalid operand of `#` (stringify operator) in definition of macro "M": '
+         'Must be a parameter name, `__VA_ARGS__`, or `__VA_OPT__(...)`', 1, 10),
+    ])
+    _check_bad_define_directive(context, "M(x) #__VA_ARGS__", [
+        ('`__VA_ARGS__` must only appear in body of a variadic macro definition', 1, 6),
+    ])
+    _check_valid_define_directive(context, "M(...) #__VA_ARGS__", file_index, "M", (), True, [
+        _cp.StringifyOperation(_cp.VaArgs(_cp.Position(file_index, 8)), _cp.Position(file_index, 7)),
+    ])
+    _check_bad_define_directive(context, "M(x) #__VA_OPT__()", [
+        ('`__VA_OPT__` must only appear in body of a variadic macro definition', 1, 6),
+    ])
+    _check_valid_define_directive(context, "M(...) #__VA_OPT__()", file_index, "M", (), True, [
+        _cp.StringifyOperation(_cp.VaOpt((), _cp.Position(file_index, 8)), _cp.Position(file_index, 7)),
+    ])
+
+    # Token fusion
+    _check_valid_define_directive(context, "M foo ## bar", file_index, "M", None, False, [
+        _cp.FuseOperation(_cp.Token(_cp.TokenType.IDENTIFIER, "foo", _cp.Position(file_index, 2)), (
+            _cp.FuseOperation.Right(_cp.Token(_cp.TokenType.IDENTIFIER, "bar", _cp.Position(file_index, 9)),
+                                    _cp.Position(file_index, 6)),
+        ), _cp.Position(file_index, 2)),
+    ])
+    _check_valid_define_directive(context, "M(x) foo ## x", file_index, "M", ("x",), False, [
+        _cp.FuseOperation(_cp.Token(_cp.TokenType.IDENTIFIER, "foo", _cp.Position(file_index, 5)), (
+            _cp.FuseOperation.Right(_cp.ParamRef(0, _cp.Position(file_index, 12)), _cp.Position(file_index, 9)),
+        ), _cp.Position(file_index, 5)),
+    ])
+    _check_bad_define_directive(context, "M ## foo", [
+        ('`##` (fuse operator) is not allowed at beginning of replacement list in definition of macro "M"', 1, 2),
+    ])
+    _check_bad_define_directive(context, "M foo ##", [
+        ('`##` (fuse operator) is not allowed at end of replacement list in definition of macro "M"', 1, 6),
+    ])
+    _check_bad_define_directive(context, "M(x) ## foo", [
+        ('`##` (fuse operator) is not allowed at beginning of replacement list in definition of macro "M"', 1, 5),
+    ])
+    _check_bad_define_directive(context, "M(x) foo ##", [
+        ('`##` (fuse operator) is not allowed at end of replacement list in definition of macro "M"', 1, 9),
+    ])
+    _check_valid_define_directive(context, "M(x) x ## ## x", file_index, "M", ("x",), False, [
+        _cp.FuseOperation(_cp.ParamRef(0, _cp.Position(file_index, 5)), (
+            _cp.FuseOperation.Right(_cp.Token(_cp.TokenType.HASH_HASH, "##", _cp.Position(file_index, 10)),
+                                    _cp.Position(file_index, 7)),
+        ), _cp.Position(file_index, 5)),
+        _cp.Token(_cp.TokenType.WHITESPACE, " ", _cp.Position(file_index, 12)),
+        _cp.ParamRef(0, _cp.Position(file_index, 13)),
+    ])
+
+
+def test_CppPreprocess_Preprocess_IncludeDirective(context: _t.Context) -> None:
+    root_path = "test.cpp"
+    bar_path = "bar.hpp"
+    headers = {
+        bar_path: _trim_cpp_text(r"""
+          bar
+        """),
+    }
+    _check_preprocess(context, root_path, _trim_cpp_text(r"""
+      foo
+      #include <bar.hpp>
+      baz
+    """), [
+        (_cp.TokenType.IDENTIFIER, "foo", root_path, 1, 0, (), False),
+        (_cp.TokenType.NEWLINE, "\n", root_path, 1, 3, (), False),
+        (_cp.TokenType.IDENTIFIER, "bar", bar_path, 1, 0, (), False),
+        (_cp.TokenType.NEWLINE, "\n", bar_path, 1, 3, (), False),
+        (_cp.TokenType.NEWLINE, "\n", root_path, 2, 18, (), False),
+        (_cp.TokenType.IDENTIFIER, "baz", root_path, 3, 0, (), False),
+        (_cp.TokenType.NEWLINE, "\n", root_path, 3, 3, (), False),
+    ], 4, 0, headers=headers)
+
+
+def test_CppPreprocess_Preprocess_LineDirective(context: _t.Context) -> None:
+    path = "test.cpp"
+    _check_preprocess(context, path, _trim_cpp_text(r"""
+      foo
+      #line 7
+      bar
+    """), [
+        (_cp.TokenType.IDENTIFIER, "foo", path, 1, 0, (), False),
+        (_cp.TokenType.NEWLINE, "\n", path, 1, 3, (), False),
+        (_cp.TokenType.NEWLINE, "\n", path, 2, 7, (), False),
+        (_cp.TokenType.IDENTIFIER, "bar", path, 7, 0, (), False),
+        (_cp.TokenType.NEWLINE, "\n", path, 7, 3, (), False),
+    ], 8, 0)
+
+
 
 
 
@@ -1412,13 +1445,9 @@ def _trim_cpp_text(text: str) -> str:
     return textwrap.dedent(text.removeprefix("\n"))
 
 
-# (type, text, line_no, pos_on_line, ucn_map_entries)
-type _ExpectedToken = tuple[_cp.TokenType, str, int, int, tuple[_cp.ReplacementMap.Entry, ...]]
-
-
 def _check_tokenize(context: _t.Context, cpp_text: str, expected_tokens: list[_ExpectedToken],
                     expected_end_line_no: int, expected_end_pos_on_line: int,
-                    expected_errors: list[tuple[str, _tp.TextPos]] | None = None) -> None:
+                    expected_errors: list[_ExpectedError] | None = None) -> None:
     errors: list[_Error] = []
     position_tracker = _tp.TextPosTracker()
     path = "test.cpp"
@@ -1426,7 +1455,7 @@ def _check_tokenize(context: _t.Context, cpp_text: str, expected_tokens: list[_E
     def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
         context.check_equal(pos.file_index, file_index)
         text_pos = position_tracker.get_text_pos(pos.pos_in_file)
-        errors.append(_Error(message % args, text_pos))
+        errors.append(_Error(message % args, path, text_pos))
         file_context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         _l.FileContextLogger(context.logger, file_context).error(message, *args)
     tokens, end_pos = _tokenize(file_index, cpp_text, position_tracker, error_handler)
@@ -1436,35 +1465,6 @@ def _check_tokenize(context: _t.Context, cpp_text: str, expected_tokens: list[_E
     context.check_equal(end_text_pos.line_no, expected_end_line_no)
     context.check_equal(end_text_pos.pos_on_line, expected_end_pos_on_line)
     _check_errors(context, errors, expected_errors or [])
-
-
-def _check_tokens(context: _t.Context, tokens: list[_cp.Token], expected_tokens: list[_ExpectedToken],
-                  file_index: int, position_tracker: _tp.TextPosTracker) -> None:
-    for i, (token, expected) in enumerate(zip(tokens, expected_tokens)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(token.type_, expected[0])
-        subcontext.check_equal(token.text, expected[1])
-        subcontext.check_equal(token.pos.file_index, file_index)
-        text_pos = position_tracker.get_text_pos(token.pos.pos_in_file)
-        subcontext.check_equal(text_pos.line_no, expected[2])
-        subcontext.check_equal(text_pos.pos_on_line, expected[3])
-        expected_ucn_map = _cp.ReplacementMap(expected[4]) if expected[4] else None
-        _check_ucn_map(subcontext, token.ucn_map, expected_ucn_map)
-        subcontext.check_not(token.synthetic)
-    context.check_equal(len(tokens), len(expected_tokens))
-
-
-def _check_ucn_map(context: _t.Context, ucn_map: _cp.ReplacementMap | None,
-                   expected_ucn_map: _cp.ReplacementMap | None) -> None:
-    context.check_equal(ucn_map is None, expected_ucn_map is None)
-    if ucn_map:
-        assert expected_ucn_map
-        for i, (entry, expected) in enumerate(zip(ucn_map.entries, expected_ucn_map.entries)):
-            subcontext = context.subcontext(1 + i)
-            subcontext.check_equal(entry.pos, expected.pos)
-            subcontext.check_equal(entry.size, expected.size)
-            subcontext.check_equal(entry.orig, expected.orig)
-        context.check_equal(len(ucn_map.entries), len(expected_ucn_map.entries))
 
 
 def _check_valid_define_directive(context: _t.Context, text: str, file_index: int, expected_name: str,
@@ -1495,8 +1495,7 @@ def _check_valid_define_directive(context: _t.Context, text: str, file_index: in
     _check_replace_elements(context, directive.replacement, tuple(expected_replacement))
 
 
-def _check_bad_define_directive(context: _t.Context, text: str,
-                                expected_errors: list[tuple[str, _tp.TextPos]]) -> None:
+def _check_bad_define_directive(context: _t.Context, text: str, expected_errors: list[_ExpectedError]) -> None:
     errors: list[_Error] = []
     position_tracker = _tp.TextPosTracker()
     path = "test.cpp"
@@ -1504,7 +1503,7 @@ def _check_bad_define_directive(context: _t.Context, text: str,
     def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
         assert pos.file_index == file_index
         text_pos = position_tracker.get_text_pos(pos.pos_in_file)
-        errors.append(_Error(message % args, text_pos))
+        errors.append(_Error(message % args, path, text_pos))
         file_context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         _l.FileContextLogger(context.logger, file_context).error(message, *args)
     tokens, end_pos = _tokenize(file_index, text, position_tracker, error_handler)
@@ -1567,15 +1566,6 @@ def _check_replace_elements(context: _t.Context, elems: tuple[_cp.ReplaceElem, .
     context.check_equal(len(elems), len(expected_elems))
 
 
-def _check_errors(context: _t.Context, errors: _cabc.Sequence[_Error],
-                  expected_errors: _cabc.Sequence[tuple[str, _tp.TextPos]]) -> None:
-    for i, (error, expected) in enumerate(zip(errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.pos, expected[1])
-    context.check_equal(len(errors), len(expected_errors))
-
-
 def _check_valid_string_literal(context: _t.Context, text: str, expected_payload: str,
                                 expected_type: _cp.StringLiteralType, expected_suffix: str,
                                 encoding_info: _cp.EncodingInfo | None = None) -> None:
@@ -1623,7 +1613,7 @@ def _check_invalid_string_literal(context: _t.Context, text: str, expected_error
         text_pos = _tp.TextPos(line_no=1, pos_on_line=pos.pos_in_file)
         file_context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         _l.FileContextLogger(context.logger, file_context).error(message, *args)
-        errors.append(_Error(message % args, text_pos))
+        errors.append(_Error(message % args, path, text_pos))
 
     pos = _cp.Position(file_index, 0)
     synthetic = False
@@ -1637,12 +1627,6 @@ def _check_invalid_string_literal(context: _t.Context, text: str, expected_error
     context.check_equal(len(errors), len(expected_errors))
 
 
-@dataclasses.dataclass(slots=True, frozen=True)
-class _Error:
-    message: str
-    pos:     _tp.TextPos
-
-
 def _tokenize(file_index: int, cpp_text: str, position_tracker: _tp.TextPosTracker,
               error_handler: _cp.ErrorHandler) -> tuple[list[_cp.Token], _cp.Position]:
     tokens: list[_cp.Token] = []
@@ -1653,6 +1637,172 @@ def _tokenize(file_index: int, cpp_text: str, position_tracker: _tp.TextPosTrack
             if token.type_ is _cp.TokenType.END_OF_INPUT:
                 return tokens, token.pos
             tokens.append(token)
+
+
+def _check_preprocess(context: _t.Context, root_path: str, root_cpp_text: str, expected_tokens: list[_ExpectedTokenP],
+                      expected_end_line_no: int, expected_end_pos_on_line: int,
+                      expected_errors: list[_ExpectedErrorP] | None = None,
+                      headers: dict[str, str] | None = None) -> None:
+    errors: list[_Error] = []
+    app = _PreprocessApplication(errors)
+    root_file_index = app.register_file(root_path, root_cpp_text)
+    if headers is not None:
+        for path, cpp_text in headers.items():
+            app.register_file(path, cpp_text, includable=True)
+    tokens: list[_cp.Token] = []
+    end_pos: _cp.Position
+    root_source = app.open_file(root_file_index)
+    with root_source.input_:
+        for token in _cp.preprocess(root_file_index, root_source, app):
+            if token.type_ is _cp.TokenType.END_OF_INPUT:
+                end_pos = token.pos
+                break
+            tokens.append(token)
+    _check_tokens_p(context, tokens, expected_tokens, app)
+    end_rpos = app.resolve_pos(end_pos)
+    context.check_equal(end_rpos.path, root_path)
+    context.check_equal(end_rpos.line_no, expected_end_line_no)
+    context.check_equal(end_rpos.pos_on_line, expected_end_pos_on_line)
+    _check_errors_p(context, errors, expected_errors or [])
+
+
+class _PreprocessApplication(_cp.Application):
+    def __init__(self, errors: list[_Error]) -> None:
+        self._errors = errors
+        self._file_entries: list[_FileEntry] = []
+        self._file_map: dict[str, int] = {}
+
+    def register_file(self, path: str, cpp_text: str, includable: bool = False) -> int:
+        file_index = len(self._file_entries)
+        position_tracker = _cp.PositionTracker(path)
+        self._file_entries.append(_FileEntry(cpp_text, position_tracker))
+        assert path not in self._file_map
+        self._file_map[path] = file_index
+        return file_index
+
+    def resolve_pos(self, pos: _cp.Position) -> _cp.ResolvedPosition:
+        file_entry = self._file_entries[pos.file_index]
+        return file_entry.position_tracker(pos.pos_in_file)
+
+    @typing.override
+    def resolve_include(self, path: str, resolution_type: _cp.ResolutionType, base_file_index: int) -> int | None:
+        return self._file_map.get(path)
+
+    @typing.override
+    def open_file(self, file_index: int) -> _cp.Source:
+        file_entry = self._file_entries[file_index]
+        input_ = io.StringIO(file_entry.cpp_text)
+        return _cp.Source(input_, file_entry.position_tracker)
+
+    @typing.override
+    def handle_pragma(self, tokens: _cabc.Sequence[_cp.Token], pos: _cp.Position, end_pos: _cp.Position) -> None:
+        assert False
+
+    @typing.override
+    def handle_error(self, pos: _cp.Position, message: str, *args: typing.Any) -> None:
+        rpos = self.resolve_pos(pos)
+        text_pos = _tp.TextPos(rpos.line_no, rpos.pos_on_line)
+        error = _Error(message % args, rpos.path, text_pos)
+        self._errors.append(error)
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _FileEntry:
+    cpp_text:         str
+    position_tracker: _cp.PositionTracker
+
+
+def _check_tokens(context: _t.Context, tokens: list[_cp.Token], expected_tokens: list[_ExpectedToken],
+                  file_index: int, position_tracker: _tp.TextPosTracker) -> None:
+    for i, (token, expected) in enumerate(zip(tokens, expected_tokens)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(token.type_, expected[0])
+        subcontext.check_equal(token.text, expected[1])
+        subcontext.check_equal(token.pos.file_index, file_index)
+        text_pos = position_tracker.get_text_pos(token.pos.pos_in_file)
+        subcontext.check_equal(text_pos.line_no, expected[2])
+        subcontext.check_equal(text_pos.pos_on_line, expected[3])
+        expected_ucn_map = _cp.ReplacementMap(expected[4]) if expected[4] else None
+        _check_ucn_map(subcontext, token.ucn_map, expected_ucn_map)
+        subcontext.check_not(token.synthetic)
+    context.check_equal(len(tokens), len(expected_tokens))
+
+
+def _check_tokens_p(context: _t.Context, tokens: list[_cp.Token], expected_tokens: list[_ExpectedTokenP],
+                    app: _PreprocessApplication) -> None:
+    for i, (token, expected) in enumerate(zip(tokens, expected_tokens)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(token.type_, expected[0])
+        subcontext.check_equal(token.text, expected[1])
+        rpos = app.resolve_pos(token.pos)
+        subcontext.check_equal(rpos.path, expected[2])
+        subcontext.check_equal(rpos.line_no, expected[3])
+        subcontext.check_equal(rpos.pos_on_line, expected[4])
+        expected_ucn_map = _cp.ReplacementMap(expected[5]) if expected[5] else None
+        _check_ucn_map(subcontext, token.ucn_map, expected_ucn_map)
+        subcontext.check_equal(token.synthetic, expected[6])
+    context.check_equal(len(tokens), len(expected_tokens))
+
+
+# (type, text, line_no, pos_on_line, ucn_map_entries)
+type _ExpectedToken = tuple[_cp.TokenType, str, int, int, tuple[_cp.ReplacementMap.Entry, ...]]
+
+# (type, text, path, line_no, pos_on_line, ucn_map_entries, synthetic)
+type _ExpectedTokenP = tuple[_cp.TokenType, str, str, int, int, tuple[_cp.ReplacementMap.Entry, ...], bool]
+
+
+def _check_ucn_map(context: _t.Context, ucn_map: _cp.ReplacementMap | None,
+                   expected_ucn_map: _cp.ReplacementMap | None) -> None:
+    context.check_equal(ucn_map is None, expected_ucn_map is None)
+    if ucn_map:
+        assert expected_ucn_map
+        for i, (entry, expected) in enumerate(zip(ucn_map.entries, expected_ucn_map.entries)):
+            subcontext = context.subcontext(1 + i)
+            subcontext.check_equal(entry.pos, expected.pos)
+            subcontext.check_equal(entry.size, expected.size)
+            subcontext.check_equal(entry.orig, expected.orig)
+        context.check_equal(len(ucn_map.entries), len(expected_ucn_map.entries))
+
+
+def _check_errors(context: _t.Context, errors: _cabc.Sequence[_Error],
+                  expected_errors: _cabc.Sequence[_ExpectedError]) -> None:
+    for i, (error, expected) in enumerate(zip(errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.pos.line_no, expected[1])
+        subcontext.check_equal(error.pos.pos_on_line, expected[2])
+    context.check_equal(len(errors), len(expected_errors))
+
+
+def _check_errors_p(context: _t.Context, errors: _cabc.Sequence[_Error],
+                    expected_errors: _cabc.Sequence[_ExpectedErrorP]) -> None:
+    for i, (error, expected) in enumerate(zip(errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.path, expected[1])
+        subcontext.check_equal(error.pos.line_no, expected[2])
+        subcontext.check_equal(error.pos.pos_on_line, expected[3])
+    context.check_equal(len(errors), len(expected_errors))
+
+
+# (message, line_no, pos_on_line)
+type _ExpectedError = tuple[str, int, int]
+
+# (message, path, line_no, pos_on_line)
+type _ExpectedErrorP = tuple[str, str, int, int]
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _Error:
+    message: str
+    path:    str
+    pos:     _tp.TextPos
+
+
+
+
+
+
 
 
 # Bridge to Python's native testing framework

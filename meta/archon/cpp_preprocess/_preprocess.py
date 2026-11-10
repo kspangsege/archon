@@ -44,17 +44,17 @@ import archon.cpp_preprocess._directive as _cd
 # The preprocessor operates in a streaming fashion, meaning that it starts generating tokens
 # before having seen the end of input.
 #
-def preprocess(root_file_index: int, root_source: Source, context: Context,
+def preprocess(root_file_index: int, root_source: Source, app: Application,
                config: Config | None = None) -> _cabc.Iterator[_ct.Token]:
-    return _preprocess(root_file_index, root_source, context, config or Config())
+    return _preprocess(root_file_index, root_source, app, config or Config())
 
 
-class Context(abc.ABC):
+class Application(abc.ABC):
     # Returns `file_index` of resolved file, or `None` if the file could not be found. The
     # caller generates an error message if the file was not found.
     #
     @abc.abstractmethod
-    def resolve_include(self, name: str, resolution_type: _cd.ResolutionType, base_file_index: int, /) -> int | None:
+    def resolve_include(self, path: str, resolution_type: _cd.ResolutionType, base_file_index: int, /) -> int | None:
         ...
 
     @abc.abstractmethod
@@ -169,7 +169,7 @@ class MacroArg:
 
 
 
-def _preprocess(root_file_index: int, root_source: Source, context: Context,
+def _preprocess(root_file_index: int, root_source: Source, app: Application,
                 config: Config) -> _cabc.Iterator[_ct.Token]:
     macro_registry: dict[str, Macro] = {}
     include_stack: list[_IncludeStackEntry] = []
@@ -573,18 +573,18 @@ def _preprocess(root_file_index: int, root_source: Source, context: Context,
                 if include_directive is None:
                     return
                 includer_index = include_stack[-1].file_index if include_stack else root_file_index
-                file_index = context.resolve_include(include_directive.name, include_directive.resolution_type,
-                                                     includer_index)
+                file_index = app.resolve_include(include_directive.path, include_directive.resolution_type,
+                                                 includer_index)
                 if file_index is None:
                     match include_directive.resolution_type:
                         case _cd.ResolutionType.BRACKETED:
-                            error(pos, "Cannot find header <%s>", include_directive.name)
+                            error(pos, "Cannot find header <%s>", include_directive.path)
                             return
                         case _cd.ResolutionType.QUOTED:
-                            error(pos, 'Cannot find source file "%s"', include_directive.name)
+                            error(pos, 'Cannot find source file "%s"', include_directive.path)
                             return
                     typing.assert_never(include_directive.resolution_type)
-                source = context.open_file(file_index)
+                source = app.open_file(file_index)
                 text_pos_tracker = source.position_tracker.text_pos_tracker
                 tokenizer = _ct.Tokenizer(source.input_, file_index, text_pos_tracker, error)
                 directive_filter = _cd.DirectiveFilter(tokenizer, directive_handler)
@@ -650,12 +650,12 @@ def _preprocess(root_file_index: int, root_source: Source, context: Context,
                 source.position_tracker.add_override(line_directive.path, line_index_base, line_no_base)
                 return
             case _cd.DirectiveType.PRAGMA:
-                context.handle_pragma(remaining_tokens, pos, end_pos)
+                app.handle_pragma(remaining_tokens, pos, end_pos)
                 return
         raise NotImplementedError         
 
     def error(pos: _cp.Position, message: str, *args: typing.Any) -> None:
-        context.handle_error(pos, message, *args)
+        app.handle_error(pos, message, *args)
 
     class ObjectlikeFunction(typing.Protocol):
         def __call__(self, invoc_pos: _cp.Position) -> list[_ct.Token] | None:
@@ -755,7 +755,7 @@ def _preprocess(root_file_index: int, root_source: Source, context: Context,
         if synthesized_tokens is None:
             return None
         end_pos = token.subpos(j)
-        context.handle_pragma(synthesized_tokens, invoc_pos, end_pos)
+        app.handle_pragma(synthesized_tokens, invoc_pos, end_pos)
         return []
 
     add_objectlike_macro("__FILE__", file_func)
@@ -835,9 +835,13 @@ class _TokenIterator(_cabc.Iterator[_ct.Token]):
                 if self._at_end:
                     raise StopIteration
                 token = self._root_directive_filter.next_token()
+                if token is None:
+                    continue
                 break
             top = self._include_stack[-1]
             token = top.directive_filter.next_token()
+            if token is None:
+                continue
             if token.type_ is not _ct.TokenType.END_OF_INPUT:
                 break
             top.source.input_.close()
