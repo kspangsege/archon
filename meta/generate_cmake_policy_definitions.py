@@ -120,7 +120,7 @@ def extract_macro_definition() -> _cp.DefineDirective:
 def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
     assert pos.file_index == 0
     text_pos = tracker.get_text_pos(pos.pos_in_file)
-    context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
+    context = _l.FileContext(str(path), _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
     _l.FileContextLogger(logger, context).error(message, *args)
     raise Error from None
 

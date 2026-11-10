@@ -197,18 +197,18 @@ class SimpleApplication(Application):
     def message(self, pos: _cur.Position, occurrence_uncertainty: OccurrenceUncertainty, level: MessageLevel,
                 message: str) -> None:
         certainty = "Uncertain" if occurrence_uncertainty else "Certain"
-        context = self._pos_resolver.resolve_file_context(pos)
+        context = self._pos_resolver.resolve_context(pos)
         context_logger = _l.FileContextLogger(self._logger, context)
         context_logger.info("%s: Message(%s): %s", certainty, level.name, message)
 
     @typing.override
     def warn(self, pos: _cur.Position, message: str, *args: typing.Any) -> None:
-        context = self._pos_resolver.resolve_file_context(pos)
+        context = self._pos_resolver.resolve_context(pos)
         _l.FileContextLogger(self._logger, context).warn(message, *args)
 
     @typing.override
     def error(self, pos: _cur.Position, message: str, *args: typing.Any) -> None:
-        context = self._pos_resolver.resolve_file_context(pos)
+        context = self._pos_resolver.resolve_context(pos)
         _l.FileContextLogger(self._logger, context).error(message, *args)
 
 
@@ -219,17 +219,24 @@ class PositionResolver:
     def __init__(self) -> None:
         self._files: list[_SourceFile] = []
 
-    def resolve_file_context(self, pos: _cur.Position) -> _l.FileContext:
-        file_pos = self.resolve_file_pos(pos)
-        return _l.FileContext(file_pos.path, _l.FullTextPos(file_pos.line_no, file_pos.pos_on_line))
+    def get_path(self, file_index: int) -> pathlib.Path:
+        return self._files[file_index].path
 
-    def resolve_file_pos(self, pos: _cur.Position) -> _tp.FilePos:
-        return self._files[pos.file_index].pos_tracker.get_file_pos(pos.pos)
+    def resolve_pos(self, pos: _cur.Position) -> _tp.TextPos:
+        return self._files[pos.file_index].pos_tracker.get_text_pos(pos.pos)
+
+    def resolve_context(self, pos: _cur.Position) -> _l.FileContext:
+        path = self.get_path(pos.file_index)
+        text_pos = self.resolve_pos(pos)
+        return _l.FileContext(str(path), _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
 
     def _append_file(self, file_: _SourceFile) -> int:
         file_index = len(self._files)
         self._files.append(file_)
         return file_index
+
+
+
 
 
 class MessageLevel(enum.Enum):
@@ -337,8 +344,8 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     def process_file(process_context: _ProcessContext, cmake_source: Source, is_root_dir: bool, state: _State,
                      occurrence_uncertainty: OccurrenceUncertainty, source_dir: pathlib.Path,
                      binary_dir: pathlib.Path | None) -> None:
-        tracker = _tp.FilePosTracker(cmake_source.path)
-        file_index = pos_resolver._append_file(_SourceFile(tracker))
+        tracker = _tp.TextPosTracker()
+        file_index = pos_resolver._append_file(_SourceFile(cmake_source.path, tracker))
         context = _InvocContext(process_context, file_index, is_root_dir, state, occurrence_uncertainty, source_dir,
                                 binary_dir)
         def warning_handler(pos: int, message: str, *args: typing.Any) -> None:
@@ -748,7 +755,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         closing_args = [a.orig_text for a in invoc.arguments]
         if opening_args != closing_args:
             opening_position = _cur.Position(context.file_index, opening_invoc.pos)
-            opening_line_no = pos_resolver.resolve_file_pos(opening_position).line_no
+            opening_line_no = pos_resolver.resolve_pos(opening_position).line_no
             warn(context.file_index, invoc.pos, "Closing invocation, %s(), has mismatching arguments (opening "
                  "invocation is on line %s)", invoc.command_name, opening_line_no)
 
@@ -759,7 +766,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             return
         pos = invoc.arguments[0].pos
         opening_position = _cur.Position(context.file_index, opening_invoc.pos)
-        opening_line_no = pos_resolver.resolve_file_pos(opening_position).line_no
+        opening_line_no = pos_resolver.resolve_pos(opening_position).line_no
         warn(context.file_index, pos, "Arguments in closing invocation %s() (opening invocation is on line %s)",
              invoc.command_name, opening_line_no)
 
@@ -2186,7 +2193,8 @@ _ASCII_UPPER_MAP = str.maketrans(_string.ascii_lowercase, _string.ascii_uppercas
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _SourceFile:
-    pos_tracker: _tp.FilePosTracker
+    path:        pathlib.Path
+    pos_tracker: _tp.TextPosTracker
 
 
 # `is_root_dir` is true inside the immediately processed CMake file (the one whose path was
@@ -2207,8 +2215,11 @@ class _InvocContext:
     def with_state(self, state: _State) -> _InvocContext:
         return dataclasses.replace(self, state=state)
 
-    def resolve_file_pos(self, pos: _cur.Position) -> _tp.FilePos:
-        return self.process.pos_resolver.resolve_file_pos(pos)
+    def get_path(self, file_index: int) -> pathlib.Path:
+        return self.process.pos_resolver.get_path(file_index)
+
+    def resolve_pos(self, pos: _cur.Position) -> _tp.TextPos:
+        return self.process.pos_resolver.resolve_pos(pos)
 
     def open_subfile(self, path: pathlib.Path) -> typing.TextIO:
         return self.process.application.open_subfile(path)
@@ -3321,9 +3332,10 @@ def _assign_function_arguments(command: _CustomCommand, arguments: list[_ca.Argu
     set_certain_param("ARGC", str(len(arguments)))
 
     # Introspection parameters (these also shadow clashing formal parameters)
-    file_pos = context.resolve_file_pos(command.definition_position)
-    abs_path = context.resolve_path(file_pos.path)
+    path = context.get_path(command.definition_position.file_index)
+    abs_path = context.resolve_path(path)
+    text_pos = context.resolve_pos(command.definition_position)
     set_certain_param("CMAKE_CURRENT_FUNCTION", command.name)
     set_certain_param("CMAKE_CURRENT_FUNCTION_LIST_DIR", str(abs_path.parent))
     set_certain_param("CMAKE_CURRENT_FUNCTION_LIST_FILE", str(abs_path))
-    set_certain_param("CMAKE_CURRENT_FUNCTION_LIST_LINE", str(file_pos.line_no))
+    set_certain_param("CMAKE_CURRENT_FUNCTION_LIST_LINE", str(text_pos.line_no))

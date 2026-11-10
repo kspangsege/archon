@@ -205,15 +205,19 @@ class ReplacementMap:
 # `BLOCKED_IDENTIFIER`. At the end of input, an `END_OF_INPUT` token is generated.
 #
 # The tokenizer verifies that all generated identifier tokens are on Unicode Normalization
-# Form C (NFC). The application ensure that any synthesized identifiers are also Unicode
-# Normalization Form C by calling `verify_identifier_nfc()`.
+# Form C (NFC). The application must ensure that any synthesized identifiers are also on
+# Unicode Normalization Form C by calling `verify_identifier_nfc()`.
+#
+# The tokenizer ensures that the current position of the position tracker
+# (`position_tracker.current`) always points to the end of the last returned token, i.e., to
+# the position immediately following the last character of the last returned token.
 #
 class Tokenizer:
-    def __init__(self, input_: typing.TextIO, file_index: int, tracker: _tp.TextPosTracker,
+    def __init__(self, input_: typing.TextIO, file_index: int, position_tracker: _tp.TextPosTracker,
                  error_handler: ErrorHandler) -> None:
         self._input = input_
         self._file_index = file_index
-        self._position_tracker = tracker
+        self._position_tracker = position_tracker
         self._error_handler = error_handler
         self._splicing_disabled = False
         self._physical_line: str

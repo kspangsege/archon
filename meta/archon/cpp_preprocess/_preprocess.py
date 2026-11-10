@@ -24,8 +24,8 @@ import typing
 import abc
 import dataclasses
 import collections.abc as _cabc
+import bisect
 import io
-import pathlib
 
 import archon.base as _b
 import archon.text_pos as _tp
@@ -44,14 +44,17 @@ import archon.cpp_preprocess._directive as _cd
 # The preprocessor operates in a streaming fashion, meaning that it starts generating tokens
 # before having seen the end of input.
 #
-def preprocess(root_file: File, root_source: Source, context: Context,
+def preprocess(root_file_index: int, root_source: Source, context: Context,
                config: Config | None = None) -> _cabc.Iterator[_ct.Token]:
-    return _preprocess(root_file, root_source, context, config or Config())
+    return _preprocess(root_file_index, root_source, context, config or Config())
 
 
 class Context(abc.ABC):
+    # Returns `file_index` of resolved file, or `None` if the file could not be found. The
+    # caller generates an error message if the file was not found.
+    #
     @abc.abstractmethod
-    def resolve_include(self, name: str, resolution_type: _cd.ResolutionType, base_file_index: int, /) -> File | None:
+    def resolve_include(self, name: str, resolution_type: _cd.ResolutionType, base_file_index: int, /) -> int | None:
         ...
 
     @abc.abstractmethod
@@ -73,15 +76,48 @@ class Context(abc.ABC):
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class File:
-    path:       pathlib.Path
-    file_index: int
+class Source:
+    input_:           typing.TextIO
+    position_tracker: PositionTracker
+
+
+class PositionTracker:
+    def __init__(self, path: str) -> None:
+        self._text_pos_tracker = _tp.TextPosTracker()
+        self._overrides: list[PositionTracker._Override] = [PositionTracker._Override(path, 0, 1)]
+        # Line index offset for each override entry
+        self._offsets: list[int] = [0]
+
+    def __call__(self, pos_in_file: int) -> ResolvedPosition:
+        text_pos = self._text_pos_tracker.get_text_pos(pos_in_file)
+        line_index = text_pos.line_no - 1
+        i = bisect.bisect_right(self._offsets, line_index) - 1
+        override = self._overrides[i]
+        line_no = override.line_no_base + (line_index - override.line_index_base)
+        return ResolvedPosition(override.path, line_no, text_pos.pos_on_line)
+
+    def add_override(self, path: str | None, line_index_base: int, line_no_base: int) -> None:
+        assert line_index_base > self._overrides[-1].line_index_base
+        path_2 = path if path is not None else self._overrides[-1].path
+        self._overrides.append(PositionTracker._Override(path_2, line_index_base, line_no_base))
+        self._offsets.append(line_index_base)
+
+    @property
+    def text_pos_tracker(self) -> _tp.TextPosTracker:
+        return self._text_pos_tracker
+
+    @dataclasses.dataclass(slots=True, frozen=True)
+    class _Override:
+        path:            str
+        line_index_base: int
+        line_no_base:    int
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class Source:
-    input_:           typing.TextIO
-    position_tracker: _tp.TextPosTracker
+class ResolvedPosition:
+    path:        str
+    line_no:     int
+    pos_on_line: int  # Zero based
 
 
 @dataclasses.dataclass(slots=True)
@@ -133,7 +169,8 @@ class MacroArg:
 
 
 
-def _preprocess(root_file: File, root_source: Source, context: Context, config: Config) -> _cabc.Iterator[_ct.Token]:
+def _preprocess(root_file_index: int, root_source: Source, context: Context,
+                config: Config) -> _cabc.Iterator[_ct.Token]:
     macro_registry: dict[str, Macro] = {}
     include_stack: list[_IncludeStackEntry] = []
     invoc_stack: list[_InvocStackEntry] = []
@@ -535,10 +572,10 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
                 include_directive = _cd.parse_include_directive(remaining_tokens, pos, end_pos, macro_expand, error)
                 if include_directive is None:
                     return
-                includer = include_stack[-1].file_ if include_stack else root_file
-                file_ = context.resolve_include(include_directive.name, include_directive.resolution_type,
-                                                includer.file_index)
-                if file_ is None:
+                includer_index = include_stack[-1].file_index if include_stack else root_file_index
+                file_index = context.resolve_include(include_directive.name, include_directive.resolution_type,
+                                                     includer_index)
+                if file_index is None:
                     match include_directive.resolution_type:
                         case _cd.ResolutionType.BRACKETED:
                             error(pos, "Cannot find header <%s>", include_directive.name)
@@ -547,10 +584,11 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
                             error(pos, 'Cannot find source file "%s"', include_directive.name)
                             return
                     typing.assert_never(include_directive.resolution_type)
-                source = context.open_file(file_.file_index)
-                tokenizer = _ct.Tokenizer(source.input_, file_.file_index, source.position_tracker, error)
+                source = context.open_file(file_index)
+                text_pos_tracker = source.position_tracker.text_pos_tracker
+                tokenizer = _ct.Tokenizer(source.input_, file_index, text_pos_tracker, error)
                 directive_filter = _cd.DirectiveFilter(tokenizer, directive_handler)
-                entry = _IncludeStackEntry(file_, source, directive_filter)
+                entry = _IncludeStackEntry(file_index, source, directive_filter)
                 include_stack.append(entry)
                 return
             case _cd.DirectiveType.DEFINE:
@@ -591,7 +629,26 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
                                                           config.encoding_info, error)
                 if line_directive is None:
                     return
-                raise NotImplementedError         
+                # This position override must take effect starting from the first "physical"
+                # line that follows the last physical line of the `#line` directive. In
+                # general, the current line index as tracked by the associated position
+                # tracker is the target line index of the directive, but not if the
+                # directive is on the last line of the file and not is followed by a newline
+                # character. For that reason, we need to compute the target line index as
+                # one plus the line index of the end position of the directive.
+                if include_stack:
+                    top = include_stack[-1]
+                    assert end_pos.file_index == top.file_index
+                    source = top.source
+                else:
+                    assert end_pos.file_index == root_file_index
+                    source = root_source
+                text_pos = source.position_tracker.text_pos_tracker.get_text_pos(end_pos.pos_in_file)
+                directive_line_index = text_pos.line_no - 1
+                line_index_base = directive_line_index + 1
+                line_no_base = line_directive.line_no
+                source.position_tracker.add_override(line_directive.path, line_index_base, line_no_base)
+                return
             case _cd.DirectiveType.PRAGMA:
                 context.handle_pragma(remaining_tokens, pos, end_pos)
                 return
@@ -628,8 +685,16 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
         macro_registry[name] = BuiltinMacro(signature, permanent, require_paren, func_2)
 
     def file_func(invoc_pos: _cp.Position) -> list[_ct.Token] | None:
-        file_ = include_stack[-1].file_ if include_stack else root_file
-        text = _make_string_lit(str(file_.path))
+        root_invoc_pos = invoc_stack[0].invoc_pos if invoc_stack else invoc_pos
+        if include_stack:
+            top = include_stack[-1]
+            assert root_invoc_pos.file_index == top.file_index
+            source = top.source
+        else:
+            assert root_invoc_pos.file_index == root_file_index
+            source = root_source
+        resolved_position = source.position_tracker(root_invoc_pos.pos_in_file)
+        text = _make_string_lit(resolved_position.path)
         token = _ct.Token(_ct.TokenType.STRING_LIT, text, invoc_pos, synthetic=True)
         return [token]
 
@@ -637,13 +702,13 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
         root_invoc_pos = invoc_stack[0].invoc_pos if invoc_stack else invoc_pos
         if include_stack:
             top = include_stack[-1]
-            assert root_invoc_pos.file_index == top.file_.file_index
+            assert root_invoc_pos.file_index == top.file_index
             source = top.source
         else:
-            assert root_invoc_pos.file_index == root_file.file_index
+            assert root_invoc_pos.file_index == root_file_index
             source = root_source
-        text_pos = source.position_tracker.get_text_pos(root_invoc_pos.pos_in_file)
-        text = str(text_pos.line_no)
+        resolved_position = source.position_tracker(root_invoc_pos.pos_in_file)
+        text = str(resolved_position.line_no)
         token = _ct.Token(_ct.TokenType.NUMBER, text, invoc_pos, synthetic=True)
         return [token]
 
@@ -706,7 +771,8 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
         for macro in config.predefined_macros:
             macro_registry[macro.signature.name] = macro
 
-    tokenizer = _ct.Tokenizer(root_source.input_, root_file.file_index, root_source.position_tracker, error)
+    text_pos_tracker = root_source.position_tracker.text_pos_tracker
+    tokenizer = _ct.Tokenizer(root_source.input_, root_file_index, text_pos_tracker, error)
     directive_filter = _cd.DirectiveFilter(tokenizer, directive_handler)
     iterator = _TokenIterator(directive_filter, include_stack, error)
     error_occurred = _b.Wrap(False)
@@ -723,7 +789,7 @@ def _preprocess(root_file: File, root_source: Source, context: Context, config: 
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _IncludeStackEntry:
-    file_:            File
+    file_index:       int
     source:           Source
     directive_filter: _cd.DirectiveFilter
 

@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import dataclasses
 import bisect
-import pathlib
 
 
 class TextPosTracker:
@@ -68,31 +67,6 @@ class TextPosTracker:
 class TextPos:
     line_no:     int
     pos_on_line: int
-
-
-class FilePosTracker(TextPosTracker):
-    def __init__(self, path: pathlib.Path) -> None:
-        TextPosTracker.__init__(self)
-        self._path = path
-
-    @property
-    def path(self) -> pathlib.Path:
-        return self._path
-
-    def get_file_pos(self, offset: int) -> FilePos:
-        text_pos = self.get_text_pos(offset)
-        return FilePos(self._path, text_pos.line_no, text_pos.pos_on_line)
-
-
-@dataclasses.dataclass(slots=True, frozen=True)
-class FilePos:
-    path:        pathlib.Path
-    line_no:     int
-    pos_on_line: int
-
-    @property
-    def text_pos(self) -> TextPos:
-        return TextPos(self.line_no, self.pos_on_line)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)

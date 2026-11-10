@@ -74,20 +74,21 @@ class Context(_cp.Context):
         self._file_registry = file_registry
 
     @typing.override
-    def resolve_include(self, name: str, resolution_type: _cp.ResolutionType,
-                        base_file_index: int) -> _cp.File | None:
+    def resolve_include(self, name: str, resolution_type: _cp.ResolutionType, base_file_index: int) -> int | None:
         match resolution_type:
             case _cp.ResolutionType.BRACKETED:
                 pass
             case _cp.ResolutionType.QUOTED:
                 base_entry = self._file_registry.get(base_file_index)
-                if file_ := self._find_file(name, base_entry.path.parent):
-                    return file_
+                file_index = self._find_file(name, base_entry.path.parent)
+                if file_index is not None:
+                    return file_index
             case _:
                 typing.assert_never(resolution_type)
         for dir_path in self._include_path:
-            if file_ := self._find_file(name, dir_path):
-                return file_
+            file_index = self._find_file(name, dir_path)
+            if file_index is not None:
+                return file_index
         return None
 
     @typing.override
@@ -100,24 +101,24 @@ class Context(_cp.Context):
     def handle_pragma(self, tokens: _cabc.Sequence[_cp.Token], pos: _cp.Position, end_pos: _cp.Position) -> None:
         text = "".join(t.text for t in tokens)
         entry = self._file_registry.get(pos.file_index)
-        text_pos = entry.position_tracker.get_text_pos(pos.pos_in_file)
-        context = _l.FileContext(entry.path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
+        rpos = entry.position_tracker(pos.pos_in_file)
+        context = _l.FileContext(rpos.path, _l.FullTextPos(rpos.line_no, rpos.pos_on_line))
         _l.FileContextLogger(logger, context).info("Pragma: %s", text)
 
     @typing.override
     def handle_error(self, pos: _cp.Position, message: str, *args: typing.Any) -> None:
         entry = self._file_registry.get(pos.file_index)
-        text_pos = entry.position_tracker.get_text_pos(pos.pos_in_file)
-        context = _l.FileContext(entry.path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
+        rpos = entry.position_tracker(pos.pos_in_file)
+        context = _l.FileContext(rpos.path, _l.FullTextPos(rpos.line_no, rpos.pos_on_line))
         _l.FileContextLogger(logger, context).error(message, *args)
         self.error = True
 
-    def _find_file(self, name: str, dir_path: pathlib.Path) -> _cp.File | None:
+    def _find_file(self, name: str, dir_path: pathlib.Path) -> int | None:
         path = dir_path / name
         file_index = self._file_registry.ensure(path)
         if file_index is None:
             return None
-        return _cp.File(path, file_index)
+        return file_index
 
 
 class FileRegistry:
@@ -138,7 +139,7 @@ class FileRegistry:
         if identity in self._identities:
             return self._identities[identity]
 
-        position_tracker = _tp.TextPosTracker()
+        position_tracker = _cp.PositionTracker(str(path))
         entry = FileEntry(path, position_tracker)
         file_index = len(self._entries)
         self._entries.append(entry)
@@ -152,7 +153,7 @@ class FileRegistry:
 @dataclasses.dataclass(slots=True, frozen=True)
 class FileEntry:
     path:             pathlib.Path
-    position_tracker: _tp.TextPosTracker
+    position_tracker: _cp.PositionTracker
 
 
 try:
@@ -162,20 +163,18 @@ try:
         if file_index is None:
             raise RuntimeError("Unexpected concurrent modification")
         root_entry = file_registry.get(file_index)
-        file_ = _cp.File(path, file_index)
         source = _cp.Source(input_, root_entry.position_tracker)
         context = Context(include_path, file_registry)
-        tokens_iter = _cp.preprocess(file_, source, context)
+        tokens_iter = _cp.preprocess(file_index, source, context)
         if no_serialize.value:
             for token in tokens_iter:
                 pos = token.pos
                 entry = file_registry.get(pos.file_index)
-                text_pos = entry.position_tracker.get_text_pos(pos.pos_in_file)
+                rpos = entry.position_tracker(pos.pos_in_file)
                 string = _b.clamped_quote(token.text, 64)
                 if token.synthetic:
                     string += " (synthetic)"
-                logger.info("%s:%s:%s: %s: %s", entry.path, text_pos.line_no, text_pos.pos_on_line, token.type_.name,
-                            string)
+                logger.info("%s:%s:%s: %s: %s", rpos.path, rpos.line_no, rpos.pos_on_line, token.type_.name, string)
         else:
             parts: list[str] = []
             def flush() -> None:

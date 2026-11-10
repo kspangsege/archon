@@ -61,7 +61,7 @@ def test_CMakeProcess_Message(context: _t.Context) -> None:
         subcontext.check_equal(message.message, expected[0])
         subcontext.check_equal(message.level, expected[1])
         subcontext.check_equal(not message.occurrence_uncertainty, expected[2])
-        subcontext.check_equal(message.file_pos.text_pos, expected[3])
+        subcontext.check_equal(message.text_pos, expected[3])
     context.check_equal(len(result.messages), len(expected_messages))
     _check_warnings(context, result, path, [])
 
@@ -3539,25 +3539,29 @@ def test_CMakeProcess_Include(context: _t.Context) -> None:
     success, result = _process(_trim_cmake_text(root_text), root_path, context, resolve)
     context.check_not(success)
     expected_messages = [
-        ("1: -X-",     _tp.FilePos(pathlib.Path("src/foo.cmake"), 1, 0)),  # 1
-        ("3: -X2-Y-",  _tp.FilePos(root_path, 3, 0)),                      # 2
-        ("2: -X2-Y-",  _tp.FilePos(pathlib.Path("src/bar.cmake"), 1, 0)),  # 3
-        ("4: -X3-Y2-", _tp.FilePos(root_path, 5, 0)),                      # 4
+        ("1: -X-",     pathlib.Path("src/foo.cmake"), 1, 0),  # 1
+        ("3: -X2-Y-",  root_path, 3, 0),                      # 2
+        ("2: -X2-Y-",  pathlib.Path("src/bar.cmake"), 1, 0),  # 3
+        ("4: -X3-Y2-", root_path, 5, 0),                      # 4
     ]
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.message, expected[0])
-        subcontext.check_equal(message.file_pos, expected[1])
+        subcontext.check_equal(message.path, expected[1])
+        subcontext.check_equal(message.text_pos.line_no, expected[2])
+        subcontext.check_equal(message.text_pos.pos_on_line, expected[3])
         subcontext.check_is_none(message.occurrence_uncertainty)
     context.check_equal(len(result.messages), len(expected_messages))
     context.check_equal(len(result.warnings), 0)
     expected_errors = [
-        ('Failed to include "qux.cmake" ("src/qux.cmake"): No such file or directory', _tp.FilePos(root_path, 6, 8)),
+        ('Failed to include "qux.cmake" ("src/qux.cmake"): No such file or directory', root_path, 6, 8),
     ]
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos, expected[1])
+        subcontext.check_equal(error.path, expected[1])
+        subcontext.check_equal(error.text_pos.line_no, expected[2])
+        subcontext.check_equal(error.text_pos.pos_on_line, expected[3])
     context.check_equal(len(result.errors), len(expected_errors))
 
 
@@ -3597,26 +3601,29 @@ def test_CMakeProcess_AddSubdirectory(context: _t.Context) -> None:
     success, result = _process(_trim_cmake_text(root_text), root_path, context, resolve)
     context.check_not(success)
     expected_messages = [
-        ("1: -X-Y-",  _tp.FilePos(pathlib.Path("src/foo/CMakeLists.txt"), 1, 0)),     # 1
-        ("3: -X-Y2-", _tp.FilePos(root_path, 4, 0)),                                  # 2
-        ("2: -X-Y2-", _tp.FilePos(pathlib.Path("src/baz/bar/CMakeLists.txt"), 1, 0)), # 3
-        ("4: -X-Y2-", _tp.FilePos(root_path, 6, 0)),                                  # 4
+        ("1: -X-Y-",  pathlib.Path("src/foo/CMakeLists.txt"), 1, 0),     # 1
+        ("3: -X-Y2-", root_path, 4, 0),                                  # 2
+        ("2: -X-Y2-", pathlib.Path("src/baz/bar/CMakeLists.txt"), 1, 0), # 3
+        ("4: -X-Y2-", root_path, 6, 0),                                  # 4
     ]
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.message, expected[0])
-        subcontext.check_equal(message.file_pos, expected[1])
+        subcontext.check_equal(message.path, expected[1])
+        subcontext.check_equal(message.text_pos.line_no, expected[2])
+        subcontext.check_equal(message.text_pos.pos_on_line, expected[3])
         subcontext.check_is_none(message.occurrence_uncertainty)
     context.check_equal(len(result.messages), len(expected_messages))
     context.check_equal(len(result.warnings), 0)
     expected_errors = [
-        ('Failed to add subdirectory "qux" ("src/qux/CMakeLists.txt"): No such file or directory',
-         _tp.FilePos(root_path, 7, 17)),
+        ('Failed to add subdirectory "qux" ("src/qux/CMakeLists.txt"): No such file or directory', root_path, 7, 17),
     ]
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos, expected[1])
+        subcontext.check_equal(error.path, expected[1])
+        subcontext.check_equal(error.text_pos.line_no, expected[2])
+        subcontext.check_equal(error.text_pos.pos_on_line, expected[3])
     context.check_equal(len(result.errors), len(expected_errors))
 
 
@@ -4359,8 +4366,8 @@ def _check_messages_p(context: _t.Context, result: _Result, path: pathlib.Path,
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
         subcontext.check_equal(message.message, expected[0])
-        subcontext.check_equal(message.file_pos.path, path)
-        subcontext.check_equal(message.file_pos.text_pos, expected[1])
+        subcontext.check_equal(message.path, path)
+        subcontext.check_equal(message.text_pos, expected[1])
         subcontext.check_is_none(message.occurrence_uncertainty)
     context.check_equal(len(result.messages), len(expected_messages))
 
@@ -4371,7 +4378,7 @@ def _check_messages_u(context: _t.Context, result: _Result, path: pathlib.Path,
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
         subcontext.check_equal(message.message, expected[0])
-        subcontext.check_equal(message.file_pos.path, path)
+        subcontext.check_equal(message.path, path)
         subcontext.check_equal(bool(message.occurrence_uncertainty), expected[1])
     context.check_equal(len(result.messages), len(expected_messages))
 
@@ -4381,8 +4388,8 @@ def _check_warnings(context: _t.Context, result: _Result, path: pathlib.Path,
     for i, (warning, expected) in enumerate(zip(result.warnings, expected_warnings)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(warning.message, expected[0])
-        subcontext.check_equal(warning.file_pos.path, path)
-        subcontext.check_equal(warning.file_pos.text_pos, expected[1])
+        subcontext.check_equal(warning.path, path)
+        subcontext.check_equal(warning.text_pos, expected[1])
     context.check_equal(len(result.warnings), len(expected_warnings))
 
 
@@ -4391,8 +4398,8 @@ def _check_errors(context: _t.Context, result: _Result, path: pathlib.Path,
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.path, path)
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+        subcontext.check_equal(error.path, path)
+        subcontext.check_equal(error.text_pos, expected[1])
     context.check_equal(len(result.errors), len(expected_errors))
 
 
@@ -4418,24 +4425,27 @@ class _Application(_cp.Application):
     @typing.override
     def message(self, pos: _cur.Position, occurrence_uncertainty: _cp.OccurrenceUncertainty, level: _cp.MessageLevel,
                 message: str) -> None:
-        file_pos = self._pos_resolver.resolve_file_pos(pos)
-        self._result.messages.append(_CMakeMessage(file_pos, occurrence_uncertainty, level, message))
-        context = _l.FileContext(file_pos.path, _l.FullTextPos(file_pos.line_no, file_pos.pos_on_line))
+        path = self._pos_resolver.get_path(pos.file_index)
+        text_pos = self._pos_resolver.resolve_pos(pos)
+        self._result.messages.append(_CMakeMessage(path, text_pos, occurrence_uncertainty, level, message))
+        context = _l.FileContext(str(path), _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         certainty = "Uncertain" if occurrence_uncertainty else "Certain"
         _l.FileContextLogger(self._logger, context).info("%s: Message(%s): %s", certainty, level.name, message)
 
     @typing.override
     def warn(self, pos: _cur.Position, message: str, *args: typing.Any) -> None:
-        file_pos = self._pos_resolver.resolve_file_pos(pos)
-        self._result.warnings.append(_LogMessage(file_pos, message % args))
-        context = _l.FileContext(file_pos.path, _l.FullTextPos(file_pos.line_no, file_pos.pos_on_line))
+        path = self._pos_resolver.get_path(pos.file_index)
+        text_pos = self._pos_resolver.resolve_pos(pos)
+        self._result.warnings.append(_LogMessage(path, text_pos, message % args))
+        context = _l.FileContext(str(path), _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         _l.FileContextLogger(self._logger, context).warn(message, *args)
 
     @typing.override
     def error(self, pos: _cur.Position, message: str, *args: typing.Any) -> None:
-        file_pos = self._pos_resolver.resolve_file_pos(pos)
-        self._result.errors.append(_LogMessage(file_pos, message % args))
-        context = _l.FileContext(file_pos.path, _l.FullTextPos(file_pos.line_no, file_pos.pos_on_line))
+        path = self._pos_resolver.get_path(pos.file_index)
+        text_pos = self._pos_resolver.resolve_pos(pos)
+        self._result.errors.append(_LogMessage(path, text_pos, message % args))
+        context = _l.FileContext(str(path), _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         _l.FileContextLogger(self._logger, context).error(message, *args)
 
 
@@ -4453,7 +4463,8 @@ class _Result:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _CMakeMessage:
-    file_pos:               _tp.FilePos
+    path:                   pathlib.Path
+    text_pos:               _tp.TextPos
     occurrence_uncertainty: _cp.OccurrenceUncertainty
     level:                  _cp.MessageLevel
     message:                str
@@ -4461,7 +4472,8 @@ class _CMakeMessage:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _LogMessage:
-    file_pos: _tp.FilePos
+    path:     pathlib.Path
+    text_pos: _tp.TextPos
     message:  str
 
 

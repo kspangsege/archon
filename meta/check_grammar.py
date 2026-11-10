@@ -58,7 +58,7 @@ logger = _l.LimitLogger(root_logger, log_level.value)
 try:
     with open(path, "r") as file_:
         def error_handler(pos: _l.FullTextPos, message: str, *args: typing.Any) -> None:
-            context = _l.FileContext(path, pos)
+            context = _l.FileContext(str(path), pos)
             _l.FileContextLogger(logger, context).error(message, *args)
         grammar = _pe.parse(file_, error_handler)
 except FileNotFoundError as e:

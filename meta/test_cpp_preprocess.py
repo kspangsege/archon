@@ -26,7 +26,6 @@ import collections.abc as _cabc
 import textwrap
 import io
 import unittest
-import pathlib
 
 import archon.text_pos as _tp
 import archon.log as _l
@@ -1422,7 +1421,7 @@ def _check_tokenize(context: _t.Context, cpp_text: str, expected_tokens: list[_E
                     expected_errors: list[tuple[str, _tp.TextPos]] | None = None) -> None:
     errors: list[_Error] = []
     position_tracker = _tp.TextPosTracker()
-    path = pathlib.Path("test.cpp")
+    path = "test.cpp"
     file_index = 0
     def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
         context.check_equal(pos.file_index, file_index)
@@ -1430,7 +1429,7 @@ def _check_tokenize(context: _t.Context, cpp_text: str, expected_tokens: list[_E
         errors.append(_Error(message % args, text_pos))
         file_context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         _l.FileContextLogger(context.logger, file_context).error(message, *args)
-    tokens, end_pos = _tokenize(path, file_index, cpp_text, position_tracker, error_handler)
+    tokens, end_pos = _tokenize(file_index, cpp_text, position_tracker, error_handler)
     _check_tokens(context, tokens, expected_tokens, file_index, position_tracker)
     context.check_equal(end_pos.file_index, file_index)
     end_text_pos = position_tracker.get_text_pos(end_pos.pos_in_file)
@@ -1473,6 +1472,7 @@ def _check_valid_define_directive(context: _t.Context, text: str, file_index: in
                                   expected_replacement: _cabc.Sequence[_cp.ReplaceElem]) -> None:
     error = False
     position_tracker = _tp.TextPosTracker()
+    path = "test.cpp"
     def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
         nonlocal error
         context.check_equal(pos.file_index, file_index)
@@ -1480,8 +1480,7 @@ def _check_valid_define_directive(context: _t.Context, text: str, file_index: in
         file_context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         _l.FileContextLogger(context.logger, file_context).error(message, *args)
         error = True
-    path = pathlib.Path("test.cpp")
-    tokens, end_pos = _tokenize(path, file_index, text, position_tracker, error_handler)
+    tokens, end_pos = _tokenize(file_index, text, position_tracker, error_handler)
     context.check_not(error)
     pos = _cp.Position(file_index, 0)
     directive = _cp.parse_define_directive(tokens, pos, end_pos, error_handler)
@@ -1500,7 +1499,7 @@ def _check_bad_define_directive(context: _t.Context, text: str,
                                 expected_errors: list[tuple[str, _tp.TextPos]]) -> None:
     errors: list[_Error] = []
     position_tracker = _tp.TextPosTracker()
-    path = pathlib.Path("test.cpp")
+    path = "test.cpp"
     file_index = 0
     def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
         assert pos.file_index == file_index
@@ -1508,7 +1507,7 @@ def _check_bad_define_directive(context: _t.Context, text: str,
         errors.append(_Error(message % args, text_pos))
         file_context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         _l.FileContextLogger(context.logger, file_context).error(message, *args)
-    tokens, end_pos = _tokenize(path, file_index, text, position_tracker, error_handler)
+    tokens, end_pos = _tokenize(file_index, text, position_tracker, error_handler)
     context.check_is_empty(errors)
     pos = _cp.Position(file_index, 0)
     directive = _cp.parse_define_directive(tokens, pos, end_pos, error_handler)
@@ -1581,7 +1580,7 @@ def _check_valid_string_literal(context: _t.Context, text: str, expected_payload
                                 expected_type: _cp.StringLiteralType, expected_suffix: str,
                                 encoding_info: _cp.EncodingInfo | None = None) -> None:
     error = False
-    path = pathlib.Path("test.cpp")
+    path = "test.cpp"
     file_index = 0
     def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
         nonlocal error
@@ -1617,7 +1616,7 @@ def _check_numeric_escape_error(context: _t.Context, text: str, encoding_info: _
 def _check_invalid_string_literal(context: _t.Context, text: str, expected_errors: list[tuple[str, int]],
                                   encoding_info: _cp.EncodingInfo | None = None) -> None:
     errors: list[_Error] = []
-    path = pathlib.Path("test.cpp")
+    path = "test.cpp"
     file_index = 0
     def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
         context.check_equal(pos.file_index, file_index)
@@ -1644,7 +1643,7 @@ class _Error:
     pos:     _tp.TextPos
 
 
-def _tokenize(path: pathlib.Path, file_index: int, cpp_text: str, position_tracker: _tp.TextPosTracker,
+def _tokenize(file_index: int, cpp_text: str, position_tracker: _tp.TextPosTracker,
               error_handler: _cp.ErrorHandler) -> tuple[list[_cp.Token], _cp.Position]:
     tokens: list[_cp.Token] = []
     with io.StringIO(cpp_text) as input_:

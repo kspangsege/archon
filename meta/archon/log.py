@@ -25,7 +25,6 @@ import abc
 import dataclasses
 import enum
 import sys
-import pathlib
 
 import archon.ansi as _a
 
@@ -120,9 +119,9 @@ class FileContextLogger(Logger):
     def for_alt_pos(self, pos: TextPos) -> FileContextLogger:
         sink = self.sink
         assert isinstance(sink, FileContextSink)
-        return self.for_alt_context(sink.get_path(), pos)
+        return self.for_alt_context(sink.path, pos)
 
-    def for_alt_context(self, path: pathlib.Path, pos: TextPos) -> FileContextLogger:
+    def for_alt_context(self, path: str, pos: TextPos) -> FileContextLogger:
         file_context = FileContext(path, pos)
         return FileContextLogger(self._base_logger, file_context)
 
@@ -144,7 +143,7 @@ class FullTextPos(LineTextPos):
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class FileContext:
-    path: pathlib.Path
+    path: str
     pos:  TextPos = NoTextPos()
 
 
@@ -247,7 +246,8 @@ class FileContextSink(Sink):
         prefix_2 = "%s: %s" % (context, prefix)
         self._base_sink.log(level, prefix_2, message)
 
-    def get_path(self) -> pathlib.Path:
+    @property
+    def path(self) -> str:
         return self._file_context.path
 
 

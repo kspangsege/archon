@@ -32,7 +32,7 @@ import archon.log as _l
 import archon.cmake.uncertainty_reason as _cur
 
 
-def parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
+def parse(input_: typing.TextIO, tracker: _tp.TextPosTracker, warning_handler: ErrorHandler,
           error_handler: ErrorHandler) -> collections.abc.Iterator[Invoc]:
     return _parse(input_, tracker, warning_handler, error_handler)
 
@@ -147,7 +147,7 @@ class ProtoargumentType(enum.Enum):
 
 
 
-def _parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
+def _parse(input_: typing.TextIO, tracker: _tp.TextPosTracker, warning_handler: ErrorHandler,
            error_handler: ErrorHandler) -> collections.abc.Iterator[Invoc]:
     protoinvocations = _protoparse(input_, tracker, warning_handler, error_handler)
     current = next(protoinvocations, None)
@@ -296,7 +296,7 @@ class _ParentType(enum.Enum):
     BLOCK    = 8
 
 
-def _protoparse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
+def _protoparse(input_: typing.TextIO, tracker: _tp.TextPosTracker, warning_handler: ErrorHandler,
                 error_handler: ErrorHandler) -> collections.abc.Iterator[_Protoinvoc]:
     class State(enum.Enum):
         INITIAL   = 0
@@ -495,7 +495,7 @@ _PARENT_TYPE_MAP = {
 }
 
 
-def _tokenize(input_: typing.TextIO, tracker: _tp.FilePosTracker,
+def _tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker,
               error_handler: ErrorHandler) -> collections.abc.Iterator[_Token]:
     chunk = ""
     eof = False

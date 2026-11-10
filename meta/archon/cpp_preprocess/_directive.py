@@ -49,12 +49,20 @@ class DirectiveHandler(typing.Protocol):
 # The directive filter operates as a wrapper around a tokenizer and scans the token stream
 # for preprocessing directives. Whenever it finds a directive, it removes the tokens from
 # the token stream and passes them to the directive handler. The tokens that make up a
-# directive is understood as starting with the `#` token and ending with the last
-# non-whitespace token on the logical line (produced by line splicing). Thus, the tokens of
+# directive are understood as starting with the `#` token and ending with the last
+# non-whitespace token on the logical line (assembled by line splicing). Thus, the tokens of
 # a directive do not include leading and trailing whitespace. In particular, it does not
-# include the newline that terminates the logical line. The tokens that are passed to the
-# directive handler are the tokens that make up the directive minus the leading `#` and any
-# whitespace that immediately follows it.
+# include the NEWLINE token that terminates the logical line. The tokens that are passed to
+# the directive handler are the tokens that make up the directive minus the leading `#` and
+# any whitespace that immediately follows the `#`.
+#
+# Whenever the directive handler is invoked, the directive filter guarantees that the
+# current position of the associated position tracker points to the beginning of the logical
+# line that follows the directive, or to the end of the logical line containing the
+# directive if the directive is on the last logical line in the file. Here, the directive is
+# considered to be on the last logic line if it is not terminated by a literal newline
+# character. A newline character is literal if it is not part of a line splicing connector
+# (backslash followed by newline character).
 #
 class DirectiveFilter:
     def __init__(self, tokenizer: _ct.Tokenizer, directive_handler: DirectiveHandler) -> None:
