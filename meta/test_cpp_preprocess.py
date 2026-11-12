@@ -1414,7 +1414,6 @@ def test_CppPreprocess_Preprocess_IncludeDirective(context: _t.Context) -> None:
         (_cp.TokenType.NEWLINE, "\n", root_path, 1, 3, (), False),
         (_cp.TokenType.IDENTIFIER, "bar", bar_path, 1, 0, (), False),
         (_cp.TokenType.NEWLINE, "\n", bar_path, 1, 3, (), False),
-        (_cp.TokenType.NEWLINE, "\n", root_path, 2, 18, (), False),
         (_cp.TokenType.IDENTIFIER, "baz", root_path, 3, 0, (), False),
         (_cp.TokenType.NEWLINE, "\n", root_path, 3, 3, (), False),
     ], 4, 0, headers=headers)
@@ -1429,7 +1428,6 @@ def test_CppPreprocess_Preprocess_LineDirective(context: _t.Context) -> None:
     """), [
         (_cp.TokenType.IDENTIFIER, "foo", path, 1, 0, (), False),
         (_cp.TokenType.NEWLINE, "\n", path, 1, 3, (), False),
-        (_cp.TokenType.NEWLINE, "\n", path, 2, 7, (), False),
         (_cp.TokenType.IDENTIFIER, "bar", path, 7, 0, (), False),
         (_cp.TokenType.NEWLINE, "\n", path, 7, 3, (), False),
     ], 8, 0)

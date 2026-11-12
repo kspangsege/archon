@@ -214,11 +214,12 @@ class ReplacementMap:
 #
 class Tokenizer:
     def __init__(self, input_: typing.TextIO, file_index: int, position_tracker: _tp.TextPosTracker,
-                 error_handler: ErrorHandler) -> None:
+                 error_handler: ErrorHandler, ensure_final_newline: bool = False) -> None:
         self._input = input_
         self._file_index = file_index
         self._position_tracker = position_tracker
         self._error_handler = error_handler
+        self._ensure_final_newline = ensure_final_newline
         self._splicing_disabled = False
         self._physical_line: str
         self._physical_line_begin: int
@@ -230,6 +231,7 @@ class Tokenizer:
         self._splices: list[_Splice] = []
         self._header_name_state = _HeaderNameState.START_OF_LINE
         self._expect_header_name = False
+        self._nonempty_line = False
 
     # The end of the token stream is marked by an END_OF_INPUT token.
     #
@@ -276,9 +278,18 @@ class Tokenizer:
         pos = self._get_pos()
         ch = self._consume_char()
         if ch is None:
+            if self._ensure_final_newline and self._nonempty_line:
+                self._nonempty_line = False
+                text = "\n"
+                return Token(TokenType.NEWLINE, text, pos, synthetic=True)
             text = self._commit(last=True)
             assert not text
             return Token(TokenType.END_OF_INPUT, text, pos)
+        if ch == "\n":
+            self._nonempty_line = False
+            text = self._commit()
+            return Token(TokenType.NEWLINE, text, pos)
+        self._nonempty_line = True
         if ch in "\t\v\f ":
             ch = self._consume_until(_NOT_WHITESPACE_BUT_NEWLINE_REGEX)
             if ch is not None:
@@ -369,9 +380,6 @@ class Tokenizer:
         if ch in "'\"":
             prefix = ""
             return self._consume_char_or_string_lit(prefix, ch, pos)
-        if ch == "\n":
-            text = self._commit()
-            return Token(TokenType.NEWLINE, text, pos)
         if ch == "\\":
             self._roll_back()
             state = _IdentFragConsumeState()
@@ -398,7 +406,7 @@ class Tokenizer:
     #
     def _get_pos(self) -> _cp.Position:
         assert self._buffer_pos == 0  # At roll-back position
-        pos_in_file = self._position_tracker.current
+        pos_in_file = self._position_tracker.current_offset
         return _cp.Position(self._file_index, pos_in_file)
 
     def _consume_char_or_string_lit(self, prefix: str, first_char: str, pos: _cp.Position) -> Token:

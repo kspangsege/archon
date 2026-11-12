@@ -106,6 +106,10 @@ class PositionTracker:
     def text_pos_tracker(self) -> _tp.TextPosTracker:
         return self._text_pos_tracker
 
+    @property
+    def current_line_index(self) -> int:
+        return self._text_pos_tracker.current_line_no - 1
+
     @dataclasses.dataclass(slots=True, frozen=True)
     class _Override:
         path:            str
@@ -556,7 +560,8 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
                 token_2 = dataclasses.replace(token, pos=pos_2, synthetic=True)
                 tokens.append(token_2)
 
-    def directive_handler(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position) -> None:
+    def directive_handler(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position,
+                          end_of_inut: bool) -> None:
         if in_argument:
             error(pos, "Preprocessing directive inside macro argument is not allowed")
             return
@@ -586,7 +591,11 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
                     typing.assert_never(include_directive.resolution_type)
                 source = app.open_file(file_index)
                 text_pos_tracker = source.position_tracker.text_pos_tracker
-                tokenizer = _ct.Tokenizer(source.input_, file_index, text_pos_tracker, error)
+                # If the include directive is terminated by a newline token, the last line
+                # of the included file should also be terminated by a newline token
+                ensure_final_newline = not end_of_inut
+                tokenizer = _ct.Tokenizer(source.input_, file_index, text_pos_tracker, error,
+                                          ensure_final_newline=ensure_final_newline)
                 directive_filter = _cd.DirectiveFilter(tokenizer, directive_handler)
                 entry = _IncludeStackEntry(file_index, source, directive_filter)
                 include_stack.append(entry)
@@ -629,13 +638,18 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
                                                           config.encoding_info, error)
                 if line_directive is None:
                     return
-                # This position override must take effect starting from the first "physical"
-                # line that follows the last physical line of the `#line` directive. In
-                # general, the current line index as tracked by the associated position
-                # tracker is the target line index of the directive, but not if the
-                # directive is on the last line of the file and not is followed by a newline
-                # character. For that reason, we need to compute the target line index as
-                # one plus the line index of the end position of the directive.
+                # A `#line` directive applies to the first physical line that follows the
+                # last physical line of the directive. Therefore, if the directive is
+                # terminated by the end of input, there is nothing for it to apply to. Had
+                # the directive been terminated by a newline token that was the last token
+                # in the file, the directive would still have applied to the "end of input"
+                # token.
+                if end_of_inut:
+                    return
+                # Since the directive is terminated by a newline token, the current line
+                # index of the position tracker is the index of the first physical line that
+                # follows the directive, which is the target line index of the directive
+                # (guaranteed by the directive filter).
                 if include_stack:
                     top = include_stack[-1]
                     assert end_pos.file_index == top.file_index
@@ -643,9 +657,7 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
                 else:
                     assert end_pos.file_index == root_file_index
                     source = root_source
-                text_pos = source.position_tracker.text_pos_tracker.get_text_pos(end_pos.pos_in_file)
-                directive_line_index = text_pos.line_no - 1
-                line_index_base = directive_line_index + 1
+                line_index_base = source.position_tracker.current_line_index
                 line_no_base = line_directive.line_no
                 source.position_tracker.add_override(line_directive.path, line_index_base, line_no_base)
                 return

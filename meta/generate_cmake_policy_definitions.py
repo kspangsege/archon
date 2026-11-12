@@ -80,7 +80,8 @@ def extract_macro_definition() -> _cp.DefineDirective:
         with open(path) as file_:
             file_index = 0
             tokenizer = _cp.Tokenizer(file_, file_index, tracker, error_handler)
-            def directive_handler(tokens: _cabc.Sequence[_cp.Token], pos: _cp.Position, end_pos: _cp.Position) -> None:
+            def directive_handler(tokens: _cabc.Sequence[_cp.Token], pos: _cp.Position, end_pos: _cp.Position,
+                                  end_of_input: bool) -> None:
                 nonlocal define_directive
                 result = _cp.preparse_directive(tokens, error_handler)
                 assert result

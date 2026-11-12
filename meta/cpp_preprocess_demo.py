@@ -179,17 +179,16 @@ try:
             parts: list[str] = []
             def flush() -> None:
                 string = "".join([p for p in parts])
-                print(string)
+                sys.stdout.write(string)
                 parts.clear()
             for token in tokens_iter:
                 if token.type_ is _cp.TokenType.END_OF_INPUT:
                     if parts:
                         flush()
                     break
+                parts.append(token.reconstruct())
                 if token.type_ is _cp.TokenType.NEWLINE:
                     flush()
-                    continue
-                parts.append(token.reconstruct())
         if app.error:
             sys.exit(1)
 except OSError as e:

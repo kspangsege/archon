@@ -33,45 +33,45 @@ import archon.cpp_preprocess._tokenize as _ct
 import archon.cpp_preprocess._unpack as _cu
 
 
-# Is called with the tokens that make up a preprocessing directive, except the leading `#`
-# and the whitespace that immediately follows it. Additionally, since leading and trailing
-# whitespace is not considered part of a preprocessing directive, the passed tokens will
-# never have trailing whitespace. For a null directive, an empty sequence will be
-# passed. The passed position, `pos`, is the position of the `#` token. `end_pos` is the
-# position of the first non-whitespace token that follows the directive (`NEWLINE` or
-# `END_OF_INPUT`).
+
+
+# Is called with the tokens that make up a preprocessing directive starting with the first
+# non-whitespace token that follows the introducing `#` token and ending with the last
+# non-whitespace token on the logical line. For a null directive, zero tokens will be
+# passed. The passed position, `pos`, is the position of the `#` token. The position of the
+# terminating token (`NEWLINE` or `END_OF_INPUT`) is passed as `end_pos`. True will be
+# passed for `end_of_input` if the terminating token was the "end of input" token
+# (`END_OF_INPUT`). Otherwise false will be passed for it.
 #
 class DirectiveHandler(typing.Protocol):
-    def __call__(self, tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position) -> None:
+    def __call__(self, tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position,
+                 end_of_input: bool, /) -> None:
         ...
 
 
-# The directive filter operates as a wrapper around a tokenizer and scans the token stream
-# for preprocessing directives. Whenever it finds a directive, it removes the tokens from
-# the token stream and passes them to the directive handler. The tokens that make up a
-# directive are understood as starting with the `#` token and ending with the last
-# non-whitespace token on the logical line (assembled by line splicing). Thus, the tokens of
-# a directive do not include leading and trailing whitespace. In particular, it does not
-# include the NEWLINE token that terminates the logical line. The tokens that are passed to
-# the directive handler are the tokens that make up the directive minus the leading `#` and
-# any whitespace that immediately follows the `#`.
+# The directive filter operates as a streaming wrapper around a tokenizer and scans the
+# token stream for preprocessing directives. Whenever it finds a directive, it removes the
+# corresponding tokens from the token stream and calls the directive handler. All the tokens
+# that make up the logical line that holds the directive are removed from the token
+# stream. This includes the terminating newline token when present. A directive is
+# terminated either by a newline token or by the "end of input" token. Note that the
+# tokenizer assembles logical lines from physical lines through line splicing.
 #
 # Whenever the directive handler is invoked, the directive filter guarantees that the
-# current position of the associated position tracker points to the beginning of the logical
-# line that follows the directive, or to the end of the logical line containing the
-# directive if the directive is on the last logical line in the file. Here, the directive is
-# considered to be on the last logic line if it is not terminated by a literal newline
-# character. A newline character is literal if it is not part of a line splicing connector
-# (backslash followed by newline character).
+# current position of the associated position tracker (see `._tokenize.Tokenizer`) points to
+# the beginning of the logical line that follows the directive, or to the end of the logical
+# line containing the directive if that logical line is terminated by the "end of input"
+# token rather than by a newline token.
 #
 class DirectiveFilter:
     def __init__(self, tokenizer: _ct.Tokenizer, directive_handler: DirectiveHandler) -> None:
         self._tokenizer = tokenizer
         self._directive_handler = directive_handler
-        self._pending_tokens: _cabc.Iterator[_ct.Token] | None = None
-        self._at_line_start = True
+        self._tokens: list[_ct.Token] = []
+        self._num_pending = 0
+        self._nonwhitespace_seen = False
 
-    # This function returns `None` if the invocation cases the directive handler to be
+    # This function returns `None` if the invocation causes the directive handler to be
     # invoked. This means that the caller should repeat the invocation of `next_token()`. It
     # allows the caller to reconsider the invocation of `next_token()` when circumstances
     # may have changed due to the handling of a directive. For example, after an `#include`
@@ -81,40 +81,51 @@ class DirectiveFilter:
     # The end of the token stream is marked by an END_OF_INPUT token.
     #
     def next_token(self) -> _ct.Token | None:
-        if self._pending_tokens:
-            if token := next(self._pending_tokens, None):
-                return token
-            self._pending_tokens = None
+        n = self._num_pending
+        if n > 0:
+            token = self._tokens[-n]
+            self._num_pending = n - 1
+            return token
         token = self._tokenizer.next_token()
-        if not self._at_line_start:
+        if self._nonwhitespace_seen:
             if token.type_ is _ct.TokenType.NEWLINE:
-                self._at_line_start = True
+                self._nonwhitespace_seen = False
             return token
-        if token.type_ in _ct.SPACE:
-            return token
-        if token.type_ is _ct.TokenType.NEWLINE or token.type_ is _ct.TokenType.END_OF_INPUT:
-            return token
-        if token.type_ is not _ct.TokenType.HASH:
-            self._at_line_start = False
-            return token
+        # At first token of line
+        self._tokens.clear()
+        while True:
+            self._tokens.append(token)
+            if token.type_ not in _ct.SPACE:
+                if token.type_ is _ct.TokenType.HASH:
+                    break
+                self._nonwhitespace_seen = True
+            else:
+                if token.type_ is not _ct.TokenType.NEWLINE:
+                    token = self._tokenizer.next_token()
+                    continue
+            n = len(self._tokens)
+            self._num_pending = n - 1
+            return self._tokens[0]
         pos = token.pos
-        tokens: list[_ct.Token] = []
+        self._tokens.clear()
         while True:
             token = self._tokenizer.next_token()
             if token.type_ is _ct.TokenType.NEWLINE or token.type_ is _ct.TokenType.END_OF_INPUT:
                 terminator = token
                 break
-            tokens.append(token)
-        j = len(tokens)
-        while j > 0 and tokens[j - 1].type_ in _ct.SPACE:
+            self._tokens.append(token)
+        j = len(self._tokens)
+        while j > 0 and self._tokens[j - 1].type_ in _ct.SPACE:
             j -= 1
         i = 0
-        while i < j and tokens[i].type_ in _ct.SPACE:
+        while i < j and self._tokens[i].type_ in _ct.SPACE:
             i += 1
-        self._directive_handler(tokens[i:j], pos, terminator.pos)
-        trailing_tokens = tokens[j:]
-        trailing_tokens.append(terminator)
-        self._pending_tokens = iter(trailing_tokens)
+        end_of_input = terminator.type_ is _ct.TokenType.END_OF_INPUT
+        self._directive_handler(self._tokens[i:j], pos, terminator.pos, end_of_input)
+        if end_of_input:
+            self._tokens.clear()
+            self._tokens.append(terminator)
+            self._num_pending = 1
         return None
 
 
