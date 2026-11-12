@@ -6,7 +6,8 @@ set_target_properties(FormatText PROPERTIES
   OUTPUT_NAME "archon-format-text"
 )
 
-target_link_libraries(FormatText PRIVATE
-  Core
-  Cli
+target_link_libraries(FormatText
+  PRIVATE Core
+  PRIVATE Log
+  PRIVATE Cli
 )

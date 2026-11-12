@@ -40,7 +40,7 @@ namespace archon::check {
 /// \brief Build breadcrumb trail within test case.
 ///
 /// By using this macro, you can build a breadcrumb trail within a test case and have that
-/// breadcrumb trail be revealed as part of the messages, that are generated when checks
+/// breadcrumb trail be revealed as part of the messages that are generated when checks
 /// fail. This assumes that \ref check::Reporter::fail() of the configured reporter uses the
 /// passed logger to report its message (the default reporter does this).
 ///

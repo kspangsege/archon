@@ -1,0 +1,9 @@
+archon/math/math_namespace.hpp
+archon/math/type_traits.hpp
+archon/math/vector_base.hpp
+archon/math/vector.hpp
+archon/math/matrix_base.hpp
+archon/math/matrix.hpp
+archon/math/quaternion.hpp
+archon/math/rotation.hpp
+archon/math/test/util.hpp

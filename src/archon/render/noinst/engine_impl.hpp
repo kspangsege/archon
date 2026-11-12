@@ -76,6 +76,7 @@ public:
     void set_window_title(std::string_view title);
     void set_window_size(display::Size size);
     void set_fullscreen_mode(bool on);
+    void set_immersive_mode(bool on);
 
     void set_orientation(const math::Rotation& orientation);
     void set_spin(const math::Rotation& spin);
