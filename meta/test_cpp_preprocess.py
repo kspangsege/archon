@@ -1445,15 +1445,15 @@ def _trim_cpp_text(text: str) -> str:
 
 def _check_tokenize(context: _t.Context, cpp_text: str, expected_tokens: list[_ExpectedToken],
                     expected_end_line_no: int, expected_end_pos_on_line: int,
-                    expected_errors: list[_ExpectedError] | None = None) -> None:
-    errors: list[_Error] = []
+                    expected_errors: list[_ExpectedMessage] | None = None) -> None:
+    errors: list[_Message] = []
     position_tracker = _tp.TextPosTracker()
     path = "test.cpp"
     file_index = 0
     def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
         context.check_equal(pos.file_index, file_index)
         text_pos = position_tracker.get_text_pos(pos.pos_in_file)
-        errors.append(_Error(message % args, path, text_pos))
+        errors.append(_Message(message % args, path, text_pos))
         file_context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         _l.FileContextLogger(context.logger, file_context).error(message, *args)
     tokens, end_pos = _tokenize(file_index, cpp_text, position_tracker, error_handler)
@@ -1462,7 +1462,7 @@ def _check_tokenize(context: _t.Context, cpp_text: str, expected_tokens: list[_E
     end_text_pos = position_tracker.get_text_pos(end_pos.pos_in_file)
     context.check_equal(end_text_pos.line_no, expected_end_line_no)
     context.check_equal(end_text_pos.pos_on_line, expected_end_pos_on_line)
-    _check_errors(context, errors, expected_errors or [])
+    _check_messages(context, errors, expected_errors or [])
 
 
 def _check_valid_define_directive(context: _t.Context, text: str, file_index: int, expected_name: str,
@@ -1493,15 +1493,15 @@ def _check_valid_define_directive(context: _t.Context, text: str, file_index: in
     _check_replace_elements(context, directive.replacement, tuple(expected_replacement))
 
 
-def _check_bad_define_directive(context: _t.Context, text: str, expected_errors: list[_ExpectedError]) -> None:
-    errors: list[_Error] = []
+def _check_bad_define_directive(context: _t.Context, text: str, expected_errors: list[_ExpectedMessage]) -> None:
+    errors: list[_Message] = []
     position_tracker = _tp.TextPosTracker()
     path = "test.cpp"
     file_index = 0
     def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
         assert pos.file_index == file_index
         text_pos = position_tracker.get_text_pos(pos.pos_in_file)
-        errors.append(_Error(message % args, path, text_pos))
+        errors.append(_Message(message % args, path, text_pos))
         file_context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         _l.FileContextLogger(context.logger, file_context).error(message, *args)
     tokens, end_pos = _tokenize(file_index, text, position_tracker, error_handler)
@@ -1509,7 +1509,7 @@ def _check_bad_define_directive(context: _t.Context, text: str, expected_errors:
     pos = _cp.Position(file_index, 0)
     directive = _cp.parse_define_directive(tokens, pos, end_pos, error_handler)
     context.check_is_none(directive)
-    _check_errors(context, errors, expected_errors)
+    _check_messages(context, errors, expected_errors)
 
 
 def _check_replace_elements(context: _t.Context, elems: tuple[_cp.ReplaceElem, ...],
@@ -1603,7 +1603,7 @@ def _check_numeric_escape_error(context: _t.Context, text: str, encoding_info: _
 
 def _check_invalid_string_literal(context: _t.Context, text: str, expected_errors: list[tuple[str, int]],
                                   encoding_info: _cp.EncodingInfo | None = None) -> None:
-    errors: list[_Error] = []
+    errors: list[_Message] = []
     path = "test.cpp"
     file_index = 0
     def error_handler(pos: _cp.Position, message: str, *args: typing.Any) -> None:
@@ -1611,7 +1611,7 @@ def _check_invalid_string_literal(context: _t.Context, text: str, expected_error
         text_pos = _tp.TextPos(line_no=1, pos_on_line=pos.pos_in_file)
         file_context = _l.FileContext(path, _l.FullTextPos(text_pos.line_no, text_pos.pos_on_line))
         _l.FileContextLogger(context.logger, file_context).error(message, *args)
-        errors.append(_Error(message % args, path, text_pos))
+        errors.append(_Message(message % args, path, text_pos))
 
     pos = _cp.Position(file_index, 0)
     synthetic = False
@@ -1639,10 +1639,12 @@ def _tokenize(file_index: int, cpp_text: str, position_tracker: _tp.TextPosTrack
 
 def _check_preprocess(context: _t.Context, root_path: str, root_cpp_text: str, expected_tokens: list[_ExpectedTokenP],
                       expected_end_line_no: int, expected_end_pos_on_line: int,
-                      expected_errors: list[_ExpectedErrorP] | None = None,
+                      expected_errors: list[_ExpectedMessageP] | None = None,
+                      expected_warnings: list[_ExpectedMessageP] | None = None,
                       headers: dict[str, str] | None = None) -> None:
-    errors: list[_Error] = []
-    app = _PreprocessApplication(errors)
+    errors: list[_Message] = []
+    warnings: list[_Message] = []
+    app = _PreprocessApplication(errors, warnings)
     root_file_index = app.register_file(root_path, root_cpp_text)
     if headers is not None:
         for path, cpp_text in headers.items():
@@ -1661,12 +1663,14 @@ def _check_preprocess(context: _t.Context, root_path: str, root_cpp_text: str, e
     context.check_equal(end_rpos.path, root_path)
     context.check_equal(end_rpos.line_no, expected_end_line_no)
     context.check_equal(end_rpos.pos_on_line, expected_end_pos_on_line)
-    _check_errors_p(context, errors, expected_errors or [])
+    _check_messages_p(context, errors, expected_errors or [])
+    _check_messages_p(context, warnings, expected_warnings or [])
 
 
 class _PreprocessApplication(_cp.Application):
-    def __init__(self, errors: list[_Error]) -> None:
+    def __init__(self, errors: list[_Message], warnings: list[_Message]) -> None:
         self._errors = errors
+        self._warnings = warnings
         self._file_entries: list[_FileEntry] = []
         self._file_map: dict[str, int] = {}
 
@@ -1697,11 +1701,18 @@ class _PreprocessApplication(_cp.Application):
         assert False
 
     @typing.override
-    def handle_error(self, pos: _cp.Position, message: str, *args: typing.Any) -> None:
+    def handle_message(self, type_: _cp.MessageType, pos: _cp.Position, message: str, *args: typing.Any) -> None:
         rpos = self.resolve_pos(pos)
         text_pos = _tp.TextPos(rpos.line_no, rpos.pos_on_line)
-        error = _Error(message % args, rpos.path, text_pos)
-        self._errors.append(error)
+        message_obj = _Message(message % args, rpos.path, text_pos)
+        match type_:
+            case _cp.MessageType.ERROR:
+                self._errors.append(message_obj)
+                return
+            case _cp.MessageType.WARNING:
+                self._warnings.append(message_obj)
+                return
+        typing.assert_never(type_)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -1762,8 +1773,8 @@ def _check_ucn_map(context: _t.Context, ucn_map: _cp.ReplacementMap | None,
         context.check_equal(len(ucn_map.entries), len(expected_ucn_map.entries))
 
 
-def _check_errors(context: _t.Context, errors: _cabc.Sequence[_Error],
-                  expected_errors: _cabc.Sequence[_ExpectedError]) -> None:
+def _check_messages(context: _t.Context, errors: _cabc.Sequence[_Message],
+                    expected_errors: _cabc.Sequence[_ExpectedMessage]) -> None:
     for i, (error, expected) in enumerate(zip(errors, expected_errors)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(error.message, expected[0])
@@ -1772,8 +1783,8 @@ def _check_errors(context: _t.Context, errors: _cabc.Sequence[_Error],
     context.check_equal(len(errors), len(expected_errors))
 
 
-def _check_errors_p(context: _t.Context, errors: _cabc.Sequence[_Error],
-                    expected_errors: _cabc.Sequence[_ExpectedErrorP]) -> None:
+def _check_messages_p(context: _t.Context, errors: _cabc.Sequence[_Message],
+                      expected_errors: _cabc.Sequence[_ExpectedMessageP]) -> None:
     for i, (error, expected) in enumerate(zip(errors, expected_errors)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(error.message, expected[0])
@@ -1784,14 +1795,14 @@ def _check_errors_p(context: _t.Context, errors: _cabc.Sequence[_Error],
 
 
 # (message, line_no, pos_on_line)
-type _ExpectedError = tuple[str, int, int]
+type _ExpectedMessage = tuple[str, int, int]
 
 # (message, path, line_no, pos_on_line)
-type _ExpectedErrorP = tuple[str, str, int, int]
+type _ExpectedMessageP = tuple[str, str, int, int]
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class _Error:
+class _Message:
     message: str
     path:    str
     pos:     _tp.TextPos

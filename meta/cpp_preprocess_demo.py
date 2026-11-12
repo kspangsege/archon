@@ -106,12 +106,20 @@ class Application(_cp.Application):
         _l.FileContextLogger(logger, context).info("Pragma: %s", text)
 
     @typing.override
-    def handle_error(self, pos: _cp.Position, message: str, *args: typing.Any) -> None:
+    def handle_message(self, type_: _cp.MessageType, pos: _cp.Position, message: str, *args: typing.Any) -> None:
         entry = self._file_registry.get(pos.file_index)
         rpos = entry.position_tracker(pos.pos_in_file)
         context = _l.FileContext(rpos.path, _l.FullTextPos(rpos.line_no, rpos.pos_on_line))
-        _l.FileContextLogger(logger, context).error(message, *args)
-        self.error = True
+        context_logger = _l.FileContextLogger(logger, context)
+        match type_:
+            case _cp.MessageType.ERROR:
+                context_logger.error(message, *args)
+                self.error = True
+                return
+            case _cp.MessageType.WARNING:
+                context_logger.warn(message, *args)
+                return
+        typing.assert_never(type_)
 
     def _find_file(self, path: str, dir_path: pathlib.Path) -> int | None:
         resolved_path = dir_path / path

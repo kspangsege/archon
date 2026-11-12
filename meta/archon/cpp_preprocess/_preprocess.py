@@ -24,6 +24,7 @@ import typing
 import abc
 import dataclasses
 import collections.abc as _cabc
+import enum
 import bisect
 import io
 
@@ -70,8 +71,13 @@ class Application(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def handle_error(self, pos: _ct.Position, message: str, /, *args: typing.Any) -> None:
+    def handle_message(self, type_: MessageType, pos: _ct.Position, message: str, /, *args: typing.Any) -> None:
         ...
+
+
+class MessageType(enum.Enum):
+    ERROR   = enum.auto()
+    WARNING = enum.auto()
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -660,13 +666,21 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
                 line_no_base = line_directive.line_no
                 source.position_tracker.add_override(line_directive.path, line_index_base, line_no_base)
                 return
+            case _cd.DirectiveType.ERROR:
+                text = "".join(token.reconstruct() for token in remaining_tokens)
+                app.handle_message(MessageType.ERROR, pos, "#error %s", text)
+                return
+            case _cd.DirectiveType.WARNING:
+                text = "".join(token.reconstruct() for token in remaining_tokens)
+                app.handle_message(MessageType.WARNING, pos, "#warning %s", text)
+                return
             case _cd.DirectiveType.PRAGMA:
                 app.handle_pragma(remaining_tokens, pos, end_pos)
                 return
         raise NotImplementedError         
 
     def error(pos: _ct.Position, message: str, *args: typing.Any) -> None:
-        app.handle_error(pos, message, *args)
+        app.handle_message(MessageType.ERROR, pos, message, *args)
 
     class ObjectlikeFunction(typing.Protocol):
         def __call__(self, invoc_pos: _ct.Position) -> list[_ct.Token] | None:
