@@ -25,7 +25,6 @@ import dataclasses
 import enum
 
 import archon.base as _b
-import archon.cpp_preprocess._position as _cp
 import archon.cpp_preprocess._tokenize as _ct
 
 
@@ -70,7 +69,7 @@ import archon.cpp_preprocess._tokenize as _ct
 # `None`. Note that C++26 allows for numeric escapes to produce invalid code units or
 # invalid sequences of code units. This function does not.
 #
-def unpack_string_literal(text: str, pos: _cp.Position, synthetic: bool, encoding_info: EncodingInfo,
+def unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, encoding_info: EncodingInfo,
                           error_handler: _ct.ErrorHandler) -> UnpackedStringLiteral | None:
     return _unpack_string_literal(text, pos, synthetic, encoding_info, error_handler)
 
@@ -133,7 +132,7 @@ class NumericEscapeError(Exception):
 
 
 
-def _unpack_string_literal(text: str, pos: _cp.Position, synthetic: bool, encoding_info: EncodingInfo,
+def _unpack_string_literal(text: str, pos: _ct.Position, synthetic: bool, encoding_info: EncodingInfo,
                            error_handler: _ct.ErrorHandler) -> UnpackedStringLiteral | None:
     i = text.find('"')
     assert i >= 0
@@ -176,7 +175,7 @@ def _unpack_string_literal(text: str, pos: _cp.Position, synthetic: bool, encodi
         case _:
             typing.assert_never(literal_type)
 
-    def get_subpos(offset: int) -> _cp.Position:
+    def get_subpos(offset: int) -> _ct.Position:
         return pos if synthetic else pos.shift(offset)
 
     parts: list[str] = []

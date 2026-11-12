@@ -20,7 +20,6 @@
 
 from __future__ import annotations
 
-from ._position import *
 from ._tokenize import *
 from ._unpack import *
 from ._directive import *

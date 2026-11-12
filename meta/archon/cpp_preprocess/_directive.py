@@ -28,7 +28,6 @@ import re
 
 import archon.base as _b
 import archon.text_pos as _tp
-import archon.cpp_preprocess._position as _cp
 import archon.cpp_preprocess._tokenize as _ct
 import archon.cpp_preprocess._unpack as _cu
 
@@ -44,7 +43,7 @@ import archon.cpp_preprocess._unpack as _cu
 # (`END_OF_INPUT`). Otherwise false will be passed for it.
 #
 class DirectiveHandler(typing.Protocol):
-    def __call__(self, tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position,
+    def __call__(self, tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
                  end_of_input: bool, /) -> None:
         ...
 
@@ -164,19 +163,19 @@ class DirectiveType(enum.Enum):
     PRAGMA   = enum.auto()
 
 
-def parse_include_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position,
+def parse_include_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
                             macro_expander: MacroExpander, error_handler: _ct.ErrorHandler) -> IncludeDirective | None:
     return _parse_include_directive(tokens, pos, end_pos, macro_expander, error_handler)
 
-def parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position,
+def parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
                            error_handler: _ct.ErrorHandler) -> DefineDirective | None:
     return _parse_define_directive(tokens, pos, end_pos, error_handler)
 
-def parse_undef_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position,
+def parse_undef_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
                             error_handler: _ct.ErrorHandler) -> UndefDirective | None:
     return _parse_undef_directive(tokens, pos, end_pos, error_handler)
 
-def parse_line_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position,
+def parse_line_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
                          macro_expander: MacroExpander, encoding_info: _cu.EncodingInfo,
                          error_handler: _ct.ErrorHandler) -> LineDirective | None:
     return _parse_line_directive(tokens, pos, end_pos, macro_expander, encoding_info, error_handler)
@@ -184,24 +183,24 @@ def parse_line_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, e
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class IncludeDirective:
-    pos:             _cp.Position
+    pos:             _ct.Position
     path:            str
     resolution_type: ResolutionType
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class DefineDirective:
-    pos:         _cp.Position
+    pos:         _ct.Position
     signature:   MacroSignature
     replacement: tuple[ReplaceElem, ...]
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class UndefDirective:
-    pos:  _cp.Position
+    pos:  _ct.Position
     name: str
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class LineDirective:
-    pos:     _cp.Position
+    pos:     _ct.Position
     line_no: int
     path:    str | None
 
@@ -231,38 +230,38 @@ type StringifyOperand = ParamRef | VaArgs | VaOpt
 @dataclasses.dataclass(slots=True, frozen=True)
 class ParamRef:
     param_index: int
-    pos:         _cp.Position
+    pos:         _ct.Position
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class VaArgs:
-    pos: _cp.Position
+    pos: _ct.Position
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class VaOpt:
     elements: tuple[ReplaceElem, ...]  # Must not contain `VaOpt`, directly or indirectly
-    pos:      _cp.Position
+    pos:      _ct.Position
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class StringifyOperation:
     operand: StringifyOperand
-    pos:     _cp.Position  # Operator position
+    pos:     _ct.Position  # Operator position
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class FuseOperation:
     left:   ReplacePrim
     rights: tuple[Right, ...]
-    pos:    _cp.Position  # Of left operand
+    pos:    _ct.Position  # Of left operand
 
     @dataclasses.dataclass(slots=True, frozen=True)
     class Right:
         operand: ReplacePrim
-        pos:     _cp.Position  # Operator position
+        pos:     _ct.Position  # Operator position
 
 
 # Returns `None` if an error occurred.
 #
 class MacroExpander(typing.Protocol):
-    def __call__(self, tokens: _cabc.Sequence[_ct.Token], end_pos: _cp.Position, /) -> list[_ct.Token] | None:
+    def __call__(self, tokens: _cabc.Sequence[_ct.Token], end_pos: _ct.Position, /) -> list[_ct.Token] | None:
         ...
 
 
@@ -278,7 +277,7 @@ class MacroExpander(typing.Protocol):
 # synthesis through token fusion. GCC and Clang ban both immediate and synthesized
 # occurrences. MSVC warns in both cases.
 #
-def verify_no_va_names(text: str, pos: _cp.Position, error_handler: _ct.ErrorHandler, synthetic: bool) -> bool:
+def verify_no_va_names(text: str, pos: _ct.Position, error_handler: _ct.ErrorHandler, synthetic: bool) -> bool:
     return _verify_no_va_names(text, pos, error_handler, synthetic)
 
 
@@ -329,7 +328,7 @@ _DIRECTIVE_MAP = {
 }
 
 
-def _parse_include_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position,
+def _parse_include_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
                              macro_expander: MacroExpander,
                              error_handler: _ct.ErrorHandler) -> IncludeDirective | None:
     if len(tokens) == 1 and tokens[0].type_ is _ct.TokenType.HEADER_NAME:
@@ -369,7 +368,7 @@ def _parse_include_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Positio
             return None
         text = "".join(p.text for p in parts)
 
-        def get_subpos(offset: int) -> _cp.Position:
+        def get_subpos(offset: int) -> _ct.Position:
             begin = 0
             for part in parts:
                 end = begin + len(part.text)
@@ -415,7 +414,7 @@ def _parse_include_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Positio
     return IncludeDirective(pos, path, resolution_type)
 
 
-def _parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position,
+def _parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
                             error_handler: _ct.ErrorHandler) -> DefineDirective | None:
     if not tokens:
         error_handler(end_pos, "Missing macro name in #define directive")
@@ -509,7 +508,7 @@ def _parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position
 
 
 def _parse_macro_replacement_tokens(macro_name: str, params: tuple[str, ...] | None, is_variadic: bool,
-                                    tokens: _cabc.Sequence[_ct.Token], end_pos: _cp.Position,
+                                    tokens: _cabc.Sequence[_ct.Token], end_pos: _ct.Position,
                                     error_handler: _ct.ErrorHandler) -> tuple[ReplaceElem, ...] | None:
     param_indexes = {name: index for index, name in enumerate(params)} if params is not None else {}
 
@@ -609,7 +608,7 @@ def _parse_macro_replacement_tokens(macro_name: str, params: tuple[str, ...] | N
     return tuple(elements_4)
 
 
-def _parse_stringification(elements: _cabc.Sequence[_ct.Token | StringifyOperand], end_pos: _cp.Position,
+def _parse_stringification(elements: _cabc.Sequence[_ct.Token | StringifyOperand], end_pos: _ct.Position,
                            macro_name: str, error_handler: _ct.ErrorHandler) -> list[ReplacePrim] | None:
     result: list[ReplacePrim] = []
     i = 0
@@ -717,7 +716,7 @@ def _parse_fusion(elements: _cabc.Sequence[ReplacePrim], is_nested: bool, macro_
     return result
 
 
-def _parse_undef_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position,
+def _parse_undef_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
                            error_handler: _ct.ErrorHandler) -> UndefDirective | None:
     if not tokens:
         error_handler(end_pos, "Missing macro name in #undef directive")
@@ -747,7 +746,7 @@ def _parse_undef_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position,
     return UndefDirective(pos, name)
 
 
-def _parse_line_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, end_pos: _cp.Position,
+def _parse_line_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position, end_pos: _ct.Position,
                           macro_expander: MacroExpander, encoding_info: _cu.EncodingInfo,
                           error_handler: _ct.ErrorHandler) -> LineDirective | None:
     expanded = macro_expander(tokens, end_pos)
@@ -811,7 +810,7 @@ def _parse_line_directive(tokens: _cabc.Sequence[_ct.Token], pos: _cp.Position, 
 _LINE_NO_REGEX = re.compile(r"\d+", re.ASCII)
 
 
-def _verify_no_va_names(text: str, pos: _cp.Position, error_handler: _ct.ErrorHandler, synthetic: bool) -> bool:
+def _verify_no_va_names(text: str, pos: _ct.Position, error_handler: _ct.ErrorHandler, synthetic: bool) -> bool:
     if text == _VA_ARGS_NAME:
         if synthetic:
             error_handler(pos, "`__VA_ARGS__` must not be formed through token fusion")
@@ -827,10 +826,10 @@ def _verify_no_va_names(text: str, pos: _cp.Position, error_handler: _ct.ErrorHa
     return True
 
 
-def _generate_no_va_args_error(pos: _cp.Position, error_handler: _ct.ErrorHandler) -> None:
+def _generate_no_va_args_error(pos: _ct.Position, error_handler: _ct.ErrorHandler) -> None:
     error_handler(pos, "`__VA_ARGS__` must only appear in body of a variadic macro definition")
 
-def _generate_no_va_opt_error(pos: _cp.Position, error_handler: _ct.ErrorHandler) -> None:
+def _generate_no_va_opt_error(pos: _ct.Position, error_handler: _ct.ErrorHandler) -> None:
     error_handler(pos, "`__VA_OPT__` must only appear in body of a variadic macro definition")
 
 
