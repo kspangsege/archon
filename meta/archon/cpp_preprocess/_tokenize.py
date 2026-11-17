@@ -1077,8 +1077,10 @@ _PUNCTUATION_MAP = _build_punctuation_map()
 
 
 _PUNCTUATION_TYPE_MAP = {
-    "#":  TokenType.HASH,
-    "##": TokenType.HASH_HASH,
+    "#":    TokenType.HASH,
+    "%:":   TokenType.HASH,
+    "##":   TokenType.HASH_HASH,
+    "%:%:": TokenType.HASH_HASH,
 }
 
 

@@ -58,6 +58,12 @@ def test_CppPreprocess_Tokenize_Basics(context: _t.Context) -> None:
     _check_tokenize(context, "##", [
         (_cp.TokenType.HASH_HASH, "##", 1, 0, ()),
     ], 1, 2)
+    _check_tokenize(context, "%:", [
+        (_cp.TokenType.HASH, "%:", 1, 0, ()),
+    ], 1, 2)
+    _check_tokenize(context, "%:%:", [
+        (_cp.TokenType.HASH_HASH, "%:%:", 1, 0, ()),
+    ], 1, 4)
     _check_tokenize(context, _trim_cpp_text(r"""
       R"(
       foo
@@ -746,7 +752,7 @@ def test_CppPreprocess_Tokenize_Punctuation(context: _t.Context) -> None:
     ], 1, 10)
 
     # Digraphs vs standard punctuation
-    _check_tokenize(context, "<% %> <: :> %:%:", [
+    _check_tokenize(context, "<% %> <: :>", [
         (_cp.TokenType.PUNCT, "<%", 1, 0, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 2, ()),
         (_cp.TokenType.PUNCT, "%>", 1, 3, ()),
@@ -754,9 +760,7 @@ def test_CppPreprocess_Tokenize_Punctuation(context: _t.Context) -> None:
         (_cp.TokenType.PUNCT, "<:", 1, 6, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 8, ()),
         (_cp.TokenType.PUNCT, ":>", 1, 9, ()),
-        (_cp.TokenType.WHITESPACE, " ", 1, 11, ()),
-        (_cp.TokenType.PUNCT, "%:%:", 1, 12, ()), # Digraph for ##
-    ], 1, 16)
+    ], 1, 11)
 
     # Special handling of `<:` (digraph for `[`)
     _check_tokenize(context, "std::vector<::std::string>", [
