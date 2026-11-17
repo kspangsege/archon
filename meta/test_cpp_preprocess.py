@@ -727,6 +727,15 @@ def test_CppPreprocess_Tokenize_Identifier(context: _t.Context) -> None:
         (_cp.TokenType.IDENTIFIER, "LR", 1, 21, ()),
     ], 1, 23)
 
+    # Maximal munch: Alternative tokens vs identifiers
+    _check_tokenize(context, "andx xand and_eqx", [
+        (_cp.TokenType.IDENTIFIER, "andx", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 4, ()),
+        (_cp.TokenType.IDENTIFIER, "xand", 1, 5, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 9, ()),
+        (_cp.TokenType.IDENTIFIER, "and_eqx", 1, 10, ()),
+    ], 1, 17)
+
 
 def test_CppPreprocess_Tokenize_Punctuation(context: _t.Context) -> None:
     # Maximal munch
@@ -759,6 +768,31 @@ def test_CppPreprocess_Tokenize_Punctuation(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 14, ()),
         (_cp.TokenType.HASH_HASH, "%:%:", 1, 15, ()),
     ], 1, 19)
+
+    # Alphabetic alternative tokens
+    _check_tokenize(context, "and and_eq bitand bitor compl not not_eq or or_eq xor xor_eq", [
+        (_cp.TokenType.LOGICAL_AND, "and", 1, 0, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 3, ()),
+        (_cp.TokenType.AND_ASSIGN, "and_eq", 1, 4, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 10, ()),
+        (_cp.TokenType.BITWISE_AND, "bitand", 1, 11, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 17, ()),
+        (_cp.TokenType.BITWISE_OR, "bitor", 1, 18, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 23, ()),
+        (_cp.TokenType.BITWISE_NOT, "compl", 1, 24, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 29, ()),
+        (_cp.TokenType.LOGICAL_NOT, "not", 1, 30, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 33, ()),
+        (_cp.TokenType.NOT_EQUAL, "not_eq", 1, 34, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 40, ()),
+        (_cp.TokenType.LOGICAL_OR, "or", 1, 41, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 43, ()),
+        (_cp.TokenType.OR_ASSIGN, "or_eq", 1, 44, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 49, ()),
+        (_cp.TokenType.BITWISE_XOR, "xor", 1, 50, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 53, ()),
+        (_cp.TokenType.XOR_ASSIGN, "xor_eq", 1, 54, ()),
+    ], 1, 60)
 
     # Special handling of `<:` (digraph for `[`)
     _check_tokenize(context, "std::vector<::std::string>", [
