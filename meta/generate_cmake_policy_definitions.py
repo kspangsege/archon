@@ -150,7 +150,7 @@ def extract_policies() -> list[Policy] | None:
                 case State.NEED_LPAREN:
                     match elem:
                         case _cp.Token() as token:
-                            if token.type_ is _cp.TokenType.PUNCT and token.text == "(":
+                            if token.type_ is _cp.TokenType.LPAREN:
                                 state = State.NEED_FIRST_ARG
                                 continue
                     error_handler(elem.pos, "Expected opening parenthesis of %s(...) invocation" % MACRO_PARAMS[1])
@@ -166,7 +166,7 @@ def extract_policies() -> list[Policy] | None:
                 case State.NEED_COMMA_AFTER_FIRST_ARG:
                     match elem:
                         case _cp.Token() as token:
-                            if token.type_ is _cp.TokenType.PUNCT and token.text == ",":
+                            if token.type_ is _cp.TokenType.COMMA:
                                 state = State.NEED_POLICY_ID_ARG
                                 continue
                     error_handler(elem.pos, "Expected comma after %s argument" % MACRO_PARAMS[0])
@@ -184,7 +184,7 @@ def extract_policies() -> list[Policy] | None:
                 case State.NEED_COMMA_AFTER_POLICY_ID_ARG:
                     match elem:
                         case _cp.Token() as token:
-                            if token.type_ is _cp.TokenType.PUNCT and token.text == ",":
+                            if token.type_ is _cp.TokenType.COMMA:
                                 state = State.NEED_DESCRIPTION_ARG
                                 continue
                     error_handler(elem.pos, "Expected comma after policy ID argument")
@@ -206,7 +206,7 @@ def extract_policies() -> list[Policy] | None:
                                 string = unpack_string_literal(token.text, token.pos, token.synthetic)
                                 description += string
                                 continue
-                            if token.type_ is _cp.TokenType.PUNCT and token.text == ",":
+                            if token.type_ is _cp.TokenType.COMMA:
                                 state = State.NEED_VERSION_MAJOR_ARG
                                 continue
                     error_handler(elem.pos, "Expected comma after description argument")
@@ -223,7 +223,7 @@ def extract_policies() -> list[Policy] | None:
                 case State.NEED_COMMA_AFTER_VERSION_MAJOR_ARG:
                     match elem:
                         case _cp.Token() as token:
-                            if token.type_ is _cp.TokenType.PUNCT and token.text == ",":
+                            if token.type_ is _cp.TokenType.COMMA:
                                 state = State.NEED_VERSION_MINOR_ARG
                                 continue
                     error_handler(elem.pos, "Expected comma after major version component argument")
@@ -240,7 +240,7 @@ def extract_policies() -> list[Policy] | None:
                 case State.NEED_COMMA_AFTER_VERSION_MINOR_ARG:
                     match elem:
                         case _cp.Token() as token:
-                            if token.type_ is _cp.TokenType.PUNCT and token.text == ",":
+                            if token.type_ is _cp.TokenType.COMMA:
                                 state = State.NEED_VERSION_PATCH_ARG
                                 continue
                     error_handler(elem.pos, "Expected comma after minor version component argument")
@@ -257,7 +257,7 @@ def extract_policies() -> list[Policy] | None:
                 case State.NEED_COMMA_AFTER_VERSION_PATCH_ARG:
                     match elem:
                         case _cp.Token() as token:
-                            if token.type_ is _cp.TokenType.PUNCT and token.text == ",":
+                            if token.type_ is _cp.TokenType.COMMA:
                                 state = State.NEED_STATUS_ARG
                                 continue
                     error_handler(elem.pos, "Expected comma after patch version component argument")
@@ -273,7 +273,7 @@ def extract_policies() -> list[Policy] | None:
                 case State.NEED_RPAREN:
                     match elem:
                         case _cp.Token() as token:
-                            if token.type_ is _cp.TokenType.PUNCT and token.text == ")":
+                            if token.type_ is _cp.TokenType.RPAREN:
                                 policies.append(Policy(policy_num, description, version_major, version_minor,
                                                        version_patch))
                                 state = State.INITIAL

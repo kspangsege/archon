@@ -130,14 +130,65 @@ class TokenType(enum.Enum):
     BLOCK_COMMENT      = enum.auto()
 
     # Regular
-    HASH_HASH          = enum.auto()
-    HASH               = enum.auto()
     RAW_STRING_LIT     = enum.auto()
     STRING_LIT         = enum.auto()
     CHAR_LIT           = enum.auto()
     NUMBER             = enum.auto()
     IDENTIFIER         = enum.auto()
-    PUNCT              = enum.auto()
+    LBRACE             = enum.auto()  # `{` or `<%`
+    RBRACE             = enum.auto()  # `}` or `%>`
+    LBRACK             = enum.auto()  # `[` or `<:`
+    RBRACK             = enum.auto()  # `]` or `:>`
+    LPAREN             = enum.auto()  # `(`
+    RPAREN             = enum.auto()  # `)`
+    LBRACK_COLON       = enum.auto()  # `[:`
+    COLON_RBRACK       = enum.auto()  # `:]`
+    HASH               = enum.auto()  # `#` or `%:`
+    HASH_HASH          = enum.auto()  # `##` or `%:%:`
+    COMMA              = enum.auto()  # `,`
+    ELLIPSIS           = enum.auto()  # `...`
+    SEMICOLON          = enum.auto()  # `;`
+    COLON              = enum.auto()  # `:`
+    COLON_COLON        = enum.auto()  # `::`
+    QMARK              = enum.auto()  # `?`
+    DOT                = enum.auto()  # `.`
+    DOT_STAR           = enum.auto()  # `.*`
+    ARROW              = enum.auto()  # `->`
+    ARROW_STAR         = enum.auto()  # `->*`
+    PLUS               = enum.auto()  # `+`
+    MINUS              = enum.auto()  # `-`
+    STAR               = enum.auto()  # `*`
+    SLASH              = enum.auto()  # `/`
+    PERCENT            = enum.auto()  # `%`
+    INCREMENT          = enum.auto()  # `++`
+    DECREMENT          = enum.auto()  # `--`
+    BITWISE_AND        = enum.auto()  # `&` or `bitand`
+    BITWISE_OR         = enum.auto()  # `|` or `bitor`
+    BITWISE_XOR        = enum.auto()  # `^` or `xor`
+    BITWISE_NOT        = enum.auto()  # `~` or `compl`
+    LSHIFT             = enum.auto()  # `<<`
+    RSHIFT             = enum.auto()  # `>>`
+    LOGICAL_AND        = enum.auto()  # `&&` or `and`
+    LOGICAL_OR         = enum.auto()  # `||` or `or`
+    LOGICAL_NOT        = enum.auto()  # `!` or `not`
+    EQUAL              = enum.auto()  # `==`
+    NOT_EQUAL          = enum.auto()  # `!=` or `not_eq`
+    LESS               = enum.auto()  # `<`
+    GREATER            = enum.auto()  # `>`
+    LESS_EQUAL         = enum.auto()  # `<=`
+    GREATER_EQUAL      = enum.auto()  # `>=`
+    SPACESHIP          = enum.auto()  # `<=>`
+    ASSIGN             = enum.auto()  # `=`
+    ADD_ASSIGN         = enum.auto()  # `+=`
+    SUB_ASSIGN         = enum.auto()  # `-=`
+    MUL_ASSIGN         = enum.auto()  # `*=`
+    DIV_ASSIGN         = enum.auto()  # `/=`
+    MOD_ASSIGN         = enum.auto()  # `%=`
+    AND_ASSIGN         = enum.auto()  # `&=` or `and_eq`
+    OR_ASSIGN          = enum.auto()  # `|=` or `or_eq`
+    XOR_ASSIGN         = enum.auto()  # `^=` or `xor_eq`
+    LSHIFT_ASSIGN      = enum.auto()  # `<<=`
+    RSHIFT_ASSIGN      = enum.auto()  # `>>=`
     STRAY_CHAR         = enum.auto()  # `@`, `$`, `\`, or the backtick itself
 
     # Special
@@ -285,7 +336,7 @@ class Tokenizer:
                     if token_type is TokenType.IDENTIFIER and token.text in {"__has_include", "__has_embed"}:
                         self._header_name_state = _HeaderNameState.AFTER_HAS_INCLUDE
                 case _HeaderNameState.AFTER_HAS_INCLUDE:
-                    if token_type is TokenType.PUNCT and token.text == "(":
+                    if token_type is TokenType.LPAREN:
                         self._expect_header_name = True
                     self._header_name_state = _HeaderNameState.EXPECT_HAS_INCLUDE
                 case _:
@@ -388,6 +439,9 @@ class Tokenizer:
                 if ch == '"' and text[-1] == "R" and text[:-1] in {"", "u8", "u", "U", "L"}:
                     self._reconsume_char()
                     return self._consume_raw_string_lit(text, pos)
+            punctuation_type = _ALPHA_PUNCTUATION_MAP.get(text)
+            if punctuation_type is not None:
+                return Token(punctuation_type, text, pos)
             bad = False
             if not verify_identifier_nfc(text, pos, self._error_handler):
                 bad = True
@@ -576,7 +630,7 @@ class Tokenizer:
             for _ in range(best_len, len(text)):
                 self._unconsume_char()
             text = self._commit()
-            token_type = _PUNCTUATION_TYPE_MAP.get(text, TokenType.PUNCT)
+            token_type = _PUNCTUATION_TYPE_MAP[text]
             return Token(token_type, text, pos)
 
     # The read position must be at the current roll-back position (see _commit()). Upon
@@ -1022,10 +1076,80 @@ _NONWORD_OR_EXPONENT_ASCII_REGEX              = re.compile(r"[^\w]|[eEpP]", re.A
 _RBRACE_OR_NEWLINE_REGEX                      = re.compile(r"[}\n]")
 
 
-_PUNCTUATION = {"{", "}", "[", "]", "#", "(", ")", "<", ">", "%", ":", ";", ".", "?", "*", "+", "-", "/", "^", "&",
-                "|", "~", "!", "=", ",", "##", "<:", ":>", "<%", "%>", "%:", "::", ".*", "->", "+=", "-=", "*=", "/=",
-                "%=", "^=", "&=", "|=", "==", "!=", "<=", ">=", "&&", "||", "<<", ">>", "++", "--", "[:", ":]", "...",
-                "->*", "<=>", "<<=", ">>=", "%:%:"}
+_PUNCTUATION_TYPE_MAP = {
+    "{": TokenType.LBRACE, "<%": TokenType.LBRACE,
+    "}": TokenType.RBRACE, "%>": TokenType.RBRACE,
+    "[": TokenType.LBRACK, "<:": TokenType.LBRACK,
+    "]": TokenType.RBRACK, ":>": TokenType.RBRACK,
+    "(": TokenType.LPAREN,
+    ")": TokenType.RPAREN,
+    "[:": TokenType.LBRACK_COLON,
+    ":]": TokenType.COLON_RBRACK,
+    "#": TokenType.HASH, "%:": TokenType.HASH,
+    "##": TokenType.HASH_HASH, "%:%:": TokenType.HASH_HASH,
+    ",": TokenType.COMMA,
+    "...": TokenType.ELLIPSIS,
+    ";": TokenType.SEMICOLON,
+    ":": TokenType.COLON,
+    "::": TokenType.COLON_COLON,
+    "?": TokenType.QMARK,
+    ".": TokenType.DOT,
+    ".*": TokenType.DOT_STAR,
+    "->": TokenType.ARROW,
+    "->*": TokenType.ARROW_STAR,
+    "+": TokenType.PLUS,
+    "-": TokenType.MINUS,
+    "*": TokenType.STAR,
+    "/": TokenType.SLASH,
+    "%": TokenType.PERCENT,
+    "++": TokenType.INCREMENT,
+    "--": TokenType.DECREMENT,
+    "&": TokenType.BITWISE_AND,
+    "|": TokenType.BITWISE_OR,
+    "^": TokenType.BITWISE_XOR,
+    "~": TokenType.BITWISE_NOT,
+    "<<": TokenType.LSHIFT,
+    ">>": TokenType.RSHIFT,
+    "&&": TokenType.LOGICAL_AND,
+    "||": TokenType.LOGICAL_OR,
+    "!": TokenType.LOGICAL_NOT,
+    "==": TokenType.EQUAL,
+    "!=": TokenType.NOT_EQUAL,
+    "<": TokenType.LESS,
+    ">": TokenType.GREATER,
+    "<=": TokenType.LESS_EQUAL,
+    ">=": TokenType.GREATER_EQUAL,
+    "<=>": TokenType.SPACESHIP,
+    "=": TokenType.ASSIGN,
+    "+=": TokenType.ADD_ASSIGN,
+    "-=": TokenType.SUB_ASSIGN,
+    "*=": TokenType.MUL_ASSIGN,
+    "/=": TokenType.DIV_ASSIGN,
+    "%=": TokenType.MOD_ASSIGN,
+    "&=": TokenType.AND_ASSIGN,
+    "|=": TokenType.OR_ASSIGN,
+    "^=": TokenType.XOR_ASSIGN,
+    "<<=": TokenType.LSHIFT_ASSIGN,
+    ">>=": TokenType.RSHIFT_ASSIGN,
+}
+
+
+_ALPHA_PUNCTUATION_MAP = {
+    "bitand": TokenType.BITWISE_AND,
+    "bitor": TokenType.BITWISE_OR,
+    "xor": TokenType.BITWISE_XOR,
+    "compl": TokenType.BITWISE_NOT,
+    "and": TokenType.LOGICAL_AND,
+    "or": TokenType.LOGICAL_OR,
+    "not": TokenType.LOGICAL_NOT,
+    "not_eq": TokenType.NOT_EQUAL,
+    "and_eq": TokenType.AND_ASSIGN,
+    "or_eq": TokenType.OR_ASSIGN,
+    "xor_eq": TokenType.XOR_ASSIGN,
+}
+
+
+_PUNCTUATION = frozenset(t for t in _PUNCTUATION_TYPE_MAP)
 
 _BASIC_CHARACTER_SET = frozenset("abcdefghijklmnopqrstuvwxyz"
                                  "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -1076,12 +1200,7 @@ def _build_punctuation_map() -> dict[str, tuple[int | None, bool]]:
 _PUNCTUATION_MAP = _build_punctuation_map()
 
 
-_PUNCTUATION_TYPE_MAP = {
-    "#":    TokenType.HASH,
-    "%:":   TokenType.HASH,
-    "##":   TokenType.HASH_HASH,
-    "%:%:": TokenType.HASH_HASH,
-}
+
 
 
 _SPLICE_CONNECTOR_REGEX = re.compile(r"\\[ \t\v\f]*\n")

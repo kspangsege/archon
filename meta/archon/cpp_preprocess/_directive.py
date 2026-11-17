@@ -440,7 +440,7 @@ def _parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position
     n = len(tokens)
     if n >= 2:
         token = tokens[1]
-        if token.type_ is _ct.TokenType.PUNCT and token.text == "(":
+        if token.type_ is _ct.TokenType.LPAREN:
             params = []
             expect_param = True
             i = 2
@@ -467,12 +467,11 @@ def _parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position
                                 return None
                             params.append(param)
                             continue
-                        if token.type_ is _ct.TokenType.PUNCT:
-                            if token.text == "...":
-                                is_variadic = True
-                                continue
-                            if token.text == ")" and not params:
-                                break
+                        if token.type_ is _ct.TokenType.ELLIPSIS:
+                            is_variadic = True
+                            continue
+                        if token.type_ is _ct.TokenType.RPAREN and not params:
+                            break
                     if not params:
                         error_handler(token_pos, "Expected parameter name, `...` (ellipsis), or `)` after `(` in "
                                       "macro parameter list")
@@ -481,16 +480,15 @@ def _parse_define_directive(tokens: _cabc.Sequence[_ct.Token], pos: _ct.Position
                                       "macro parameter list")
                     return None
                 if is_variadic:
-                    if token and token.type_ is _ct.TokenType.PUNCT and token.text == ")":
+                    if token and token.type_ is _ct.TokenType.RPAREN:
                         break
                     error_handler(token_pos, "Expected `)` after `...` (ellipsis) in macro parameter list")
                     return None
-                if token and token.type_ is _ct.TokenType.PUNCT:
-                    if token.text == ")":
-                        break
-                    if token.text == ",":
-                        expect_param = True
-                        continue
+                if token and token.type_ is _ct.TokenType.RPAREN:
+                    break
+                if token and token.type_ is _ct.TokenType.COMMA:
+                    expect_param = True
+                    continue
                 error_handler(token_pos, "Expected `,` (comma) or `)` after parameter name in macro parameter list")
                 return None
         elif token.type_ not in _ct.SPACE:
@@ -550,7 +548,7 @@ def _parse_macro_replacement_tokens(macro_name: str, params: tuple[str, ...] | N
                     if token.type_ in _ct.SPACE:
                         i += 1
                         continue
-                    if token.type_ is _ct.TokenType.PUNCT and token.text == "(":
+                    if token.type_ is _ct.TokenType.LPAREN:
                         break
             pos = end_pos if i == n else elem.pos
             error_handler(pos, "`__VA_OPT__` must be followed by `(`")
@@ -572,15 +570,14 @@ def _parse_macro_replacement_tokens(macro_name: str, params: tuple[str, ...] | N
                     continue
                 error_handler(elem.pos, "`__VA_OPT__` is not allowed to occur inside `__VA_OPT__(...)`")
                 return None
-            if elem.type_ is _ct.TokenType.PUNCT:
-                if elem.text == "(":
-                    depth += 1
-                    continue
-                if elem.text == ")":
-                    depth -= 1
-                    if depth == 0:
-                        k = i - 1
-                        break
+            if elem.type_ is _ct.TokenType.LPAREN:
+                depth += 1
+                continue
+            if elem.type_ is _ct.TokenType.RPAREN:
+                depth -= 1
+                if depth == 0:
+                    k = i - 1
+                    break
 
         opt_elements_1 = elements_1[j:k]
         opt_elements_2 = _parse_stringification(opt_elements_1, end_pos, macro_name, error_handler)

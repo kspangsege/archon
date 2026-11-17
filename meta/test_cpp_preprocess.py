@@ -58,12 +58,6 @@ def test_CppPreprocess_Tokenize_Basics(context: _t.Context) -> None:
     _check_tokenize(context, "##", [
         (_cp.TokenType.HASH_HASH, "##", 1, 0, ()),
     ], 1, 2)
-    _check_tokenize(context, "%:", [
-        (_cp.TokenType.HASH, "%:", 1, 0, ()),
-    ], 1, 2)
-    _check_tokenize(context, "%:%:", [
-        (_cp.TokenType.HASH_HASH, "%:%:", 1, 0, ()),
-    ], 1, 4)
     _check_tokenize(context, _trim_cpp_text(r"""
       R"(
       foo
@@ -85,7 +79,7 @@ def test_CppPreprocess_Tokenize_Basics(context: _t.Context) -> None:
         (_cp.TokenType.IDENTIFIER, "foo", 1, 0, ()),
     ], 1, 3)
     _check_tokenize(context, "+=", [
-        (_cp.TokenType.PUNCT, "+=", 1, 0, ()),
+        (_cp.TokenType.ADD_ASSIGN, "+=", 1, 0, ()),
     ], 1, 2)
     _check_tokenize(context, "$", [
         (_cp.TokenType.STRAY_CHAR, "$", 1, 0, ()),
@@ -106,9 +100,9 @@ def test_CppPreprocess_Tokenize_Basics(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 11, ()),
         (_cp.TokenType.NUMBER, "7", 1, 12, ()),
         (_cp.TokenType.NEWLINE, "\n", 1, 13, ()),
-        (_cp.TokenType.PUNCT, "(", 2, 0, ()),
+        (_cp.TokenType.LPAREN, "(", 2, 0, ()),
         (_cp.TokenType.STRING_LIT, '"bar"', 2, 1, ()),
-        (_cp.TokenType.PUNCT, ")", 2, 6, ()),
+        (_cp.TokenType.RPAREN, ")", 2, 6, ()),
         (_cp.TokenType.NEWLINE, "\n", 2, 7, ()),
     ], 3, 0)
 
@@ -221,8 +215,8 @@ def test_CppPreprocess_Tokenize_RawStringLit(context: _t.Context) -> None:
     _check_tokenize(context, 'R"\\\n()"', [
         (_cp.TokenType.BAD_RAW_STRING_LIT, 'R"\\', 1, 0, ()),
         (_cp.TokenType.NEWLINE, "\n", 1, 3, ()),
-        (_cp.TokenType.PUNCT, '(', 2, 0, ()),
-        (_cp.TokenType.PUNCT, ')', 2, 1, ()),
+        (_cp.TokenType.LPAREN, '(', 2, 0, ()),
+        (_cp.TokenType.RPAREN, ')', 2, 1, ()),
         (_cp.TokenType.BAD_STRING_LIT, '"', 2, 2, ()),
     ], 2, 3, [
         ('Missing left parenthesis in raw string literal', 1, 3),
@@ -640,27 +634,27 @@ def test_CppPreprocess_Tokenize_Number(context: _t.Context) -> None:
 
     # Token separation boundary: `.` must be followed by a digit to introduce a NUMBER
     _check_tokenize(context, ".e", [
-        (_cp.TokenType.PUNCT, ".", 1, 0, ()),
+        (_cp.TokenType.DOT, ".", 1, 0, ()),
         (_cp.TokenType.IDENTIFIER, "e", 1, 1, ()),
     ], 1, 2)
 
     # Token separation boundary: Unary signs are PUNCT, not part of the number
     _check_tokenize(context, "+1", [
-        (_cp.TokenType.PUNCT, "+", 1, 0, ()),
+        (_cp.TokenType.PLUS, "+", 1, 0, ()),
         (_cp.TokenType.NUMBER, "1", 1, 1, ()),
     ], 1, 2)
 
     # Token separation boundary: `+` stops the number if not preceded by an exponent letter
     _check_tokenize(context, "1+2", [
         (_cp.TokenType.NUMBER, "1", 1, 0, ()),
-        (_cp.TokenType.PUNCT, "+", 1, 1, ()),
+        (_cp.TokenType.PLUS, "+", 1, 1, ()),
         (_cp.TokenType.NUMBER, "2", 1, 2, ()),
     ], 1, 3)
 
     # Token separation boundary: Combining exponents and regular operators
     _check_tokenize(context, "1e+2+3", [
         (_cp.TokenType.NUMBER, "1e+2", 1, 0, ()),
-        (_cp.TokenType.PUNCT, "+", 1, 4, ()),
+        (_cp.TokenType.PLUS, "+", 1, 4, ()),
         (_cp.TokenType.NUMBER, "3", 1, 5, ()),
     ], 1, 6)
 
@@ -738,88 +732,92 @@ def test_CppPreprocess_Tokenize_Punctuation(context: _t.Context) -> None:
     # Maximal munch
     _check_tokenize(context, "x+++++y", [
         (_cp.TokenType.IDENTIFIER, "x", 1, 0, ()),
-        (_cp.TokenType.PUNCT, "++", 1, 1, ()),
-        (_cp.TokenType.PUNCT, "++", 1, 3, ()),
-        (_cp.TokenType.PUNCT, "+", 1, 5, ()),
+        (_cp.TokenType.INCREMENT, "++", 1, 1, ()),
+        (_cp.TokenType.INCREMENT, "++", 1, 3, ()),
+        (_cp.TokenType.PLUS, "+", 1, 5, ()),
         (_cp.TokenType.IDENTIFIER, "y", 1, 6, ()),
     ], 1, 7)
     _check_tokenize(context, "... .* ->*", [
-        (_cp.TokenType.PUNCT, "...", 1, 0, ()),
+        (_cp.TokenType.ELLIPSIS, "...", 1, 0, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 3, ()),
-        (_cp.TokenType.PUNCT, ".*", 1, 4, ()),
+        (_cp.TokenType.DOT_STAR, ".*", 1, 4, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
-        (_cp.TokenType.PUNCT, "->*", 1, 7, ()),
+        (_cp.TokenType.ARROW_STAR, "->*", 1, 7, ()),
     ], 1, 10)
 
     # Digraphs vs standard punctuation
-    _check_tokenize(context, "<% %> <: :>", [
-        (_cp.TokenType.PUNCT, "<%", 1, 0, ()),
+    _check_tokenize(context, "<% %> <: :> %: %:%:", [
+        (_cp.TokenType.LBRACE, "<%", 1, 0, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 2, ()),
-        (_cp.TokenType.PUNCT, "%>", 1, 3, ()),
+        (_cp.TokenType.RBRACE, "%>", 1, 3, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 5, ()),
-        (_cp.TokenType.PUNCT, "<:", 1, 6, ()),
+        (_cp.TokenType.LBRACK, "<:", 1, 6, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 8, ()),
-        (_cp.TokenType.PUNCT, ":>", 1, 9, ()),
-    ], 1, 11)
+        (_cp.TokenType.RBRACK, ":>", 1, 9, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 11, ()),
+        (_cp.TokenType.HASH, "%:", 1, 12, ()),
+        (_cp.TokenType.WHITESPACE, " ", 1, 14, ()),
+        (_cp.TokenType.HASH_HASH, "%:%:", 1, 15, ()),
+    ], 1, 19)
 
     # Special handling of `<:` (digraph for `[`)
     _check_tokenize(context, "std::vector<::std::string>", [
         (_cp.TokenType.IDENTIFIER, "std", 1, 0, ()),
-        (_cp.TokenType.PUNCT, "::", 1, 3, ()),
+        (_cp.TokenType.COLON_COLON, "::", 1, 3, ()),
         (_cp.TokenType.IDENTIFIER, "vector", 1, 5, ()),
-        (_cp.TokenType.PUNCT, "<", 1, 11, ()),   # Must be `<`
-        (_cp.TokenType.PUNCT, "::", 1, 12, ()),  # Must be `::`
+        (_cp.TokenType.LESS, "<", 1, 11, ()),   # Must be `<`
+        (_cp.TokenType.COLON_COLON, "::", 1, 12, ()),  # Must be `::`
         (_cp.TokenType.IDENTIFIER, "std", 1, 14, ()),
-        (_cp.TokenType.PUNCT, "::", 1, 17, ()),
+        (_cp.TokenType.COLON_COLON, "::", 1, 17, ()),
         (_cp.TokenType.IDENTIFIER, "string", 1, 19, ()),
-        (_cp.TokenType.PUNCT, ">", 1, 25, ()),
+        (_cp.TokenType.GREATER, ">", 1, 25, ()),
     ], 1, 26)
     _check_tokenize(context, "a<:::ns::foo:>", [
         (_cp.TokenType.IDENTIFIER, "a", 1, 0, ()),
-        (_cp.TokenType.PUNCT, "<:", 1, 1, ()),
-        (_cp.TokenType.PUNCT, "::", 1, 3, ()),
+        (_cp.TokenType.LBRACK, "<:", 1, 1, ()),
+        (_cp.TokenType.COLON_COLON, "::", 1, 3, ()),
         (_cp.TokenType.IDENTIFIER, "ns", 1, 5, ()),
-        (_cp.TokenType.PUNCT, "::", 1, 7, ()),
+        (_cp.TokenType.COLON_COLON, "::", 1, 7, ()),
         (_cp.TokenType.IDENTIFIER, "foo", 1, 9, ()),
-        (_cp.TokenType.PUNCT, ":>", 1, 12, ()),
+        (_cp.TokenType.RBRACK, ":>", 1, 12, ()),
     ], 1, 14)
     _check_tokenize(context, "a<::>", [
         (_cp.TokenType.IDENTIFIER, "a", 1, 0, ()),
-        (_cp.TokenType.PUNCT, "<:", 1, 1, ()),
-        (_cp.TokenType.PUNCT, ":>", 1, 3, ()),
+        (_cp.TokenType.LBRACK, "<:", 1, 1, ()),
+        (_cp.TokenType.RBRACK, ":>", 1, 3, ()),
     ], 1, 5)
 
     # Special handling of `[:` (C++26 reflection splice)
     _check_tokenize(context, "a[::ns::foo]", [
         (_cp.TokenType.IDENTIFIER, "a", 1, 0, ()),
-        (_cp.TokenType.PUNCT, "[", 1, 1, ()),
-        (_cp.TokenType.PUNCT, "::", 1, 2, ()),
+        (_cp.TokenType.LBRACK, "[", 1, 1, ()),
+        (_cp.TokenType.COLON_COLON, "::", 1, 2, ()),
         (_cp.TokenType.IDENTIFIER, "ns", 1, 4, ()),
-        (_cp.TokenType.PUNCT, "::", 1, 6, ()),
+        (_cp.TokenType.COLON_COLON, "::", 1, 6, ()),
         (_cp.TokenType.IDENTIFIER, "foo", 1, 8, ()),
-        (_cp.TokenType.PUNCT, "]", 1, 11, ()),
+        (_cp.TokenType.RBRACK, "]", 1, 11, ()),
     ], 1, 12)
     _check_tokenize(context, "a[:>", [
         (_cp.TokenType.IDENTIFIER, "a", 1, 0, ()),
-        (_cp.TokenType.PUNCT, "[", 1, 1, ()),
-        (_cp.TokenType.PUNCT, ":>", 1, 2, ()),
+        (_cp.TokenType.LBRACK, "[", 1, 1, ()),
+        (_cp.TokenType.RBRACK, ":>", 1, 2, ()),
     ], 1, 4)
     _check_tokenize(context, "[:::ns::foo:]", [
-        (_cp.TokenType.PUNCT, "[:", 1, 0, ()),
-        (_cp.TokenType.PUNCT, "::", 1, 2, ()),
+        (_cp.TokenType.LBRACK_COLON, "[:", 1, 0, ()),
+        (_cp.TokenType.COLON_COLON, "::", 1, 2, ()),
         (_cp.TokenType.IDENTIFIER, "ns", 1, 4, ()),
-        (_cp.TokenType.PUNCT, "::", 1, 6, ()),
+        (_cp.TokenType.COLON_COLON, "::", 1, 6, ()),
         (_cp.TokenType.IDENTIFIER, "foo", 1, 8, ()),
-        (_cp.TokenType.PUNCT, ":]", 1, 11, ()),
+        (_cp.TokenType.COLON_RBRACK, ":]", 1, 11, ()),
     ], 1, 13)
 
     # Line splicing
     _check_tokenize(context, "+\\\n+", [
-        (_cp.TokenType.PUNCT, "++", 1, 0, ()),
+        (_cp.TokenType.INCREMENT, "++", 1, 0, ()),
     ], 2, 1)
     _check_tokenize(context, "<\\\n::", [
-        (_cp.TokenType.PUNCT, "<", 1, 0, ()),
-        (_cp.TokenType.PUNCT, "::", 2, 0, ()),
+        (_cp.TokenType.LESS, "<", 1, 0, ()),
+        (_cp.TokenType.COLON_COLON, "::", 2, 0, ()),
     ], 2, 2)
 
 
@@ -876,7 +874,7 @@ def test_CppPreprocess_Tokenize_UniversalCharacterNames(context: _t.Context) -> 
     _check_tokenize(context, '\\N{R"(\\\n)"', [
         (_cp.TokenType.STRAY_CHAR, '\\', 1, 0, ()),
         (_cp.TokenType.IDENTIFIER, 'N', 1, 1, ()),
-        (_cp.TokenType.PUNCT, '{', 1, 2, ()),
+        (_cp.TokenType.LBRACE, '{', 1, 2, ()),
         (_cp.TokenType.RAW_STRING_LIT, 'R"(\\\n)"', 1, 3, ()),
     ], 2, 2)
 
@@ -892,12 +890,12 @@ def test_CppPreprocess_Tokenize_UniversalCharacterNames(context: _t.Context) -> 
         (_cp.TokenType.WHITESPACE, " ", 1, 5, ()),
         (_cp.TokenType.STRAY_CHAR, "\\", 1, 6, ()),
         (_cp.TokenType.IDENTIFIER, "u", 1, 7, ()),
-        (_cp.TokenType.PUNCT, "{", 1, 8, ()),
+        (_cp.TokenType.LBRACE, "{", 1, 8, ()),
         (_cp.TokenType.NUMBER, "123", 1, 9, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 12, ()),
         (_cp.TokenType.STRAY_CHAR, "\\", 1, 13, ()),
         (_cp.TokenType.IDENTIFIER, "N", 1, 14, ()),
-        (_cp.TokenType.PUNCT, "{", 1, 15, ()),
+        (_cp.TokenType.LBRACE, "{", 1, 15, ()),
         (_cp.TokenType.IDENTIFIER, "foo", 1, 16, ()),
     ], 1, 19)
 
@@ -931,17 +929,17 @@ def test_CppPreprocess_Tokenize_HeaderName(context: _t.Context) -> None:
         (_cp.TokenType.IDENTIFIER, "import", 1, 0, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
         (_cp.TokenType.HEADER_NAME, "<iostream>", 1, 7, ()),
-        (_cp.TokenType.PUNCT, ";", 1, 17, ()),
+        (_cp.TokenType.SEMICOLON, ";", 1, 17, ()),
     ], 1, 18)
     _check_tokenize(context, "int import <iostream>;", [
         (_cp.TokenType.IDENTIFIER, "int", 1, 0, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 3, ()),
         (_cp.TokenType.IDENTIFIER, "import", 1, 4, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 10, ()),
-        (_cp.TokenType.PUNCT, "<", 1, 11, ()),
+        (_cp.TokenType.LESS, "<", 1, 11, ()),
         (_cp.TokenType.IDENTIFIER, "iostream", 1, 12, ()),
-        (_cp.TokenType.PUNCT, ">", 1, 20, ()),
-        (_cp.TokenType.PUNCT, ";", 1, 21, ()),
+        (_cp.TokenType.GREATER, ">", 1, 20, ()),
+        (_cp.TokenType.SEMICOLON, ";", 1, 21, ()),
     ], 1, 22)
 
     # `__has_include` and `__has_embed` within valid conditional directives
@@ -950,18 +948,18 @@ def test_CppPreprocess_Tokenize_HeaderName(context: _t.Context) -> None:
         (_cp.TokenType.IDENTIFIER, "if", 1, 1, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 3, ()),
         (_cp.TokenType.IDENTIFIER, "__has_include", 1, 4, ()),
-        (_cp.TokenType.PUNCT, "(", 1, 17, ()),
+        (_cp.TokenType.LPAREN, "(", 1, 17, ()),
         (_cp.TokenType.HEADER_NAME, "<vector>", 1, 18, ()),
-        (_cp.TokenType.PUNCT, ")", 1, 26, ()),
+        (_cp.TokenType.RPAREN, ")", 1, 26, ()),
     ], 1, 27)
     _check_tokenize(context, '#elif __has_embed("data.txt")', [
         (_cp.TokenType.HASH, "#", 1, 0, ()),
         (_cp.TokenType.IDENTIFIER, "elif", 1, 1, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 5, ()),
         (_cp.TokenType.IDENTIFIER, "__has_embed", 1, 6, ()),
-        (_cp.TokenType.PUNCT, "(", 1, 17, ()),
+        (_cp.TokenType.LPAREN, "(", 1, 17, ()),
         (_cp.TokenType.HEADER_NAME, '"data.txt"', 1, 18, ()),
-        (_cp.TokenType.PUNCT, ")", 1, 28, ()),
+        (_cp.TokenType.RPAREN, ")", 1, 28, ()),
     ], 1, 29)
 
     # `__has_include` and `__has_embed` within #embed parameters
@@ -972,12 +970,12 @@ def test_CppPreprocess_Tokenize_HeaderName(context: _t.Context) -> None:
         (_cp.TokenType.HEADER_NAME, '"data.bin"', 1, 7, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 17, ()),
         (_cp.TokenType.IDENTIFIER, "limit", 1, 18, ()),
-        (_cp.TokenType.PUNCT, "(", 1, 23, ()),
+        (_cp.TokenType.LPAREN, "(", 1, 23, ()),
         (_cp.TokenType.IDENTIFIER, "__has_include", 1, 24, ()),
-        (_cp.TokenType.PUNCT, "(", 1, 37, ()),
+        (_cp.TokenType.LPAREN, "(", 1, 37, ()),
         (_cp.TokenType.HEADER_NAME, "<foo.h>", 1, 38, ()),
-        (_cp.TokenType.PUNCT, ")", 1, 45, ()),
-        (_cp.TokenType.PUNCT, ")", 1, 46, ()),
+        (_cp.TokenType.RPAREN, ")", 1, 45, ()),
+        (_cp.TokenType.RPAREN, ")", 1, 46, ()),
     ], 1, 47)
     _check_tokenize(context, '#embed "main.bin" if_empty(__has_embed(<fallback.bin>))', [
         (_cp.TokenType.HASH, "#", 1, 0, ()),
@@ -986,12 +984,12 @@ def test_CppPreprocess_Tokenize_HeaderName(context: _t.Context) -> None:
         (_cp.TokenType.HEADER_NAME, '"main.bin"', 1, 7, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 17, ()),
         (_cp.TokenType.IDENTIFIER, "if_empty", 1, 18, ()),
-        (_cp.TokenType.PUNCT, "(", 1, 26, ()),
+        (_cp.TokenType.LPAREN, "(", 1, 26, ()),
         (_cp.TokenType.IDENTIFIER, "__has_embed", 1, 27, ()),
-        (_cp.TokenType.PUNCT, "(", 1, 38, ()),
+        (_cp.TokenType.LPAREN, "(", 1, 38, ()),
         (_cp.TokenType.HEADER_NAME, "<fallback.bin>", 1, 39, ()),
-        (_cp.TokenType.PUNCT, ")", 1, 53, ()),
-        (_cp.TokenType.PUNCT, ")", 1, 54, ()),
+        (_cp.TokenType.RPAREN, ")", 1, 53, ()),
+        (_cp.TokenType.RPAREN, ")", 1, 54, ()),
     ], 1, 55)
 
     # Contexts where `<` and `"` should NOT form a header name
@@ -1001,11 +999,11 @@ def test_CppPreprocess_Tokenize_HeaderName(context: _t.Context) -> None:
         (_cp.TokenType.WHITESPACE, " ", 1, 7, ()),
         (_cp.TokenType.IDENTIFIER, "FOO", 1, 8, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 11, ()),
-        (_cp.TokenType.PUNCT, "<", 1, 12, ()),
+        (_cp.TokenType.LESS, "<", 1, 12, ()),
         (_cp.TokenType.IDENTIFIER, "bar", 1, 13, ()),
-        (_cp.TokenType.PUNCT, ".", 1, 16, ()),
+        (_cp.TokenType.DOT, ".", 1, 16, ()),
         (_cp.TokenType.IDENTIFIER, "h", 1, 17, ()),
-        (_cp.TokenType.PUNCT, ">", 1, 18, ()),
+        (_cp.TokenType.GREATER, ">", 1, 18, ()),
     ], 1, 19)
     _check_tokenize(context, "#define CHECK __has_include(<foo>)", [
         (_cp.TokenType.HASH, "#", 1, 0, ()),
@@ -1014,11 +1012,11 @@ def test_CppPreprocess_Tokenize_HeaderName(context: _t.Context) -> None:
         (_cp.TokenType.IDENTIFIER, "CHECK", 1, 8, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 13, ()),
         (_cp.TokenType.IDENTIFIER, "__has_include", 1, 14, ()),
-        (_cp.TokenType.PUNCT, "(", 1, 27, ()),
-        (_cp.TokenType.PUNCT, "<", 1, 28, ()),
+        (_cp.TokenType.LPAREN, "(", 1, 27, ()),
+        (_cp.TokenType.LESS, "<", 1, 28, ()),
         (_cp.TokenType.IDENTIFIER, "foo", 1, 29, ()),
-        (_cp.TokenType.PUNCT, ">", 1, 32, ()),
-        (_cp.TokenType.PUNCT, ")", 1, 33, ()),
+        (_cp.TokenType.GREATER, ">", 1, 32, ()),
+        (_cp.TokenType.RPAREN, ")", 1, 33, ()),
     ], 1, 34)
 
     # Allow space
@@ -1090,7 +1088,7 @@ def test_CppPreprocess_Tokenize_HeaderName(context: _t.Context) -> None:
         (_cp.TokenType.IDENTIFIER, "import", 1, 0, ()),
         (_cp.TokenType.WHITESPACE, " ", 1, 6, ()),
         (_cp.TokenType.IDENTIFIER, "std", 1, 7, ()),
-        (_cp.TokenType.PUNCT, ";", 1, 10, ()),
+        (_cp.TokenType.SEMICOLON, ";", 1, 10, ()),
     ], 1, 11)
 
 

@@ -266,9 +266,8 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
             found_lparen = False
             while True:
                 token = next_token()
-                if token.type_ is _ct.TokenType.PUNCT:
-                    if token.text == "(":
-                        found_lparen = True
+                if token.type_ is _ct.TokenType.LPAREN:
+                    found_lparen = True
                     break
                 if token.type_ in _ct.SPACE:
                     tokens.append(token)
@@ -292,17 +291,16 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
                 if token.type_ is _ct.TokenType.IDENTIFIER:
                     if token.text in active_set:
                         token = dataclasses.replace(token, type_=_ct.TokenType.BLOCKED_IDENTIFIER)
-                elif token.type_ is _ct.TokenType.PUNCT:
-                    if token.text == ",":
-                        if paren_level == 1:
-                            tokens_offset = record_arg(token) + 1
-                    elif token.text == "(":
-                        paren_level += 1
-                    elif token.text == ")":
-                        paren_level -= 1
-                        if paren_level == 0:
-                            record_arg(token)
-                            break
+                elif token.type_ is _ct.TokenType.COMMA:
+                    if paren_level == 1:
+                        tokens_offset = record_arg(token) + 1
+                elif token.type_ is _ct.TokenType.LPAREN:
+                    paren_level += 1
+                elif token.type_ is _ct.TokenType.RPAREN:
+                    paren_level -= 1
+                    if paren_level == 0:
+                        record_arg(token)
+                        break
                 elif token.type_ is _ct.TokenType.END_OF_INPUT:
                     error(token.pos, "Expected closing parenthesis or comma in invocation of function-like macro %s",
                           _b.clamped_quote(name, 64))
