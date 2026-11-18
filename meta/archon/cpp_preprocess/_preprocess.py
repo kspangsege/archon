@@ -255,7 +255,7 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
                         replacement = expand_replacement(signature, macro.replacement, arguments=None, va_args=None)
                     case _:
                         typing.assert_never(macro)
-                if replacement:
+                if replacement is not None:
                     push_invoc(name, replacement, invoc_pos)
                 else:
                     error_occurred.value = True
@@ -347,7 +347,7 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
                     replacement = expand_replacement(signature, macro.replacement, arguments, va_args)
                 case _:
                     typing.assert_never(macro)
-            if replacement:
+            if replacement is not None:
                 push_invoc(name, replacement, invoc_pos)
             else:
                 error_occurred.value = True

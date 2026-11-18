@@ -1433,6 +1433,30 @@ def test_CppPreprocess_ParseDefineDirective(context: _t.Context) -> None:
     ])
 
 
+def test_CppPreprocess_Preprocess_MacroExpansion_Empty(context: _t.Context) -> None:
+    path = "test-1.cpp"
+    _check_preprocess(context, path, _trim_cpp_text(r"""
+      #define E
+      #define M(x) x
+      M(E 1)
+    """), [
+        (_cp.TokenType.WHITESPACE, " ", path, 3, 3, (), False),
+        (_cp.TokenType.NUMBER, "1", path, 3, 4, (), False),
+        (_cp.TokenType.NEWLINE, "\n", path, 3, 6, (), False),
+    ], 4, 0)
+
+    path = "test-2.cpp"
+    _check_preprocess(context, path, _trim_cpp_text(r"""
+      #define E
+      #define M(x) x
+      M(1 E)
+    """), [
+        (_cp.TokenType.NUMBER, "1", path, 3, 2, (), False),
+        (_cp.TokenType.WHITESPACE, " ", path, 3, 3, (), False),
+        (_cp.TokenType.NEWLINE, "\n", path, 3, 6, (), False),
+    ], 4, 0)
+
+
 def test_CppPreprocess_Preprocess_IncludeDirective(context: _t.Context) -> None:
     root_path = "test.cpp"
     bar_path = "bar.hpp"
