@@ -384,7 +384,7 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
                         accum = token
                         return
                     # Keep position of first operator that performs a nontrivial fusing operation
-                    fuse_pos = token.pos if composed else operator_pos
+                    fuse_pos = accum.pos if composed else operator_pos
                     accum = fuse_tokens(accum, token, fuse_pos)
                     composed = True
                 assert fuse_operation.rights
@@ -576,6 +576,22 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
         match directive_type:
             case _cd.DirectiveType.NULL:
                 return
+            case _cd.DirectiveType.IF:
+                raise NotImplementedError         
+            case _cd.DirectiveType.IFDEF:
+                raise NotImplementedError         
+            case _cd.DirectiveType.IFNDEF:
+                raise NotImplementedError         
+            case _cd.DirectiveType.ELIF:
+                raise NotImplementedError         
+            case _cd.DirectiveType.ELIFDEF:
+                raise NotImplementedError         
+            case _cd.DirectiveType.ELIFNDEF:
+                raise NotImplementedError         
+            case _cd.DirectiveType.ELSE:
+                raise NotImplementedError         
+            case _cd.DirectiveType.ENDIF:
+                raise NotImplementedError         
             case _cd.DirectiveType.INCLUDE:
                 include_directive = _cd.parse_include_directive(remaining_tokens, pos, end_pos, macro_expand, error)
                 if include_directive is None:
@@ -675,7 +691,7 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
             case _cd.DirectiveType.PRAGMA:
                 app.handle_pragma(remaining_tokens, pos, end_pos)
                 return
-        raise NotImplementedError         
+        typing.assert_never(directive_type)
 
     def error(pos: _ct.Position, message: str, *args: typing.Any) -> None:
         app.handle_message(MessageType.ERROR, pos, message, *args)

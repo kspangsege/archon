@@ -1457,6 +1457,26 @@ def test_CppPreprocess_Preprocess_MacroExpansion_Empty(context: _t.Context) -> N
     ], 4, 0)
 
 
+def test_CppPreprocess_Preprocess_MacroExpansion_TokenFusion(context: _t.Context) -> None:
+    # Correct position
+    path = "test-1.cpp"
+    _check_preprocess(context, path, _trim_cpp_text(r"""
+      #define M A ## B
+      M
+    """), [
+        (_cp.TokenType.IDENTIFIER, "AB", path, 1, 12, (), True),
+        (_cp.TokenType.NEWLINE, "\n", path, 2, 1, (), False),
+    ], 3, 0)
+    path = "test-2.cpp"
+    _check_preprocess(context, path, _trim_cpp_text(r"""
+      #define M A ## B ## C
+      M
+    """), [
+        (_cp.TokenType.IDENTIFIER, "ABC", path, 1, 12, (), True),
+        (_cp.TokenType.NEWLINE, "\n", path, 2, 1, (), False),
+    ], 3, 0)
+
+
 def test_CppPreprocess_Preprocess_IncludeDirective(context: _t.Context) -> None:
     root_path = "test.cpp"
     bar_path = "bar.hpp"
