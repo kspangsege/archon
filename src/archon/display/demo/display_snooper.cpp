@@ -289,6 +289,18 @@ public:
                     }
                     break;
                 }
+                case display::Key::small_i: {
+                    int target_id = (m_target_window == 0 ? window_id : m_target_window);
+                    auto i = m_windows.find(target_id);
+                    if (ARCHON_LIKELY(i != m_windows.end())) {
+                        WindowEntry& entry = i->second;
+                        display::Window& win = *entry.window;
+                        bool on = !entry.immersive;
+                        win.set_immersive_mode(on); // Throws
+                        entry.immersive = on;
+                    }
+                    break;
+                }
                 case display::Key::small_o:
                     add_window(); // Throws
                     break;
@@ -343,6 +355,14 @@ public:
         int window_id = ev.cookie;
         if (m_config.report_mouse_move)
             log(window_id, "MOUSE MOVE: %s", ev.pos); // Throws
+        return true;
+    }
+
+    bool on_rel_mousemove(const display::RelativeMouseMotionEvent& ev) override
+    {
+        int window_id = ev.cookie;
+        if (m_config.report_mouse_move)
+            log(window_id, "REALTIVE MOUSE MOVE: %s", ev.motion); // Throws
         return true;
     }
 
@@ -439,6 +459,7 @@ private:
         bool large = false;
         bool hidden = false;
         bool fullscreen = false;
+        bool immersive = false;
     };
 
     std::locale m_locale;

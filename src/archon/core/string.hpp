@@ -180,7 +180,7 @@ template<class C, class T> auto trim_a(std::basic_string_view<C, T> str, C delim
 /// \sa \ref core::for_each_word()
 ///
 bool contains_word(std::string_view str, std::string_view word) noexcept;
-template<class C, class T> bool contains_word(std::basic_string_view<C, T> str, core::Type<std::basic_string_view<C, T>> word,
+template<class C, class T> bool contains_word(std::basic_string_view<C, T> str, core::type<std::basic_string_view<C, T>> word,
                                               const std::locale&);
 /// \}
 
@@ -418,7 +418,7 @@ inline bool contains_word(std::string_view str, std::string_view word) noexcept
 
 
 template<class C, class T>
-inline bool contains_word(std::basic_string_view<C, T> str, core::Type<std::basic_string_view<C, T>> word,
+inline bool contains_word(std::basic_string_view<C, T> str, core::type<std::basic_string_view<C, T>> word,
                           const std::locale& locale)
 {
     bool found = !core::for_each_word(str, locale, [&](std::basic_string_view<C, T> word_2) noexcept {
