@@ -1490,6 +1490,7 @@ def test_CppPreprocess_Preprocess_MacroExpansion_Predefined(context: _t.Context)
         __STDC_EMBED_FOUND__
         __STDC_EMBED_EMPTY__
         __STDC_HOSTED__
+        __STDCPP_DEFAULT_NEW_ALIGNMENT__
     """), [
         (_cp.TokenType.NUMBER, "202603L", path, 1, 0, (), True),
         (_cp.TokenType.NEWLINE, "\n", path, 1, 11, (), False),
@@ -1509,7 +1510,9 @@ def test_CppPreprocess_Preprocess_MacroExpansion_Predefined(context: _t.Context)
         (_cp.TokenType.NEWLINE, "\n", path, 8, 20, (), False),
         (_cp.TokenType.NUMBER, "1", path, 9, 0, (), True),
         (_cp.TokenType.NEWLINE, "\n", path, 9, 15, (), False),
-    ], 10, 0, date=datetime.datetime(2026, 1, 5, 22, 35, 1, tzinfo=datetime.UTC))
+        (_cp.TokenType.NUMBER, "16uz", path, 10, 0, (), True),
+        (_cp.TokenType.NEWLINE, "\n", path, 10, 32, (), False),
+    ], 11, 0, date=datetime.datetime(2026, 1, 5, 22, 35, 1, tzinfo=datetime.UTC))
 
 
 def test_CppPreprocess_Preprocess_IncludeDirective(context: _t.Context) -> None:
