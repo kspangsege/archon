@@ -130,7 +130,7 @@ class ResolvedPosition:
     pos_on_line: int  # Zero based
 
 
-# C++26 requires that `threads` is true if `hosted` is true.
+# C++26 requires that `stdcpp_threads` is true if `stdc_hosted` is true.
 #
 @dataclasses.dataclass(slots=True)
 class Config:
@@ -138,11 +138,12 @@ class Config:
     predefined_macros: _cabc.Sequence[PredefinedMacro] | None = None
     date: datetime.datetime | None = None  # `__DATE__` ("now" if `None`)
     stdc: bool | None = None               # `__STDC__` (undefined if `None`)
-    hosted = True                          # `__STDC_HOSTED__`
-    mb_might_neq_wc = False                # `__STDC_MB_MIGHT_NEQ_WC__` (undefined if `False`)
-    iso_10646: int | None = None           # `__STDC_ISO_10646__` (yyyymm, undefined if `None`)
-    default_new_alignment = 16             # `__STDCPP_DEFAULT_NEW_ALIGNMENT__`
-    threads = True                         # `__STDCPP_THREADS__` (undefined if `False`)
+    stdc_hosted = True                     # `__STDC_HOSTED__`
+    stdc_mb_might_neq_wc = False           # `__STDC_MB_MIGHT_NEQ_WC__` (undefined if `False`)
+    stdc_iso_10646: int | None = None      # `__STDC_ISO_10646__` (yyyymm, undefined if `None`)
+    stdcpp_default_new_alignment = 16      # `__STDCPP_DEFAULT_NEW_ALIGNMENT__`
+    stdcpp_threads = True                  # `__STDCPP_THREADS__` (undefined if `False`)
+    stdcpp_float16_t = False               # `__STDCPP_FLOAT16_T__` (undefined if `False`)
 
 
 type Macro = PredefinedMacro | RegularMacro
@@ -840,13 +841,16 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
     add_objectlike_macro("__STDC_EMBED_NOT_FOUND__", make_number_func("0"))
     add_objectlike_macro("__STDC_EMBED_FOUND__", make_number_func("1"))
     add_objectlike_macro("__STDC_EMBED_EMPTY__", make_number_func("2"))
-    add_objectlike_macro("__STDC_HOSTED__", make_number_func("1" if config.hosted else "0"))
+    add_objectlike_macro("__STDC_HOSTED__", make_number_func("1" if config.stdc_hosted else "0"))
     add_objectlike_macro("__STDC_VERSION__", None)
-    add_objectlike_macro("__STDC_MB_MIGHT_NEQ_WC__", make_number_func("1") if config.mb_might_neq_wc else None)
-    add_objectlike_macro("__STDC_ISO_10646__", make_number_func("%sL" % config.iso_10646)
-                         if config.iso_10646 is not None else None)
-    add_objectlike_macro("__STDCPP_DEFAULT_NEW_ALIGNMENT__", make_number_func("%suz" % config.default_new_alignment))
-    add_objectlike_macro("__STDCPP_THREADS__", make_number_func("1") if config.threads else None)
+    add_objectlike_macro("__STDC_MB_MIGHT_NEQ_WC__", make_number_func("1") if config.stdc_mb_might_neq_wc else None)
+    add_objectlike_macro("__STDC_ISO_10646__", make_number_func("%sL" % config.stdc_iso_10646)
+                         if config.stdc_iso_10646 is not None else None)
+    add_objectlike_macro("__STDCPP_DEFAULT_NEW_ALIGNMENT__",
+                         make_number_func("%suz" % config.stdcpp_default_new_alignment))
+    add_objectlike_macro("__STDCPP_THREADS__", make_number_func("1") if config.stdcpp_threads else None)
+    add_objectlike_macro("__STDCPP_FLOAT16_T__", make_number_func("1") if config.stdcpp_float16_t else None)
+
     add_functionlike_macro("_Pragma", pragma_func)
 
     # FIXME: Set up more built-in macros here        
