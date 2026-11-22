@@ -137,7 +137,7 @@ class Config:
     date: datetime.datetime | None = None  # `__DATE__`
     hosted = True  # `__STDC_HOSTED__`
     default_new_alignment = "16uz"  # `__DEFAULT_NEW_ALIGNMENT__`, must be a valid NUMBER token
-    stdc: str | None = None  # `__STDC__`, must be a valid NUMBER token
+    stdc: bool | None = None  # `__STDC__`
 
 
 type Macro = BuiltinMacro | RegularMacro
@@ -831,7 +831,7 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
     add_objectlike_macro("__STDC_HOSTED__", make_number_func("1" if config.hosted else "0"))
     add_objectlike_macro("__STDCPP_DEFAULT_NEW_ALIGNMENT__", make_number_func(config.default_new_alignment))
     if config.stdc is not None:
-        add_objectlike_macro("__STDC__", make_number_func(config.stdc))
+        add_objectlike_macro("__STDC__", make_number_func("1" if config.stdc else "0"))
     add_functionlike_macro("_Pragma", pragma_func)
 
     # FIXME: Set up more built-in macros here        
