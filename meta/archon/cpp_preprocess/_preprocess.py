@@ -130,25 +130,29 @@ class ResolvedPosition:
     pos_on_line: int  # Zero based
 
 
+# C++26 requires that `threads` is true if `hosted` is true.
+#
 @dataclasses.dataclass(slots=True)
 class Config:
     encoding_info = _cu.EncodingInfo()
-    predefined_macros: _cabc.Sequence[BuiltinMacro] | None = None
-    date: datetime.datetime | None = None  # `__DATE__`
-    hosted = True  # `__STDC_HOSTED__`
-    default_new_alignment = "16uz"  # `__DEFAULT_NEW_ALIGNMENT__`, must be a valid NUMBER token
-    stdc: bool | None = None  # `__STDC__`
+    predefined_macros: _cabc.Sequence[PredefinedMacro] | None = None
+    date: datetime.datetime | None = None  # `__DATE__` ("now" if `None`)
+    stdc: bool | None = None               # `__STDC__` (undefined if `None`)
+    hosted = True                          # `__STDC_HOSTED__`
+    mb_might_neq_wc = False                # `__STDC_MB_MIGHT_NEQ_WC__` (undefined if `False`)
+    iso_10646: int | None = None           # `__STDC_ISO_10646__` (yyyymm, undefined if `None`)
+    default_new_alignment = 16             # `__STDCPP_DEFAULT_NEW_ALIGNMENT__`
+    threads = True                         # `__STDCPP_THREADS__` (undefined if `False`)
 
 
-type Macro = BuiltinMacro | RegularMacro
+type Macro = PredefinedMacro | RegularMacro
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class MacroBase:
     signature: _cd.MacroSignature
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class BuiltinMacro(MacroBase):
-    permanent:     bool  # Cannot be undefined
+class PredefinedMacro(MacroBase):
     require_paren: bool  # Occurrence of macro name is always an invocation
     func:          MacroFunction
 
@@ -187,6 +191,7 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
                 config: Config) -> _cabc.Iterator[_ct.Token]:
     date = config.date or datetime.datetime.now(datetime.UTC)
     macro_registry: dict[str, Macro] = {}
+    builtin_macros: set[str] = set()
     include_stack: list[_IncludeStackEntry] = []
     invoc_stack: list[_InvocStackEntry] = []
     active_set: set[str] = set()
@@ -255,7 +260,7 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
             if signature.params is None:
                 # Object-like macro
                 match macro:
-                    case BuiltinMacro():
+                    case PredefinedMacro():
                         replacement = macro.func(invoc_pos, arguments=None, va_args=None)
                     case RegularMacro():
                         replacement = expand_replacement(signature, macro.replacement, arguments=None, va_args=None)
@@ -280,7 +285,7 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
                     continue
                 break
             if not found_lparen:
-                if isinstance(macro, BuiltinMacro) and macro.require_paren:
+                if isinstance(macro, PredefinedMacro) and macro.require_paren:
                     error(token.pos, "Expected opening parenthesis after `%s`", name)
                     error_occurred.value = True
                 yield from tokens
@@ -347,7 +352,7 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
             if is_variadic:
                 va_args = get_arg(n, len(arg_delims))
             match macro:
-                case BuiltinMacro():
+                case PredefinedMacro():
                     replacement = macro.func(invoc_pos, arguments, va_args)
                 case RegularMacro():
                     replacement = expand_replacement(signature, macro.replacement, arguments, va_args)
@@ -643,6 +648,9 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
                     # FIXME: Consider logging separate message ("note" level) pointing to
                     # position of preexisting definition    
                     return
+                if name in builtin_macros:
+                    error(pos, "Cannot define built-in macro `%s`", name)
+                    return
                 macro = RegularMacro(signature, define_directive.replacement, define_directive.pos)
                 macro_registry[name] = macro
                 return
@@ -653,8 +661,8 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
                 macro = macro_registry.get(undef_directive.name)
                 if macro is None:
                     return  # No-op
-                if isinstance(macro, BuiltinMacro) and macro.permanent:
-                    error(pos, "Cannot undefine permanent built-in macro `%s`", undef_directive.name)
+                if undef_directive.name in builtin_macros:
+                    error(pos, "Cannot undefine built-in macro `%s`", undef_directive.name)
                     return
                 del macro_registry[undef_directive.name]
                 return
@@ -710,24 +718,26 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
         def __call__(self, invoc_pos: _ct.Position, arg: MacroArg) -> list[_ct.Token] | None:
             ...
 
-    def add_objectlike_macro(name: str, func: ObjectlikeFunction) -> None:
-        signature = _cd.MacroSignature(name, params=None, is_variadic=False)
-        permanent = True
-        require_paren = False
-        def func_2(invoc_pos: _ct.Position, arguments: list[MacroArg] | None,
-                   va_args: MacroArg | None) -> list[_ct.Token] | None:
-            return func(invoc_pos)
-        macro_registry[name] = BuiltinMacro(signature, permanent, require_paren, func_2)
+    def add_objectlike_macro(name: str, func: ObjectlikeFunction | None) -> None:
+        if func is not None:
+            signature = _cd.MacroSignature(name, params=None, is_variadic=False)
+            require_paren = False
+            def func_2(invoc_pos: _ct.Position, arguments: list[MacroArg] | None,
+                       va_args: MacroArg | None) -> list[_ct.Token] | None:
+                return func(invoc_pos)
+            macro_registry[name] = PredefinedMacro(signature, require_paren, func_2)
+        builtin_macros.add(name)
 
-    def add_functionlike_macro(name: str, func: FunctionlikeFunction) -> None:
-        signature = _cd.MacroSignature(name, params=("_",), is_variadic=False)
-        permanent = True
-        require_paren = True
-        def func_2(invoc_pos: _ct.Position, arguments: list[MacroArg] | None,
-                   va_args: MacroArg | None) -> list[_ct.Token] | None:
-            assert arguments is not None
-            return func(invoc_pos, arguments[0])
-        macro_registry[name] = BuiltinMacro(signature, permanent, require_paren, func_2)
+    def add_functionlike_macro(name: str, func: FunctionlikeFunction | None) -> None:
+        if func is not None:
+            signature = _cd.MacroSignature(name, params=("_",), is_variadic=False)
+            require_paren = True
+            def func_2(invoc_pos: _ct.Position, arguments: list[MacroArg] | None,
+                       va_args: MacroArg | None) -> list[_ct.Token] | None:
+                assert arguments is not None
+                return func(invoc_pos, arguments[0])
+            macro_registry[name] = PredefinedMacro(signature, require_paren, func_2)
+        builtin_macros.add(name)
 
     def date_func(invoc_pos: _ct.Position) -> list[_ct.Token] | None:
         months = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
@@ -825,13 +835,18 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
     add_objectlike_macro("__TIME__", time_func)
     add_objectlike_macro("__FILE__", file_func)
     add_objectlike_macro("__LINE__", line_func)
+    add_objectlike_macro("__STDC__", make_number_func("1" if config.stdc else "0")
+                         if config.stdc is not None else None)
     add_objectlike_macro("__STDC_EMBED_NOT_FOUND__", make_number_func("0"))
     add_objectlike_macro("__STDC_EMBED_FOUND__", make_number_func("1"))
     add_objectlike_macro("__STDC_EMBED_EMPTY__", make_number_func("2"))
     add_objectlike_macro("__STDC_HOSTED__", make_number_func("1" if config.hosted else "0"))
-    add_objectlike_macro("__STDCPP_DEFAULT_NEW_ALIGNMENT__", make_number_func(config.default_new_alignment))
-    if config.stdc is not None:
-        add_objectlike_macro("__STDC__", make_number_func("1" if config.stdc else "0"))
+    add_objectlike_macro("__STDC_VERSION__", None)
+    add_objectlike_macro("__STDC_MB_MIGHT_NEQ_WC__", make_number_func("1") if config.mb_might_neq_wc else None)
+    add_objectlike_macro("__STDC_ISO_10646__", make_number_func("%sL" % config.iso_10646)
+                         if config.iso_10646 is not None else None)
+    add_objectlike_macro("__STDCPP_DEFAULT_NEW_ALIGNMENT__", make_number_func("%suz" % config.default_new_alignment))
+    add_objectlike_macro("__STDCPP_THREADS__", make_number_func("1") if config.threads else None)
     add_functionlike_macro("_Pragma", pragma_func)
 
     # FIXME: Set up more built-in macros here        
