@@ -26,6 +26,7 @@ import dataclasses
 import collections.abc as _cabc
 import enum
 import bisect
+import datetime
 import io
 
 import archon.base as _b
@@ -133,6 +134,8 @@ class ResolvedPosition:
 class Config:
     encoding_info = _cu.EncodingInfo()
     predefined_macros: _cabc.Sequence[BuiltinMacro] | None = None
+    date: datetime.datetime | None = None  # `__DATE__`
+    hosted = True  # `__STDC_HOSTED__`
 
 
 type Macro = BuiltinMacro | RegularMacro
@@ -180,6 +183,7 @@ class MacroArg:
 
 def _preprocess(root_file_index: int, root_source: Source, app: Application,
                 config: Config) -> _cabc.Iterator[_ct.Token]:
+    date = config.date or datetime.datetime.now(datetime.UTC)
     macro_registry: dict[str, Macro] = {}
     include_stack: list[_IncludeStackEntry] = []
     invoc_stack: list[_InvocStackEntry] = []
@@ -723,6 +727,17 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
             return func(invoc_pos, arguments[0])
         macro_registry[name] = BuiltinMacro(signature, permanent, require_paren, func_2)
 
+    def date_func(invoc_pos: _ct.Position) -> list[_ct.Token] | None:
+        months = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+        text = '"%s %2d %04d"' % (months[date.month - 1], date.day, date.year)
+        token = _ct.Token(_ct.TokenType.STRING_LIT, text, invoc_pos, synthetic=True)
+        return [token]
+
+    def time_func(invoc_pos: _ct.Position) -> list[_ct.Token] | None:
+        text = date.strftime('"%H:%M:%S"')
+        token = _ct.Token(_ct.TokenType.STRING_LIT, text, invoc_pos, synthetic=True)
+        return [token]
+
     def file_func(invoc_pos: _ct.Position) -> list[_ct.Token] | None:
         root_invoc_pos = invoc_stack[0].invoc_pos if invoc_stack else invoc_pos
         if include_stack:
@@ -797,8 +812,21 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
         app.handle_pragma(synthesized_tokens, invoc_pos, end_pos)
         return []
 
+    def make_number_func(text: str) -> ObjectlikeFunction:
+        def func(invoc_pos: _ct.Position) -> list[_ct.Token] | None:
+            token = _ct.Token(_ct.TokenType.NUMBER, text, invoc_pos, synthetic=True)
+            return [token]
+        return func
+
+    add_objectlike_macro("__cplusplus", make_number_func("202603L"))  # FIXME: C++26 is not yet finalized           
+    add_objectlike_macro("__DATE__", date_func)
+    add_objectlike_macro("__TIME__", time_func)
     add_objectlike_macro("__FILE__", file_func)
     add_objectlike_macro("__LINE__", line_func)
+    add_objectlike_macro("__STDC_EMBED_NOT_FOUND__", make_number_func("0"))
+    add_objectlike_macro("__STDC_EMBED_FOUND__", make_number_func("1"))
+    add_objectlike_macro("__STDC_EMBED_EMPTY__", make_number_func("2"))
+    add_objectlike_macro("__STDC_HOSTED__", make_number_func("1" if config.hosted else "0"))
     add_functionlike_macro("_Pragma", pragma_func)
 
     # FIXME: Set up more built-in macros here        

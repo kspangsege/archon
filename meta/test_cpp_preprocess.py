@@ -24,6 +24,7 @@ import typing
 import dataclasses
 import collections.abc as _cabc
 import textwrap
+import datetime
 import io
 import unittest
 
@@ -1477,6 +1478,40 @@ def test_CppPreprocess_Preprocess_MacroExpansion_TokenFusion(context: _t.Context
     ], 3, 0)
 
 
+def test_CppPreprocess_Preprocess_MacroExpansion_Predefined(context: _t.Context) -> None:
+    path = "test.cpp"
+    _check_preprocess(context, path, _trim_cpp_text(r"""
+        __cplusplus
+        __DATE__
+        __TIME__
+        __FILE__
+        __LINE__
+        __STDC_EMBED_NOT_FOUND__
+        __STDC_EMBED_FOUND__
+        __STDC_EMBED_EMPTY__
+        __STDC_HOSTED__
+    """), [
+        (_cp.TokenType.NUMBER, "202603L", path, 1, 0, (), True),
+        (_cp.TokenType.NEWLINE, "\n", path, 1, 11, (), False),
+        (_cp.TokenType.STRING_LIT, '"Jan  5 2026"', path, 2, 0, (), True),
+        (_cp.TokenType.NEWLINE, "\n", path, 2, 8, (), False),
+        (_cp.TokenType.STRING_LIT, '"22:35:01"', path, 3, 0, (), True),
+        (_cp.TokenType.NEWLINE, "\n", path, 3, 8, (), False),
+        (_cp.TokenType.STRING_LIT, '"test.cpp"', path, 4, 0, (), True),
+        (_cp.TokenType.NEWLINE, "\n", path, 4, 8, (), False),
+        (_cp.TokenType.NUMBER, "5", path, 5, 0, (), True),
+        (_cp.TokenType.NEWLINE, "\n", path, 5, 8, (), False),
+        (_cp.TokenType.NUMBER, "0", path, 6, 0, (), True),
+        (_cp.TokenType.NEWLINE, "\n", path, 6, 24, (), False),
+        (_cp.TokenType.NUMBER, "1", path, 7, 0, (), True),
+        (_cp.TokenType.NEWLINE, "\n", path, 7, 20, (), False),
+        (_cp.TokenType.NUMBER, "2", path, 8, 0, (), True),
+        (_cp.TokenType.NEWLINE, "\n", path, 8, 20, (), False),
+        (_cp.TokenType.NUMBER, "1", path, 9, 0, (), True),
+        (_cp.TokenType.NEWLINE, "\n", path, 9, 15, (), False),
+    ], 10, 0, date=datetime.datetime(2026, 1, 5, 22, 35, 1, tzinfo=datetime.UTC))
+
+
 def test_CppPreprocess_Preprocess_IncludeDirective(context: _t.Context) -> None:
     root_path = "test.cpp"
     bar_path = "bar.hpp"
@@ -1721,7 +1756,8 @@ def _check_preprocess(context: _t.Context, root_path: str, root_cpp_text: str, e
                       expected_end_line_no: int, expected_end_pos_on_line: int,
                       expected_errors: list[_ExpectedMessageP] | None = None,
                       expected_warnings: list[_ExpectedMessageP] | None = None,
-                      headers: dict[str, str] | None = None) -> None:
+                      headers: dict[str, str] | None = None,
+                      date: datetime.datetime | None = None) -> None:
     errors: list[_Message] = []
     warnings: list[_Message] = []
     app = _PreprocessApplication(errors, warnings)
@@ -1732,8 +1768,10 @@ def _check_preprocess(context: _t.Context, root_path: str, root_cpp_text: str, e
     tokens: list[_cp.Token] = []
     end_pos: _cp.Position
     root_source = app.open_file(root_file_index)
+    config = _cp.Config()
+    config.date = date
     with root_source.input_:
-        for token in _cp.preprocess(root_file_index, root_source, app):
+        for token in _cp.preprocess(root_file_index, root_source, app, config):
             if token.type_ is _cp.TokenType.END_OF_INPUT:
                 end_pos = token.pos
                 break
