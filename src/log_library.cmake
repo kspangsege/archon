@@ -4,9 +4,6 @@ add_library(Log
 
 set_target_properties(Log PROPERTIES OUTPUT_NAME "archon-log")
 
-target_link_libraries(Log PUBLIC
-  Core
-)
 
 target_sources(Log PUBLIC FILE_SET HEADERS FILES
   archon/log/log_level.hpp
@@ -29,6 +26,15 @@ target_sources(Log PUBLIC FILE_SET HEADERS FILES
   archon/log.hpp
 )
 
+
+target_link_libraries(Log
+  PUBLIC Core
+)
+
+
 install(TARGETS Log FILE_SET HEADERS)
 
-add_subdirectory(archon/log/test)
+
+if(ARCHON_INCLUDE_TEST_SUITE)
+  add_subdirectory(archon/log/test)
+endif()

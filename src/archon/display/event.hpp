@@ -137,14 +137,36 @@ struct MouseButtonEvent : display::MouseEvent {
 
 
 
-/// \brief When mouse moves.
+/// \brief When mouse moves and not in immersive mode.
 ///
-/// This type of event is generated when the mouse moves.
+/// This type of event is generated when the mouse moves and the window is not in immersive
+/// mode.
 ///
 /// \sa \ref display::WindowEventHandler::on_mousemove()
 /// \sa \ref display::MouseButtonEvent
+/// \sa \ref display::RelativeMouseMotionEvent
 ///
 struct MouseMotionEvent : display::MouseEvent {};
+
+
+
+/// \brief When mouse moves in immersive mode.
+///
+/// This type of event is generated when the mouse moves and the window is in immersive
+/// mode.
+///
+/// \sa \ref display::WindowEventHandler::on_rel_mousemove()
+/// \sa \ref display::MouseMotionEvent
+///
+struct RelativeMouseMotionEvent : display::TimedWindowEvent {
+    /// \brief Mouse displacement since previous event.
+    ///
+    /// This is the displacement of the mouse since the last "relative mouse motion
+    /// event". It is measured in pixels. A positive X component corresponds to a rightwards
+    /// motion. A positive Y component corresponds to a downwards motion.
+    ///
+    math::Vector2F motion;
+};
 
 
 

@@ -35,7 +35,7 @@ namespace archon::core {
 /// Objects of this type are used to pass configuration parameters to simple character
 /// codecs. See \ref core::BasicSimpleCharCodec.
 ///
-template<class C, class T> using SimpleCharCodecConfig = core::Empty;
+template<class C, class T> using SimpleCharCodecConfig = core::empty;
 
 
 /// \brief Character codec configuration parameters.
