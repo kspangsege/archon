@@ -24,6 +24,7 @@ import typing
 import abc
 import dataclasses
 import collections.abc as _cabc
+import types
 import enum
 import bisect
 import datetime
@@ -134,16 +135,22 @@ class ResolvedPosition:
 #
 @dataclasses.dataclass(slots=True)
 class Config:
-    encoding_info = _cu.EncodingInfo()
+    encoding_info: _cu.EncodingInfo = dataclasses.field(default_factory=_cu.EncodingInfo)
+    cplusplus: int = 202603                 # `__cplusplus` (yyyymm)    FIXME: C++26 is not yet finalized           
+    date: datetime.datetime | None = None   # `__DATE__` and `__TIME__` ("now" if `None`)
+    stdc: bool | None = None                # `__STDC__` (undefined if `None`)
+    stdc_hosted: bool = True                # `__STDC_HOSTED__`
+    stdc_mb_might_neq_wc: bool = False      # `__STDC_MB_MIGHT_NEQ_WC__` (undefined if `False`)
+    stdc_iso_10646: int | None = None       # `__STDC_ISO_10646__` (yyyymm, undefined if `None`)
+    stdcpp_default_new_alignment: int = 16  # `__STDCPP_DEFAULT_NEW_ALIGNMENT__`
+    stdcpp_threads: bool = True             # `__STDCPP_THREADS__` (undefined if `False`)
+    stdcpp_float16_t: bool = False          # `__STDCPP_FLOAT16_T__` (undefined if `False`)
+    stdcpp_float32_t: bool = False          # `__STDCPP_FLOAT32_T__` (undefined if `False`)
+    stdcpp_float64_t: bool = False          # `__STDCPP_FLOAT64_T__` (undefined if `False`)
+    stdcpp_float128_t: bool = False         # `__STDCPP_FLOAT128_T__` (undefined if `False`)
+    stdcpp_bfloat16_t: bool = False         # `__STDCPP_BFLOAT16_T__` (undefined if `False`)
+    feature_test_macros: _cabc.Mapping[str, int | None] = FEATURE_TEST_MACROS
     predefined_macros: _cabc.Sequence[PredefinedMacro] | None = None
-    date: datetime.datetime | None = None  # `__DATE__` ("now" if `None`)
-    stdc: bool | None = None               # `__STDC__` (undefined if `None`)
-    stdc_hosted = True                     # `__STDC_HOSTED__`
-    stdc_mb_might_neq_wc = False           # `__STDC_MB_MIGHT_NEQ_WC__` (undefined if `False`)
-    stdc_iso_10646: int | None = None      # `__STDC_ISO_10646__` (yyyymm, undefined if `None`)
-    stdcpp_default_new_alignment = 16      # `__STDCPP_DEFAULT_NEW_ALIGNMENT__`
-    stdcpp_threads = True                  # `__STDCPP_THREADS__` (undefined if `False`)
-    stdcpp_float16_t = False               # `__STDCPP_FLOAT16_T__` (undefined if `False`)
 
 
 type Macro = PredefinedMacro | RegularMacro
@@ -180,6 +187,91 @@ class MacroFunction(typing.Protocol):
 class MacroArg:
     tokens:  list[_ct.Token]
     end_pos: _ct.Position
+
+
+# [tab:cpp.predefined.ft] from N5050 (78 entries; values are yyyymm integers, formatted with
+# a trailing `L` when registered as predefined macros)
+#
+FEATURE_TEST_MACROS: _cabc.Mapping[str, int] = types.MappingProxyType({
+    "__cpp_aggregate_bases": 201603,
+    "__cpp_aggregate_nsdmi": 201304,
+    "__cpp_aggregate_paren_init": 201902,
+    "__cpp_alias_templates": 200704,
+    "__cpp_aligned_new": 201606,
+    "__cpp_attributes": 200809,
+    "__cpp_auto_cast": 202110,
+    "__cpp_binary_literals": 201304,
+    "__cpp_capture_star_this": 201603,
+    "__cpp_char8_t": 202207,
+    "__cpp_concepts": 202002,
+    "__cpp_conditional_explicit": 201806,
+    "__cpp_consteval": 202211,
+    "__cpp_constexpr": 202406,
+    "__cpp_constexpr_dynamic_alloc": 201907,
+    "__cpp_constexpr_exceptions": 202411,
+    "__cpp_constexpr_in_decltype": 201711,
+    "__cpp_constexpr_virtual_inheritance": 202506,
+    "__cpp_constinit": 201907,
+    "__cpp_contracts": 202502,
+    "__cpp_decltype": 200707,
+    "__cpp_decltype_auto": 201304,
+    "__cpp_deduction_guides": 202207,
+    "__cpp_delegating_constructors": 200604,
+    "__cpp_deleted_function": 202403,
+    "__cpp_designated_initializers": 201707,
+    "__cpp_enumerator_attributes": 201411,
+    "__cpp_expansion_statements": 202506,
+    "__cpp_explicit_this_parameter": 202110,
+    "__cpp_fold_expressions": 201603,
+    "__cpp_generic_lambdas": 201707,
+    "__cpp_guaranteed_copy_elision": 201606,
+    "__cpp_hex_float": 201603,
+    "__cpp_if_consteval": 202106,
+    "__cpp_if_constexpr": 201606,
+    "__cpp_impl_coroutine": 201902,
+    "__cpp_impl_destroying_delete": 201806,
+    "__cpp_impl_reflection": 202603,
+    "__cpp_impl_three_way_comparison": 201907,
+    "__cpp_implicit_move": 202207,
+    "__cpp_inheriting_constructors": 201511,
+    "__cpp_init_captures": 201803,
+    "__cpp_initializer_lists": 200806,
+    "__cpp_inline_variables": 201606,
+    "__cpp_lambdas": 200907,
+    "__cpp_modules": 201907,
+    "__cpp_multidimensional_subscript": 202211,
+    "__cpp_named_character_escapes": 202207,
+    "__cpp_namespace_attributes": 201411,
+    "__cpp_noexcept_function_type": 201510,
+    "__cpp_nontype_template_args": 201911,
+    "__cpp_nontype_template_parameter_auto": 201606,
+    "__cpp_nsdmi": 200809,
+    "__cpp_pack_indexing": 202311,
+    "__cpp_placeholder_variables": 202306,
+    "__cpp_pp_embed": 202502,
+    "__cpp_range_based_for": 202211,
+    "__cpp_raw_strings": 200710,
+    "__cpp_ref_qualifiers": 200710,
+    "__cpp_return_type_deduction": 201304,
+    "__cpp_rvalue_references": 200610,
+    "__cpp_size_t_suffix": 202011,
+    "__cpp_sized_deallocation": 201309,
+    "__cpp_static_assert": 202306,
+    "__cpp_static_call_operator": 202207,
+    "__cpp_structured_bindings": 202411,
+    "__cpp_template_parameters": 202502,
+    "__cpp_template_template_args": 201611,
+    "__cpp_threadsafe_static_init": 200806,
+    "__cpp_trivial_union": 202603,
+    "__cpp_unicode_characters": 200704,
+    "__cpp_unicode_literals": 200710,
+    "__cpp_user_defined_literals": 200809,
+    "__cpp_using_enum": 201907,
+    "__cpp_variable_templates": 201304,
+    "__cpp_variadic_friend": 202403,
+    "__cpp_variadic_templates": 200704,
+    "__cpp_variadic_using": 201611,
+})
 
 
 
@@ -831,7 +923,7 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
             return [token]
         return func
 
-    add_objectlike_macro("__cplusplus", make_number_func("202603L"))  # FIXME: C++26 is not yet finalized           
+    add_objectlike_macro("__cplusplus", make_number_func("%sL" % config.cplusplus))
     add_objectlike_macro("__DATE__", date_func)
     add_objectlike_macro("__TIME__", time_func)
     add_objectlike_macro("__FILE__", file_func)
@@ -850,10 +942,15 @@ def _preprocess(root_file_index: int, root_source: Source, app: Application,
                          make_number_func("%suz" % config.stdcpp_default_new_alignment))
     add_objectlike_macro("__STDCPP_THREADS__", make_number_func("1") if config.stdcpp_threads else None)
     add_objectlike_macro("__STDCPP_FLOAT16_T__", make_number_func("1") if config.stdcpp_float16_t else None)
-
+    add_objectlike_macro("__STDCPP_FLOAT32_T__", make_number_func("1") if config.stdcpp_float32_t else None)
+    add_objectlike_macro("__STDCPP_FLOAT64_T__", make_number_func("1") if config.stdcpp_float64_t else None)
+    add_objectlike_macro("__STDCPP_FLOAT128_T__", make_number_func("1") if config.stdcpp_float128_t else None)
+    add_objectlike_macro("__STDCPP_BFLOAT16_T__", make_number_func("1") if config.stdcpp_bfloat16_t else None)
     add_functionlike_macro("_Pragma", pragma_func)
 
-    # FIXME: Set up more built-in macros here        
+    for name in FEATURE_TEST_MACROS:
+        value = config.feature_test_macros.get(name)
+        add_objectlike_macro(name, make_number_func("%sL" % value) if value is not None else None)
 
     # FIXME: Support special built-in macros `__has_embed`, `__has_include`, and
     # `__has_cpp_attribute`        

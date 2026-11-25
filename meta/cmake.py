@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import Any, Never, assert_never
 from collections.abc import Iterable
-from dataclasses import dataclass
 
 import enum
 import copy

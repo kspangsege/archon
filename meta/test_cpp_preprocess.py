@@ -1478,7 +1478,7 @@ def test_CppPreprocess_Preprocess_MacroExpansion_TokenFusion(context: _t.Context
     ], 3, 0)
 
 
-def test_CppPreprocess_Preprocess_MacroExpansion_Predefined(context: _t.Context) -> None:
+def test_CppPreprocess_Preprocess_MacroExpansion_PredefinedMacros(context: _t.Context) -> None:
     path = "test.cpp"
     _check_preprocess(context, path, _trim_cpp_text(r"""
         __cplusplus
